@@ -485,7 +485,7 @@ class GridworldEnv(gym.Env):
 
 
 a = GridworldEnv(map_x=70,map_y=50,local_x=2,local_y=2,hiker_x=10,heading=1,altitude=2)
-
+#
 for i in range(10000):
     a.step(random.randint(5,14))
     local_coordinates = a.map_volume[a.altitude]['drone'].nonzero()
