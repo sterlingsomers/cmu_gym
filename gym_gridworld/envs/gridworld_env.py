@@ -225,9 +225,10 @@ class GridworldEnv(gym.Env):
             #print('take_action returning 0')
             return 0
         #print("this happened")
+        new_alt = self.altitude + delta_alt if self.altitude + delta_alt < 4 else 3
         self.map_volume[self.altitude]['drone'][local_coordinates[0],local_coordinates[1]] = 0.0
-        self.map_volume[self.altitude + delta_alt]['drone'][local_coordinates[0]+delta_y,local_coordinates[1]+delta_x] = 1.0
-        self.altitude += delta_alt
+        self.map_volume[new_alt]['drone'][local_coordinates[0]+delta_y,local_coordinates[1]+delta_x] = 1.0
+        self.altitude = new_alt
         self.heading = new_heading
         return 1
 
@@ -486,11 +487,11 @@ class GridworldEnv(gym.Env):
 a = GridworldEnv(map_x=70,map_y=50,local_x=2,local_y=2,hiker_x=10,heading=1,altitude=2)
 
 for i in range(10000):
-    a.step(random.randint(5,9))
+    a.step(random.randint(5,14))
     local_coordinates = a.map_volume[a.altitude]['drone'].nonzero()
-    print("coordinates", local_coordinates)
+    print("coordinates", local_coordinates, a.heading)
     if a.check_for_crash():
-        print("crash")
+        print("crash at altitude", a.altitude)
         break
     if a.check_for_hiker():
         print("hiker after", i)
