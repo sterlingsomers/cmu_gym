@@ -33,15 +33,19 @@ class GridworldEnv(gym.Env):
 
 
         #self.local_coordinates = [local_x,local_y]
-        self.world_coordinates = [70,50]
+        #self.world_coordinates = [70,50]
         self.actions = list(range(15))
         self.heading = heading
         self.altitude = altitude
         self.action_space = spaces.Discrete(15)
         # put the drone in
-        self.map_volume[altitude]['drone'][local_y, local_x] = 1.0
+        self.map_volume['vol'][altitude][local_y,local_x] = self.map_volume['feature_value_map']['drone']['val']
+        self.map_volume['flat'][local_y,local_x] = self.map_volume['feature_value_map']['drone']['val']
+        #self.map_volume[altitude]['drone'][local_y, local_x] = 1.0
         #put the hiker in
-        self.map_volume[0]['hiker'][hiker_y,hiker_x] = 1.0
+        self.map_volume['vol'][altitude][hiker_y,hiker_x] = self.map_volume['feature_value_map']['hiker']['val']
+        self.map_volume['flat'][hiker_y,hiker_x] = self.map_volume['feature_value_map']['hiker']['val']
+        #self.map_volume[0]['hiker'][hiker_y,hiker_x] = 1.0
 
         self.actionvalue_heading_action = {
             0: {1:'self.take_action(delta_alt=-1,delta_x=-1,delta_y=0,new_heading=7)',
@@ -216,21 +220,42 @@ class GridworldEnv(gym.Env):
     #         self._render()
 
     def take_action(self,delta_alt=0,delta_x=0,delta_y=0,new_heading=1):
-        #print("take action called",delta_alt,delta_x,delta_y,new_heading)
-        local_coordinates = self.map_volume[self.altitude]['drone'].nonzero()
-        if int(local_coordinates[0]) + delta_y < 0 or  \
-            int(local_coordinates[1]) + delta_x < 0 or \
-            int(local_coordinates[0] + delta_y > 19) or \
-            int(local_coordinates[1] + delta_x > 19):
-            #print('take_action returning 0')
+        print("stop")
+        local_coordinates = np.where(self.map_volume['vol'] == self.map_volume['feature_value_map']['drone']['val'])
+        if int(local_coordinates[1]) + delta_y < 0 or  \
+            int(local_coordinates[2]) + delta_x < 0 or \
+            int(local_coordinates[1] + delta_y > 19) or \
+            int(local_coordinates[2] + delta_x > 19):
+
             return 0
-        #print("this happened")
         new_alt = self.altitude + delta_alt if self.altitude + delta_alt < 4 else 3
-        self.map_volume[self.altitude]['drone'][local_coordinates[0],local_coordinates[1]] = 0.0
-        self.map_volume[new_alt]['drone'][local_coordinates[0]+delta_y,local_coordinates[1]+delta_x] = 1.0
+        self.map_volume['vol'][self.altitude][local_coordinates[1],local_coordinates[2]] = 0.0
+        self.map_volume['vol'][new_alt][local_coordinates[1]+delta_y,local_coordinates[2]+delta_x] = self.map_volume['feature_value_map']['drone']['val']
+        self.map_volume['flat'][local_coordinates[1]+delta_y,local_coordinates[2]+delta_x] = self.map_volume['feature_value_map']['drone']['val']
+        for i in range(4,-1,-1):
+            if self.map_volume['vol'][i][local_coordinates[1],local_coordinates[2]]:
+                self.map_volume['flat'][int(local_coordinates[1]),int(local_coordinates[2])] = float(self.map_volume['vol'][i][int(local_coordinates[1]),int(local_coordinates[2])])
+                break
         self.altitude = new_alt
         self.heading = new_heading
         return 1
+
+    # def take_action(self,delta_alt=0,delta_x=0,delta_y=0,new_heading=1):
+    #     #print("take action called",delta_alt,delta_x,delta_y,new_heading)
+    #     local_coordinates = self.map_volume[self.altitude]['drone'].nonzero()
+    #     if int(local_coordinates[0]) + delta_y < 0 or  \
+    #         int(local_coordinates[1]) + delta_x < 0 or \
+    #         int(local_coordinates[0] + delta_y > 19) or \
+    #         int(local_coordinates[1] + delta_x > 19):
+    #         #print('take_action returning 0')
+    #         return 0
+    #     #print("this happened")
+    #     new_alt = self.altitude + delta_alt if self.altitude + delta_alt < 4 else 3
+    #     self.map_volume[self.altitude]['drone'][local_coordinates[0],local_coordinates[1]] = 0.0
+    #     self.map_volume[new_alt]['drone'][local_coordinates[0]+delta_y,local_coordinates[1]+delta_x] = 1.0
+    #     self.altitude = new_alt
+    #     self.heading = new_heading
+    #     return 1
 
     def check_for_hiker(self):
         local_coordinates = self.map_volume[self.altitude]['drone'].nonzero()
@@ -261,7 +286,7 @@ class GridworldEnv(gym.Env):
 
         action = int(action)
         x = eval(self.actionvalue_heading_action[action][self.heading])
-        crash = self.check_for_crash()
+        #crash = self.check_for_crash()
 
         #return (self.map_volume, 0, True, crash)
 
@@ -485,17 +510,19 @@ class GridworldEnv(gym.Env):
 
 
 a = GridworldEnv(map_x=70,map_y=50,local_x=2,local_y=2,hiker_x=10,heading=1,altitude=2)
+
+a.step(7)
 #
-for i in range(10000):
-    a.step(random.randint(5,14))
-    local_coordinates = a.map_volume[a.altitude]['drone'].nonzero()
-    print("coordinates", local_coordinates, a.heading)
-    if a.check_for_crash():
-        print("crash at altitude", a.altitude)
-        break
-    if a.check_for_hiker():
-        print("hiker after", i)
-        break
+# for i in range(10000):
+#     a.step(random.randint(5,14))
+#     local_coordinates = a.map_volume[a.altitude]['drone'].nonzero()
+#     print("coordinates", local_coordinates, a.heading)
+#     if a.check_for_crash():
+#         print("crash at altitude", a.altitude)
+#         break
+#     if a.check_for_hiker():
+#         print("hiker after", i)
+#         break
 
 
 #print(a.check_for_crash())
