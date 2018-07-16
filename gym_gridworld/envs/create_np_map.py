@@ -50,30 +50,21 @@ def convert_map_to_volume_dict(x,y,map):
     #feature_value_map = {} #{[alt,feature]:value}
     #value_feature_map = {} #{value:(alt,feature)}
     feature_value_map,value_feature_map = get_feature_value_maps(x,y,map)
-    value = 1
+    value = 1.0
     for xy, feat in map.items():
         if feat[1] not in list(feature_value_map.keys()):
-            feature_value_map[feat[1]] = {'val':value,'alt':feat[0]}
-            value_feature_map[value] = {'feature':feat[1], 'alt':feat[0]}
-            value += 1
-        flat[xy[1]-top_left[1],xy[0]-top_left[0]] = feature_value_map[feat[1]]['val']
-        #now, go through the layers and project the object downwards
-        for i in range(feat[0],-1,-1):
-            vol[i,xy[1]-top_left[1],xy[0]-top_left[0]] = feature_value_map[feat[1]]['val']
+            feature_value_map[feat[1]] = {}
+            #and add values of that feature at every altitude
+            for i in range(5):
+                feature_value_map[feat[1]][i] = value
+                value_feature_map[value] = {'feature':feat[1], 'alt':float(i)}
+                value += 1
+        #put it in the flat
 
-    # index = 1
-    # alt_index = {0:1,1:1,2:1,3:1,4:1}
-    # for xy, feat in map.items():
-    #     if feat[1] not in list(feature_value_map.keys()):
-    #         #the two maps should have an altitude index. {feature: {alt: value}} or {alt : {value : feature}}
-    #         feature_value_map[feat[1]] = {feat[0]:alt_index[feat[0]]}
-    #         #feature_value_map[feat] = alt_index[feat[0]]
-    #         value_feature_map[feat[0]] = {alt_index[feat[0]]:feat[1]}
-    #         #value_feature_map[alt_index[feat[0]]] = feat
-    #         alt_index[feat[0]] += 1
-    #
-    #     vol[feat[0],xy[1]-top_left[1],xy[0]-top_left[0]] = feature_value_map[feat[1]][feat[0]]
-
+        flat[xy[1] - top_left[1], xy[0] - top_left[0]] = feature_value_map[feat[1]][feat[0]]
+        #project it downwards through the volume
+        for z in range(feat[0],-1,-1):
+            vol[z,xy[1] - top_left[1],xy[0] - top_left[0]] = feature_value_map[feat[1]][z]
 
 
 
@@ -90,15 +81,20 @@ def convert_map_to_volume_dict(x,y,map):
     return_dict['vol'] = vol
     return_dict['flat'] = flat
 
-
-
+    #add the hiker and the drone
     value = max(list(value_feature_map.keys())) + 1
-    feature_value_map['hiker'] = {'val': value}
-    value_feature_map[value] = {'feature': 'hiker'}
-    value += 1
-    #reserve spots for the drone at different altitudes
-    feature_value_map['drone'] = {'val': value}
-    value_feature_map[value] = {'feature': 'drone'}
+    feature_value_map['hiker'] = {}
+    feature_value_map['drone'] = {}
+    for i in range(5):
+        feature_value_map['hiker'][i] = value
+        value_feature_map[value] = {'feature':'hiker', 'alt':i}
+        value += 1
+    for i in range(5):
+        feature_value_map['drone'][i] = value
+        value_feature_map[value] = {'feature':'drone', 'alt':i}
+        value += 1
+
+
 
 
     # for i in range(len(vol)):
@@ -160,6 +156,6 @@ def map_to_volume_dict(x=0,y=0,width=5,height=5):
 
 
 #sample code
-#a = map_to_volume_dict(70,50,20,20)
+a = map_to_volume_dict(70,50,20,20)
 # f,v = get_feature_value_maps(300,200,a) #300,200
-#print('complete.')
+print('complete.')
