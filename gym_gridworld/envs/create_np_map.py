@@ -90,12 +90,16 @@ def convert_map_to_volume_dict(x,y,map):
     return_dict['vol'] = vol
     return_dict['flat'] = flat
 
+
+
     value = max(list(value_feature_map.keys())) + 1
-    feature_value_map['drone'] = {'val': value}
-    value_feature_map[value] = {'feature': 'drone'}
-    value += 1
     feature_value_map['hiker'] = {'val': value}
     value_feature_map[value] = {'feature': 'hiker'}
+    value += 1
+    #reserve spots for the drone at different altitudes
+    feature_value_map['drone'] = {'val': value}
+    value_feature_map[value] = {'feature': 'drone'}
+
 
     # for i in range(len(vol)):
     #     key_string = i#'alt{}'.format(i)

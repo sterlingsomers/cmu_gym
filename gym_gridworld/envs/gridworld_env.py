@@ -30,7 +30,7 @@ class GridworldEnv(gym.Env):
     def __init__(self,map_x=0,map_y=0,local_x=0,local_y=0,heading=1,altitude=2,hiker_x=5,hiker_y=5,width=20,height=20):
         self.map_volume = CNP.map_to_volume_dict(map_x,map_y,width,height)
 
-
+        self.original_map_volume = copy.deepcopy(self.map_volume)
 
         #self.local_coordinates = [local_x,local_y]
         #self.world_coordinates = [70,50]
@@ -229,7 +229,7 @@ class GridworldEnv(gym.Env):
 
             return 0
         new_alt = self.altitude + delta_alt if self.altitude + delta_alt < 4 else 3
-        self.map_volume['vol'][self.altitude][local_coordinates[1],local_coordinates[2]] = 0.0
+        self.map_volume['vol'][self.altitude][local_coordinates[1],local_coordinates[2]] = float(self.original_map_volume['vol'][local_coordinates])
         self.map_volume['vol'][new_alt][local_coordinates[1]+delta_y,local_coordinates[2]+delta_x] = self.map_volume['feature_value_map']['drone']['val']
         self.map_volume['flat'][local_coordinates[1]+delta_y,local_coordinates[2]+delta_x] = self.map_volume['feature_value_map']['drone']['val']
         for i in range(4,-1,-1):
@@ -264,19 +264,24 @@ class GridworldEnv(gym.Env):
 
     def check_for_crash(self):
         #if drone on altitude 0, crash
-        if len(self.map_volume[0]['drone'].nonzero()[0]):
+        if self.altitude == 0:
             return 1
-        #at any other altutidue, check for an object at the drone's position
-        drone_position = self.map_volume[self.altitude]['drone'].nonzero()
-        for i in range(self.altitude,4):
 
-            for key in self.map_volume[i]:
-                if key == 'drone' or key == 'map':
-                    continue
-                #just check if drone position is returns a non-zero
-                if self.map_volume[i][key][int(drone_position[0]),int(drone_position[1])]:
-                    return 1
-        return 0
+        # if len(self.map_volume[0]['drone'].nonzero()[0]):
+        #     return 1
+        #at any other altutidue, check for an object at the drone's position
+        drone_position = np.where(self.map_volume['vol'] == self.map_volume['feature_value_map']['drone']['val'])
+        return int(self.original_map_volume['vol'][drone_position])
+        #drone_position = self.map_volume[self.altitude]['drone'].nonzero()
+        # for i in range(self.altitude,4):
+        #
+        #     for key in self.map_volume[i]:
+        #         if key == 'drone' or key == 'map':
+        #             continue
+        #         #just check if drone position is returns a non-zero
+        #         if self.map_volume[i][key][int(drone_position[0]),int(drone_position[1])]:
+        #             return 1
+        # return 0
 
 
 
@@ -286,7 +291,7 @@ class GridworldEnv(gym.Env):
 
         action = int(action)
         x = eval(self.actionvalue_heading_action[action][self.heading])
-        #crash = self.check_for_crash()
+        crash = self.check_for_crash()
 
         #return (self.map_volume, 0, True, crash)
 
