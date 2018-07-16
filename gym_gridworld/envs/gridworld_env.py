@@ -39,12 +39,13 @@ class GridworldEnv(gym.Env):
         self.altitude = altitude
         self.action_space = spaces.Discrete(15)
         # put the drone in
-        self.map_volume['vol'][altitude][local_y,local_x] = self.map_volume['feature_value_map']['drone']['val']
-        self.map_volume['flat'][local_y,local_x] = self.map_volume['feature_value_map']['drone']['val']
+        self.map_volume['vol'][altitude][local_y,local_x] = self.map_volume['feature_value_map']['drone'][altitude]
+        self.map_volume['flat'][local_y,local_x] = self.map_volume['feature_value_map']['drone'][altitude]
         #self.map_volume[altitude]['drone'][local_y, local_x] = 1.0
-        #put the hiker in
-        self.map_volume['vol'][altitude][hiker_y,hiker_x] = self.map_volume['feature_value_map']['hiker']['val']
-        self.map_volume['flat'][hiker_y,hiker_x] = self.map_volume['feature_value_map']['hiker']['val']
+        #put the hiker in@ altitude 0
+        self.map_volume['vol'][altitude][hiker_y,hiker_x] = self.map_volume['feature_value_map']['hiker'][0]
+        self.map_volume['flat'][hiker_y,hiker_x] = self.map_volume['feature_value_map']['hiker'][0]
+        self.hiker_position = np.where(self.map_volume['vol'] == self.map_volume['feature_value_map']['hiker'][0])
         #self.map_volume[0]['hiker'][hiker_y,hiker_x] = 1.0
 
         self.actionvalue_heading_action = {
@@ -221,7 +222,7 @@ class GridworldEnv(gym.Env):
 
     def take_action(self,delta_alt=0,delta_x=0,delta_y=0,new_heading=1):
         print("stop")
-        local_coordinates = np.where(self.map_volume['vol'] == self.map_volume['feature_value_map']['drone']['val'])
+        local_coordinates = np.where(self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude])
         if int(local_coordinates[1]) + delta_y < 0 or  \
             int(local_coordinates[2]) + delta_x < 0 or \
             int(local_coordinates[1] + delta_y > 19) or \
@@ -229,13 +230,18 @@ class GridworldEnv(gym.Env):
 
             return 0
         new_alt = self.altitude + delta_alt if self.altitude + delta_alt < 4 else 3
+        #put the hiker back
+        self.map_volume['vol'][self.hiker_position] = self.map_volume['feature_value_map']['hiker'][0]
+
+        #do other updates
         self.map_volume['vol'][self.altitude][local_coordinates[1],local_coordinates[2]] = float(self.original_map_volume['vol'][local_coordinates])
-        self.map_volume['vol'][new_alt][local_coordinates[1]+delta_y,local_coordinates[2]+delta_x] = self.map_volume['feature_value_map']['drone']['val']
-        self.map_volume['flat'][local_coordinates[1]+delta_y,local_coordinates[2]+delta_x] = self.map_volume['feature_value_map']['drone']['val']
-        for i in range(4,-1,-1):
-            if self.map_volume['vol'][i][local_coordinates[1],local_coordinates[2]]:
-                self.map_volume['flat'][int(local_coordinates[1]),int(local_coordinates[2])] = float(self.map_volume['vol'][i][int(local_coordinates[1]),int(local_coordinates[2])])
-                break
+        self.map_volume['vol'][new_alt][local_coordinates[1]+delta_y,local_coordinates[2]+delta_x] = self.map_volume['feature_value_map']['drone'][self.altitude]
+        self.map_volume['flat'][local_coordinates[1],local_coordinates[2]] = float(self.original_map_volume['flat'][local_coordinates[1],local_coordinates[2]])
+        self.map_volume['flat'][local_coordinates[1]+delta_y,local_coordinates[2]+delta_x] = self.map_volume['feature_value_map']['drone'][self.altitude]
+        # for i in range(4,-1,-1):
+        #     if self.map_volume['vol'][i][local_coordinates[1],local_coordinates[2]]:
+        #         self.map_volume['flat'][int(local_coordinates[1]),int(local_coordinates[2])] = float(self.map_volume['vol'][i][int(local_coordinates[1]),int(local_coordinates[2])])
+        #         break
         self.altitude = new_alt
         self.heading = new_heading
         return 1
@@ -258,8 +264,14 @@ class GridworldEnv(gym.Env):
     #     return 1
 
     def check_for_hiker(self):
-        local_coordinates = self.map_volume[self.altitude]['drone'].nonzero()
-        return int(self.map_volume[0]['hiker'][int(local_coordinates[0]),int(local_coordinates[1])])
+        drone_position = np.where(self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude])
+        #hiker_position = np.where(self.map_volume['vol'] == self.map_volume['feature_value_map']['hiker'][0])
+        print("drone",drone_position)
+        print("hiker",self.hiker_position)
+        if drone_position == self.hiker_position:
+            return 1
+        return 0
+        #return int(self.map_volume[0]['hiker'][int(local_coordinates[0]),int(local_coordinates[1])])
 
 
     def check_for_crash(self):
@@ -270,7 +282,7 @@ class GridworldEnv(gym.Env):
         # if len(self.map_volume[0]['drone'].nonzero()[0]):
         #     return 1
         #at any other altutidue, check for an object at the drone's position
-        drone_position = np.where(self.map_volume['vol'] == self.map_volume['feature_value_map']['drone']['val'])
+        drone_position = np.where(self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude])
         return int(self.original_map_volume['vol'][drone_position])
         #drone_position = self.map_volume[self.altitude]['drone'].nonzero()
         # for i in range(self.altitude,4):
