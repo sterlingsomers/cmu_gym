@@ -235,9 +235,9 @@ class GridworldEnv(gym.Env):
 
         #do other updates
         self.map_volume['vol'][self.altitude][local_coordinates[1],local_coordinates[2]] = float(self.original_map_volume['vol'][local_coordinates])
-        self.map_volume['vol'][new_alt][local_coordinates[1]+delta_y,local_coordinates[2]+delta_x] = self.map_volume['feature_value_map']['drone'][self.altitude]
+        self.map_volume['vol'][new_alt][local_coordinates[1]+delta_y,local_coordinates[2]+delta_x] = self.map_volume['feature_value_map']['drone'][new_alt]
         self.map_volume['flat'][local_coordinates[1],local_coordinates[2]] = float(self.original_map_volume['flat'][local_coordinates[1],local_coordinates[2]])
-        self.map_volume['flat'][local_coordinates[1]+delta_y,local_coordinates[2]+delta_x] = self.map_volume['feature_value_map']['drone'][self.altitude]
+        self.map_volume['flat'][local_coordinates[1]+delta_y,local_coordinates[2]+delta_x] = self.map_volume['feature_value_map']['drone'][new_alt]
         # for i in range(4,-1,-1):
         #     if self.map_volume['vol'][i][local_coordinates[1],local_coordinates[2]]:
         #         self.map_volume['flat'][int(local_coordinates[1]),int(local_coordinates[2])] = float(self.map_volume['vol'][i][int(local_coordinates[1]),int(local_coordinates[2])])
@@ -530,7 +530,7 @@ class GridworldEnv(gym.Env):
 
 a = GridworldEnv(map_x=70,map_y=50,local_x=2,local_y=2,hiker_x=10,heading=1,altitude=2)
 
-a.step(7)
+a.step(12)
 #
 # for i in range(10000):
 #     a.step(random.randint(5,14))
