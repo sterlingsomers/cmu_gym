@@ -89,10 +89,11 @@ def convert_map_to_volume_dict(x,y,map):
         feature_value_map['hiker'][i] = value
         value_feature_map[value] = {'feature':'hiker', 'alt':i}
         value += 1
+    value += 5
     for i in range(5):
         feature_value_map['drone'][i] = value
         value_feature_map[value] = {'feature':'drone', 'alt':i}
-        value += 1
+        value += 5
 
 
 

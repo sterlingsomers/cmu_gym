@@ -306,7 +306,7 @@ class GridworldEnv(gym.Env):
         crash = self.check_for_crash()
 
         #return (self.map_volume, 0, True, crash)
-
+        self._render()
 
 
         return 0
@@ -410,11 +410,13 @@ class GridworldEnv(gym.Env):
         return observation
   
     def _render(self, mode='human', close=False):
-        return
-        if self.verbose == False:
-            return
-        img = self.observation
-        fig = plt.figure(self.this_fig_num)
+        #return
+        #if self.verbose == False:
+        #    return
+        #img = self.observation
+        img = self.map_volume['flat']
+        #fig = plt.figure(self.this_fig_num)
+        fig = plt.figure(0)
         plt.clf()
         plt.imshow(img)
         fig.canvas.draw()
