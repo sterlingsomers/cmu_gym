@@ -44,8 +44,12 @@ def convert_map_to_volume_dict(x,y,map):
     return_dict = {}
     top_left = (x,y)
     feature_value_map = {}
+    img = np.zeros((20,20,3),dtype=np.uint8)
     vol = np.zeros((5, 20, 20))
     flat = np.zeros((20,20))
+    color_map = {1:[153,255,153],2:[156,73,0],3:[0,204,0],
+                 4:[0,102,51],5:[135,135,0],6:[202,202,0],
+                 7:[255,255,0], 8:[255,180,0], 9:[200,5,0],50:[255,0,0]}
     #load value maps: feature -> value and value -> feature
     #feature_value_map = {} #{[alt,feature]:value}
     #value_feature_map = {} #{value:(alt,feature)}
@@ -53,18 +57,20 @@ def convert_map_to_volume_dict(x,y,map):
     value = 1.0
     for xy, feat in map.items():
         if feat[1] not in list(feature_value_map.keys()):
-            feature_value_map[feat[1]] = {}
-            #and add values of that feature at every altitude
-            for i in range(5):
-                feature_value_map[feat[1]][i] = value
-                value_feature_map[value] = {'feature':feat[1], 'alt':float(i)}
-                value += 1
-        #put it in the flat
+            #feature_value_map[feat[1]] = {}
 
-        flat[xy[1] - top_left[1], xy[0] - top_left[0]] = feature_value_map[feat[1]][feat[0]]
+            #for i in range(5):
+            feature_value_map[feat[1]] = {'val': value, 'color':color_map[value]}
+            value_feature_map[value] = {'feature':feat[1], 'alt':float(feat[0]), 'color':color_map[value]}
+            value += 1
+
+            #value += 20
+        #put it in the flat
+        flat[xy[1] - top_left[1], xy[0] - top_left[0]] = feature_value_map[feat[1]]['val']
+        img[xy[1]- top_left[1], xy[0] - top_left[0], :] = feature_value_map[feat[1]]['color']
         #project it downwards through the volume
         for z in range(feat[0],-1,-1):
-            vol[z,xy[1] - top_left[1],xy[0] - top_left[0]] = feature_value_map[feat[1]][z]
+            vol[z,xy[1] - top_left[1],xy[0] - top_left[0]] = feature_value_map[feat[1]]['val']
 
 
 
@@ -80,20 +86,30 @@ def convert_map_to_volume_dict(x,y,map):
 
     return_dict['vol'] = vol
     return_dict['flat'] = flat
+    return_dict['img'] = img
 
     #add the hiker and the drone
-    value = max(list(value_feature_map.keys())) + 1
     feature_value_map['hiker'] = {}
     feature_value_map['drone'] = {}
+    #drone
+    # value += 20
+    value = max(list(value_feature_map.keys())) + 1
     for i in range(5):
-        feature_value_map['hiker'][i] = value
-        value_feature_map[value] = {'feature':'hiker', 'alt':i}
+        feature_value_map['drone'][i] = {'val': value, 'color': color_map[value]}
+        value_feature_map[value] = {'feature': 'drone'}
         value += 1
-    value += 5
-    for i in range(5):
-        feature_value_map['drone'][i] = value
-        value_feature_map[value] = {'feature':'drone', 'alt':i}
-        value += 5
+
+
+
+    #hiker - reserving 50
+    value = 50#max(list(value_feature_map.keys())) + 20
+
+    #for i in range(5):
+    feature_value_map['hiker']['val'] = value
+    feature_value_map['hiker']['color'] = color_map[value]
+    value_feature_map[value] = {'feature':'hiker', 'alt':0, 'color':value}
+
+
 
 
 
