@@ -47,11 +47,16 @@ def convert_map_to_volume_dict(x,y,map):
     img = np.zeros((20,20,3),dtype=np.uint8)
     vol = np.zeros((5, 20, 20))
     flat = np.zeros((20,20))
-    color_map = {1:[153,255,153],2:[156,73,0],3:[0,204,0],
-                 4:[0,102,51],5:[135,135,0],6:[202,202,0],
-                 7:[255,255,0], 8:[255,180,0], 9:[200,5,0],50:[255,0,0]}
+    # color_map = {1:[153,255,153],2:[156,73,0],3:[0,204,0],
+    #              4:[0,102,51],5:[135,135,0],6:[202,202,0],
+    #              7:[255,255,0], 8:[255,180,0], 9:[200,5,0],50:[255,0,0]}
+    color_map = {'pine tree':[0,100,14],'pine trees':[0,172,23],'grass':[121,151,0],
+                 'bush':[121,151,0],'bushes':[164,203,8],'trail':[145,116,0],
+                 'water':[0,34,255],
+                 'drone':{0:[102,0,102],1:[255,0,255],2:[102,0,51],3:[255,0,127],4:[255,0,0]},
+                 'hiker':[255,0,0]}
     #load value maps: feature -> value and value -> feature
-    #feature_value_map = {} #{[alt,feature]:value}
+    #feature_value_map = {} #{[alt,feature]:value}#
     #value_feature_map = {} #{value:(alt,feature)}
     feature_value_map,value_feature_map = get_feature_value_maps(x,y,map)
     value = 1.0
@@ -60,8 +65,8 @@ def convert_map_to_volume_dict(x,y,map):
             #feature_value_map[feat[1]] = {}
 
             #for i in range(5):
-            feature_value_map[feat[1]] = {'val': value, 'color':color_map[value]}
-            value_feature_map[value] = {'feature':feat[1], 'alt':float(feat[0]), 'color':color_map[value]}
+            feature_value_map[feat[1]] = {'val': value, 'color':color_map[feat[1]]}
+            value_feature_map[value] = {'feature':feat[1], 'alt':float(feat[0]), 'color':color_map[feat[1]]}
             value += 1
 
             #value += 20
@@ -95,7 +100,7 @@ def convert_map_to_volume_dict(x,y,map):
     # value += 20
     value = max(list(value_feature_map.keys())) + 1
     for i in range(5):
-        feature_value_map['drone'][i] = {'val': value, 'color': color_map[value]}
+        feature_value_map['drone'][i] = {'val': value, 'color': color_map['drone'][i]}
         value_feature_map[value] = {'feature': 'drone'}
         value += 1
 
@@ -106,8 +111,8 @@ def convert_map_to_volume_dict(x,y,map):
 
     #for i in range(5):
     feature_value_map['hiker']['val'] = value
-    feature_value_map['hiker']['color'] = color_map[value]
-    value_feature_map[value] = {'feature':'hiker', 'alt':0, 'color':value}
+    feature_value_map['hiker']['color'] = color_map['hiker']
+    value_feature_map[value] = {'feature':'hiker', 'alt':0, 'color':color_map['hiker']}
 
 
 
@@ -146,7 +151,7 @@ def convert_map_to_volume_dict(x,y,map):
 def map_to_volume_dict(x=0,y=0,width=5,height=5):
     #does the map already exist in the maps/ folder?
     return_dict = {}
-    filename = '{}{}.mp'.format(x,y)
+    filename = '{}-{}.mp'.format(x,y)
     maps = []
     map = 0
     for files in os.listdir('maps'):
