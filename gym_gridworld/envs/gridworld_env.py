@@ -32,7 +32,7 @@ class GridworldEnv(gym.Env):
     num_env = 0
 
     def __init__(self,map_x=0,map_y=0,local_x=0,local_y=0,heading=1,altitude=2,hiker_x=5,hiker_y=5,width=20,height=20):
-        self.maps = [(70,50),(400,35)]
+        self.maps = [(70,50),(400,35),(86,266)]
         self.map_volume = CNP.map_to_volume_dict(map_x,map_y,width,height)
 
         self.original_map_volume = copy.deepcopy(self.map_volume)
