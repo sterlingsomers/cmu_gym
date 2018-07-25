@@ -519,7 +519,9 @@ class GridworldEnv(gym.Env):
         #add the drone
         drone_position = np.where(self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
         drone_position = (int(drone_position[1]) * 5, int(drone_position[2]) * 5)
-        map[drone_position[0]:drone_position[0] + 5,drone_position[1]:drone_position[1] + 5] = self.plane_image(self.heading,self.map_volume['feature_value_map']['drone'][self.altitude]['color'])
+        for point in self.planes[self.heading][0]:
+            map[drone_position[0] + point[0],drone_position[1] + point[1],:] = self.map_volume['feature_value_map']['drone'][self.altitude]['color']
+        #map[drone_position[0]:drone_position[0] + 5,drone_position[1]:drone_position[1] + 5] = self.plane_image(self.heading,self.map_volume['feature_value_map']['drone'][self.altitude]['color'])
 
         return map
 
