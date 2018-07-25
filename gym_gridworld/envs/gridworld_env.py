@@ -73,8 +73,11 @@ class GridworldEnv(gym.Env):
         self.planes[7] = [[(2,0),(1,1),(2,1),(3,1),(0,2),(1,2),(2,2),(3,2),(4,2)],np.zeros((5,5,3))]
         self.planes[8] = [[(0,0),(4,0),(1,1),(2,1),(3,1),(1,2),(2,2),(1,3),(0,4)],np.zeros((5,5,3))]
 
+
+        self.hikers = {}
+        self.hikers[0] = [[(0,2),(1,2),(2,2),(3,2),(4,2),(2,0),(2,1),(2,2),(2,3),(2,4)],np.zeros((5,5,3))]
         self.hiker_image = np.zeros((5,5,3))
-        self.hiker_image[:,:,:] = self.map_volume['feature_value_map']['hiker']['color']
+        #self.hiker_image[:,:,:] = self.map_volume['feature_value_map']['hiker']['color']
 
 
 
@@ -510,7 +513,9 @@ class GridworldEnv(gym.Env):
         map = imresize(map, (100, 100), interp='nearest') #resize by factor of 5
         #add the hiker
         hiker_position = (int(self.hiker_position[1]* 5), int(self.hiker_position[2]) * 5)
-        map[hiker_position[0]:hiker_position[0]+5,hiker_position[1]:hiker_position[1]+5,:] = self.hiker_image
+        #map[hiker_position[0]:hiker_position[0]+5,hiker_position[1]:hiker_position[1]+5,:] = self.hiker_image
+        for point in self.hikers[0][0]:
+            map[hiker_position[0]+point[0],hiker_position[1]+point[1],:] = self.map_volume['feature_value_map']['hiker']['color']
         #add the drone
         drone_position = np.where(self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
         drone_position = (int(drone_position[1]) * 5, int(drone_position[2]) * 5)
