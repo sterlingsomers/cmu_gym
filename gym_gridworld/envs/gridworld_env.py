@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import threading
 import random
 import pygame
+from scipy.misc import imresize
 
 import create_np_map as CNP
 
@@ -59,6 +60,22 @@ class GridworldEnv(gym.Env):
             self.mavsimhandler = MavsimHandler()
             stateThread = threading.Thread(target=self.mavsimhandler.read_state)
             stateThread.start()
+
+        #5x5 plane descriptions
+        self.planes = {}
+        self.planes[1] = [[(0, 2), (1, 1), (1, 2), (1, 3), (2, 0), (2, 1), (2, 2), (2, 3), (2, 4)], np.zeros((5, 5, 3))]
+        self.planes[2] = [[(0, 0), (1, 1), (2, 2), (3, 3), (4, 4), (0, 4), (1, 3), (2, 3), (1, 2)], np.zeros((5, 5, 3))]
+        self.planes[3] = [[(0, 2), (1, 2), (2, 2), (3, 2), (4, 2), (1, 3), (2, 3), (3, 3), (2, 4)], np.zeros((5, 5, 3))]
+        self.planes[4] = [[(0,4),(1,3),(2,3),(3,3),(4,4),(2,2),(3,2),(3,1),(4,0)],np.zeros((5,5,3))]
+        self.planes[5] = [[(2,0),(2,1),(2,2),(2,3),(2,4),(3,1),(3,2),(3,3),(4,2)],np.zeros((5,5,3))]
+        self.planes[6] = [[(0,0),(1,1),(2,2),(3,3),(4,4),(2,1),(3,1),(3,2),(4,0)],np.zeros((5,5,3))]
+        self.planes[7] = [[(2,0),(1,1),(2,1),(3,1),(0,2),(1,2),(2,2),(3,2),(4,2)],np.zeros((5,5,3))]
+        self.planes[8] = [[(0,0),(4,0),(1,1),(2,1),(3,1),(1,2),(2,2),(1,3),(0,4)],np.zeros((5,5,3))]
+
+        self.hiker_image = np.zeros((5,5,3))
+        self.hiker_image[:,:,:] = self.map_volume['feature_value_map']['hiker']['color']
+
+
 
         self.actionvalue_heading_action = {
             0: {1:'self.take_action(delta_alt=-1,delta_x=-1,delta_y=0,new_heading=7)',
@@ -438,23 +455,52 @@ class GridworldEnv(gym.Env):
                     this_value = COLORS[grid_map[i,j]][k]
                     observation[i*gs0:(i+1)*gs0, j*gs1:(j+1)*gs1, k] = this_value
         return observation
-  
+
+    def plane_image(self,heading, color):
+        '''Returns a 5x5 image as np array'''
+        for point in self.planes[heading][0]:
+            self.planes[heading][1][point[0], point[1]] = color
+        return self.planes[heading][1]
+
+    def generate_observation(self):
+        map = self.original_map_volume['img']
+        map = imresize(map, (100, 100), interp='nearest') #resize by factor of 5
+        #add the hiker
+        hiker_position = (int(self.hiker_position[1]* 5), int(self.hiker_position[2]) * 5)
+        map[hiker_position[0]:hiker_position[0]+5,hiker_position[1]:hiker_position[1]+5,:] = self.hiker_image
+        #add the drone
+        drone_position = np.where(self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
+        drone_position = (int(drone_position[1]) * 5, int(drone_position[2]) * 5)
+        map[drone_position[0]:drone_position[0] + 5,drone_position[1]:drone_position[1] + 5] = self.plane_image(self.heading,self.map_volume['feature_value_map']['drone'][self.altitude]['color'])
+
+        return map
+
+
+
     def _render(self, mode='human', close=False):
 
         #return
         #if self.verbose == False:
         #    return
         #img = self.observation
-        img = self.map_volume['flat']
+        #map = self.original_map_volume['img']
+        map = self.generate_observation()
         #fig = plt.figure(self.this_fig_num)
         #img = np.zeros((20,20,3))
         #img[10,10,0] = 200
         #img[10,10,1] = 153
         #img[10,10,2] = 255
+        #planes should be self.planes, in iinit
+        #
+        #drone_position = np.where(self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
+        #drone_position = (int(drone_position[1])*5,int(drone_position[2])*5)
+
+        #map = imresize(map,(100,100),interp='nearest')
+        #map[drone_position[0]:drone_position[0] + 5,drone_position[1]:drone_position[1] + 5] = self.plane_image(self.heading,self.map_volume['feature_value_map']['drone'][self.altitude]['color'])
 
         fig = plt.figure(0)
         plt.clf()
-        plt.imshow(self.map_volume['img'])
+        plt.imshow(map)
         fig.canvas.draw()
         plt.pause(0.00001)
         return 
