@@ -32,6 +32,7 @@ class GridworldEnv(gym.Env):
     num_env = 0
 
     def __init__(self,map_x=0,map_y=0,local_x=0,local_y=0,heading=1,altitude=2,hiker_x=5,hiker_y=5,width=20,height=20):
+        self.maps = [(70,50),(400,35)]
         self.map_volume = CNP.map_to_volume_dict(map_x,map_y,width,height)
 
         self.original_map_volume = copy.deepcopy(self.map_volume)
@@ -407,6 +408,48 @@ class GridworldEnv(gym.Env):
         #     info['success'] = True
         #     return (self.observation, 0, False, info)
 
+
+
+    def reset(self):
+
+        self.heading = random.randint(1,8)
+        self.altitude = 2
+        _map = random.choice(self.maps)
+
+        hiker = (random.randint(2,19),random.randint(2,19))
+        drone = (random.randint(2,19),random.randint(2,19))
+        while drone == hiker:
+            drone = (random.randint(2, 19), random.randint(2, 19))
+
+        self.map_volume = CNP.map_to_volume_dict(_map[0], _map[1], 20, 20)
+
+        self.original_map_volume = copy.deepcopy(self.map_volume)
+
+        # self.local_coordinates = [local_x,local_y]
+        # self.world_coordinates = [70,50]
+        self.reference_coordinates = [_map[0], _map[1]]
+        self.actions = list(range(15))
+
+
+        self.action_space = spaces.Discrete(15)
+        self.real_actions = False
+        # put the drone in
+        self.map_volume['vol'][self.altitude][drone[0], drone[1]] = self.map_volume['feature_value_map']['drone'][self.altitude][
+            'val']
+        self.map_volume['flat'][drone[0], drone[1]] = self.map_volume['feature_value_map']['drone'][self.altitude]['val']
+        self.map_volume['img'][drone[0], drone[1]] = self.map_volume['feature_value_map']['drone'][self.altitude]['color']
+        # self.map_volume[altitude]['drone'][local_y, local_x] = 1.0
+        # put the hiker in@ altitude 0
+        self.map_volume['vol'][0][hiker[0], hiker[1]] = self.map_volume['feature_value_map']['hiker']['val']
+        self.map_volume['flat'][hiker[0], hiker[1]] = self.map_volume['feature_value_map']['hiker']['val']
+        self.map_volume['img'][hiker[0], hiker[1]] = self.map_volume['feature_value_map']['hiker']['color']
+        self.hiker_position = np.where(self.map_volume['vol'] == self.map_volume['feature_value_map']['hiker']['val'])
+
+        observation = self.generate_observation()
+        return observation
+
+
+
     def _reset(self):
         self.agent_state = copy.deepcopy(self.agent_start_state)
         self.current_grid_map = copy.deepcopy(self.start_grid_map)
@@ -477,8 +520,8 @@ class GridworldEnv(gym.Env):
 
 
 
-    def _render(self, mode='human', close=False):
 
+    def _render(self, mode='human', close=False):
         #return
         #if self.verbose == False:
         #    return
@@ -611,7 +654,7 @@ class GridworldEnv(gym.Env):
 
 
 a = GridworldEnv(map_x=70,map_y=50,local_x=2,local_y=2,hiker_x=10,heading=1,altitude=3)
-
+a.reset()
 #a.step(12)
 #
 #def show_img():
@@ -622,7 +665,8 @@ for i in range(10000):
     #print("coordinates", local_coordinates, a.heading)
     if a.check_for_crash():
         print("crash at altitude", a.altitude)
-        #break
+        a.reset()
+        time.sleep(0.5)
     if a.check_for_hiker():
         print("hiker after", i)
         break
