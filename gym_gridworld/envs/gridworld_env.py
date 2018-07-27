@@ -266,7 +266,7 @@ class GridworldEnv(gym.Env):
             int(local_coordinates[2] + delta_x > vol_shape[2] - 1):
 
             return 0
-
+        #todo update with shape below
         forbidden = [(0,0),(18,0),
                      (18,18),(0,18)]
         print((int(local_coordinates[1]) + delta_y, int(local_coordinates[2]) + delta_x), forbidden)
