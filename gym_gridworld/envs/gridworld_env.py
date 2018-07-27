@@ -267,8 +267,8 @@ class GridworldEnv(gym.Env):
 
             return 0
         #todo update with shape below
-        forbidden = [(0,0),(vol_shape[1]-2,0),
-                     (vol_shape[1]-2,vol_shape[1]-2),(0,vol_shape[1]-2)]
+        forbidden = [(0,0),(vol_shape[1]-1,0),
+                     (vol_shape[1]-1,vol_shape[1]-1),(0,vol_shape[1]-1)]
         print((int(local_coordinates[1]) + delta_y, int(local_coordinates[2]) + delta_x), forbidden)
         if (int(local_coordinates[1]) + delta_y, int(local_coordinates[2]) + delta_x) in forbidden:
             return 0
