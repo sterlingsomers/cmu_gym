@@ -34,29 +34,29 @@ class GridworldEnv(gym.Env):
     num_env = 0
 
     def __init__(self,map_x=0,map_y=0,local_x=0,local_y=0,heading=1,altitude=2,hiker_x=5,hiker_y=5,width=20,height=20):
-        self.maps = [(70,50),(400,35),(86,266)]
-        self.map_volume = CNP.map_to_volume_dict(map_x,map_y,width,height)
+        self.maps = [(70,50)]#[(70,50),(400,35),(86,266)]
+        #self.map_volume = CNP.map_to_volume_dict(map_x,map_y,width,height)
 
-        self.original_map_volume = copy.deepcopy(self.map_volume)
-
+        #self.original_map_volume = copy.deepcopy(self.map_volume)
+        self.factor = 5
         #self.local_coordinates = [local_x,local_y]
         #self.world_coordinates = [70,50]
         self.reference_coordinates = [70,50]
         self.actions = list(range(15))
-        self.heading = heading
-        self.altitude = altitude
+        #self.heading = heading
+        #self.altitude = altitude
         self.action_space = spaces.Discrete(15)
         self.real_actions = False
         # put the drone in
-        self.map_volume['vol'][altitude][local_y,local_x] = self.map_volume['feature_value_map']['drone'][altitude]['val']
-        self.map_volume['flat'][local_y,local_x] = self.map_volume['feature_value_map']['drone'][altitude]['val']
-        self.map_volume['img'][local_y,local_x] = self.map_volume['feature_value_map']['drone'][altitude]['color']
+        #self.map_volume['vol'][altitude][local_y,local_x] = self.map_volume['feature_value_map']['drone'][altitude]['val']
+        #self.map_volume['flat'][local_y,local_x] = self.map_volume['feature_value_map']['drone'][altitude]['val']
+        #self.map_volume['img'][local_y,local_x] = self.map_volume['feature_value_map']['drone'][altitude]['color']
         #self.map_volume[altitude]['drone'][local_y, local_x] = 1.0
         #put the hiker in@ altitude 0
-        self.map_volume['vol'][0][hiker_y,hiker_x] = self.map_volume['feature_value_map']['hiker']['val']
-        self.map_volume['flat'][hiker_y,hiker_x] = self.map_volume['feature_value_map']['hiker']['val']
-        self.map_volume['img'][hiker_y,hiker_x] = self.map_volume['feature_value_map']['hiker']['color']
-        self.hiker_position = np.where(self.map_volume['vol'] == self.map_volume['feature_value_map']['hiker']['val'])
+        #self.map_volume['vol'][0][hiker_y,hiker_x] = self.map_volume['feature_value_map']['hiker']['val']
+        #self.map_volume['flat'][hiker_y,hiker_x] = self.map_volume['feature_value_map']['hiker']['val']
+        #self.map_volume['img'][hiker_y,hiker_x] = self.map_volume['feature_value_map']['hiker']['color']
+        #self.hiker_position = np.where(self.map_volume['vol'] == self.map_volume['feature_value_map']['hiker']['val'])
         #self.map_volume[0]['hiker'][hiker_y,hiker_x] = 1.0
 
         if self.real_actions:
@@ -267,8 +267,8 @@ class GridworldEnv(gym.Env):
 
             return 0
         #todo update with shape below
-        forbidden = [(0,0),(18,0),
-                     (18,18),(0,18)]
+        forbidden = [(0,0),(vol_shape[1]-2,0),
+                     (vol_shape[1]-2,vol_shape[1]-2),(0,vol_shape[1]-2)]
         print((int(local_coordinates[1]) + delta_y, int(local_coordinates[2]) + delta_x), forbidden)
         if (int(local_coordinates[1]) + delta_y, int(local_coordinates[2]) + delta_x) in forbidden:
             return 0
@@ -436,12 +436,13 @@ class GridworldEnv(gym.Env):
         self.altitude = 3
         _map = random.choice(self.maps)
 
-        hiker = (random.randint(2,19),random.randint(2,19))
-        drone = (random.randint(2,19),random.randint(2,19))
+        self.map_volume = CNP.map_to_volume_dict(_map[0], _map[1], 5, 5)
+        hiker = (random.randint(2,self.map_volume['vol'].shape[1]-1),random.randint(2,self.map_volume['vol'].shape[1]-1))
+        drone = (random.randint(2,self.map_volume['vol'].shape[1]-1),random.randint(2,self.map_volume['vol'].shape[1]-1))
         while drone == hiker:
-            drone = (random.randint(2, 19), random.randint(2, 19))
+            drone = (random.randint(2, self.map_volume['vol'].shape[1]-1), random.randint(2, self.map_volume['vol'].shape[1]-1))
 
-        self.map_volume = CNP.map_to_volume_dict(_map[0], _map[1], 20, 20)
+
 
         self.original_map_volume = copy.deepcopy(self.map_volume)
 
@@ -454,8 +455,7 @@ class GridworldEnv(gym.Env):
         self.action_space = spaces.Discrete(15)
         self.real_actions = False
         # put the drone in
-        self.map_volume['vol'][self.altitude][drone[0], drone[1]] = self.map_volume['feature_value_map']['drone'][self.altitude][
-            'val']
+        self.map_volume['vol'][self.altitude][drone[0], drone[1]] = self.map_volume['feature_value_map']['drone'][self.altitude]['val']
         self.map_volume['flat'][drone[0], drone[1]] = self.map_volume['feature_value_map']['drone'][self.altitude]['val']
         self.map_volume['img'][drone[0], drone[1]] = self.map_volume['feature_value_map']['drone'][self.altitude]['color']
         # self.map_volume[altitude]['drone'][local_y, local_x] = 1.0
@@ -527,7 +527,7 @@ class GridworldEnv(gym.Env):
 
     def generate_observation(self):
         map = self.original_map_volume['img']
-        map = imresize(map, (100, 100), interp='nearest') #resize by factor of 5
+        map = imresize(map, self.factor * 100, interp='nearest') #resize by factor of 5
         #add the hiker
         hiker_position = (int(self.hiker_position[1]* 5), int(self.hiker_position[2]) * 5)
         #map[hiker_position[0]:hiker_position[0]+5,hiker_position[1]:hiker_position[1]+5,:] = self.hiker_image
@@ -688,23 +688,23 @@ class GridworldEnv(gym.Env):
 
 #sample code
 a = GridworldEnv(map_x=70,map_y=50,local_x=2,local_y=2,hiker_x=10,heading=1,altitude=3)
-# a.reset()
+a.reset()
 # #a.step(12)
 # #
 # #def show_img():
-# now = datetime.datetime.now()
-# for i in range(10000):
-#     a.step(random.randint(1,14))
-#     #local_coordinates = a.map_volume[a.altitude]['drone'].nonzero()
-#     #print("coordinates", local_coordinates, a.heading)
-#     if a.check_for_crash():
-#         print("crash at altitude", a.altitude)
-#         #a.reset()
-#         #time.sleep(0.5)
-#     if a.check_for_hiker():
-#         print("hiker after", i)
-#         break
+now = datetime.datetime.now()
+for i in range(10000):
+    a.step(random.randint(1,14))
+    #local_coordinates = a.map_volume[a.altitude]['drone'].nonzero()
+    #print("coordinates", local_coordinates, a.heading)
+    if a.check_for_crash():
+        print("crash at altitude", a.altitude)
+        #a.reset()
+        #time.sleep(0.5)
+    if a.check_for_hiker():
+        print("hiker after", i)
+        break
 
 
 #print(a.check_for_crash())
-print('complete', (datetime.datetime.now().second - now.second))
+#print('complete', (datetime.datetime.now().second - now.second))
