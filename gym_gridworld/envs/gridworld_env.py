@@ -267,8 +267,10 @@ class GridworldEnv(gym.Env):
 
             return 0
 
-        if (int(local_coordinates[1]) + delta_y, int(local_coordinates[2]) + delta_x) in [(0,vol_shape[1]-1),(vol_shape[1]-1,0),
-                                                                                          (0,vol_shape[2]-1),(vol_shape[2]-1,0)]:
+        forbidden = [(0,0),(18,0),
+                     (18,18),(0,18)]
+        print((int(local_coordinates[1]) + delta_y, int(local_coordinates[2]) + delta_x), forbidden)
+        if (int(local_coordinates[1]) + delta_y, int(local_coordinates[2]) + delta_x) in forbidden:
             return 0
 
 
@@ -684,24 +686,24 @@ class GridworldEnv(gym.Env):
         a, b, c, d = self._jump_to_state(to_state)
         return (a, b, c, d) 
 
-
+#sample code
 a = GridworldEnv(map_x=70,map_y=50,local_x=2,local_y=2,hiker_x=10,heading=1,altitude=3)
-a.reset()
-#a.step(12)
-#
-#def show_img():
-now = datetime.datetime.now()
-for i in range(10000):
-    a.step(random.randint(1,14))
-    #local_coordinates = a.map_volume[a.altitude]['drone'].nonzero()
-    #print("coordinates", local_coordinates, a.heading)
-    if a.check_for_crash():
-        print("crash at altitude", a.altitude)
-        a.reset()
-        time.sleep(0.5)
-    if a.check_for_hiker():
-        print("hiker after", i)
-        break
+# a.reset()
+# #a.step(12)
+# #
+# #def show_img():
+# now = datetime.datetime.now()
+# for i in range(10000):
+#     a.step(random.randint(1,14))
+#     #local_coordinates = a.map_volume[a.altitude]['drone'].nonzero()
+#     #print("coordinates", local_coordinates, a.heading)
+#     if a.check_for_crash():
+#         print("crash at altitude", a.altitude)
+#         #a.reset()
+#         #time.sleep(0.5)
+#     if a.check_for_hiker():
+#         print("hiker after", i)
+#         break
 
 
 #print(a.check_for_crash())
