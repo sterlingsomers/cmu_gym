@@ -435,7 +435,6 @@ class GridworldEnv(gym.Env):
         self.heading = random.randint(1,8)
         self.altitude = 3
         _map = random.choice(self.maps)
-
         self.map_volume = CNP.map_to_volume_dict(_map[0], _map[1], 5, 5)
         hiker = (random.randint(2,self.map_volume['vol'].shape[1]-1),random.randint(2,self.map_volume['vol'].shape[1]-1))
         drone = (random.randint(2,self.map_volume['vol'].shape[1]-1),random.randint(2,self.map_volume['vol'].shape[1]-1))
