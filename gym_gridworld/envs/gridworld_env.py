@@ -36,7 +36,7 @@ class GridworldEnv(gym.Env):
     def __init__(self,map_x=0,map_y=0,local_x=0,local_y=0,heading=1,altitude=2,hiker_x=5,hiker_y=5,width=20,height=20):
         self.maps = [(70,50),(400,35),(86,266)]
         #self.map_volume = CNP.map_to_volume_dict(map_x,map_y,width,height)
-        self.drop_package_grid_size_by_alt = {1:(3,3),2:(5,5),3:(7,7)}
+        self.drop_package_grid_size_by_alt = {1:3,2:5,3:7}
         #self.original_map_volume = copy.deepcopy(self.map_volume)
         self.factor = 5
         #self.local_coordinates = [local_x,local_y]
@@ -322,17 +322,19 @@ class GridworldEnv(gym.Env):
         return reward
 
     def drop_package(self):
+        value = -5
+        while value < 0:
 
-        alt = self.altitude
-        drone_position =  np.where(self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
-        hiker_position = self.hiker_position
-        region = self.drop_package_grid_size_by_alt[self.altitude]
-        neighbors = self.neighbors(self.original_map_volume['vol'][0],int(drone_position[1]),int(drone_position[2]),region)
-        print(neighbors)
-        x = np.random.randint(0,neighbors.shape[0])
-        y = np.random.randint(0,neighbors.shape[1])
-        print(x,y)
-        value = neighbors[x,y]
+            alt = self.altitude
+            drone_position =  np.where(self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
+            hiker_position = self.hiker_position
+            region = self.drop_package_grid_size_by_alt[self.altitude]
+            neighbors = self.neighbors(self.original_map_volume['vol'][0],int(drone_position[1]),int(drone_position[2]),region)
+            print(neighbors)
+            x = np.random.randint(0,neighbors.shape[0])
+            y = np.random.randint(0,neighbors.shape[1])
+            print(x,y)
+            value = neighbors[x,y]
         terrain = self.original_map_volume['value_feature_map'][value]['feature']
         reward = self.position_value(terrain, alt, self.drop_rewards, self.drop_probabilities)
         print(terrain, reward)
