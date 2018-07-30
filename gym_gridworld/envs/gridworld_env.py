@@ -278,18 +278,32 @@ class GridworldEnv(gym.Env):
 
     def neighbors(self,arr, x, y, N):
         #https://stackoverflow.com/questions/32604856/slicing-outside-numpy-array
-        Ap = np.lib.pad(arr.astype(int),1, 'constant',constant_values=(np.nan,np.nan))
-        Acut = Ap[np.ix_(np.arange(N) + x, np.arange(N) + y)]
-        Acut[np.isnan(Acut)] = np.nanmean(Acut)
+        #new_arr = np.zeros((N,N))
 
-        return Acut
-
-        # left = max(0, x - N)
-        # right = min(arr.shape[0], x + N)
-        # top = max(0, y - N)
-        # bottom = min(arr.shape[1], y + N)
+        # Ap = np.lib.pad(arr.astype(int),1, 'constant',constant_values=(np.nan,np.nan))
+        # nx = np.arange(N) + x
+        # ny = np.arange(N) + y
+        # Acut = Ap[np.ix_(np.arange(N) + x, np.arange(N) + y)]
+        # Acut[np.isnan(Acut)] = np.nanmean(Acut)
         #
-        # window = arr[left:right + 1, top:bottom + 1]
+        # return Acut
+        # minx = min(x - N,0)
+        # miny = min(0,y - N)
+        # maxx = max()
+
+
+        # print(arr[x-N//2:x+N//2,y-N//2:y+N//2])
+        # return arr[x-N//2:x+N//2,y-N//2:y+N//2]
+
+
+        left = max(0, x - N//2)
+        right = min(arr.shape[0], x + N//2)
+        top = max(0, y - N//2)
+        bottom = min(arr.shape[1], y + N//2)
+
+        window = arr[left:right + 1, top:bottom + 1]
+        return window
+
         # fillval = window.mean()
         #
         # result = np.empty((2 * N + 1, 2 * N + 1))
@@ -322,19 +336,20 @@ class GridworldEnv(gym.Env):
         return reward
 
     def drop_package(self):
-        value = -5
-        while value < 0:
+        #value = -5
+        #while value < 0 and value < self.original_map_volume['vol'][0].shape[0]:
 
-            alt = self.altitude
-            drone_position =  np.where(self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
-            hiker_position = self.hiker_position
-            region = self.drop_package_grid_size_by_alt[self.altitude]
-            neighbors = self.neighbors(self.original_map_volume['vol'][0],int(drone_position[1]),int(drone_position[2]),region)
-            print(neighbors)
-            x = np.random.randint(0,neighbors.shape[0])
-            y = np.random.randint(0,neighbors.shape[1])
-            print(x,y)
-            value = neighbors[x,y]
+        alt = self.altitude
+        drone_position =  np.where(self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
+        hiker_position = self.hiker_position
+        region = self.drop_package_grid_size_by_alt[self.altitude]
+        neighbors = self.neighbors(self.original_map_volume['vol'][0],int(drone_position[1]),int(drone_position[2]),region)
+        print("neigh:")
+        print(neighbors)
+        x = np.random.randint(0,neighbors.shape[0])
+        y = np.random.randint(0,neighbors.shape[1])
+        print(x,y)
+        value = neighbors[x,y]
         terrain = self.original_map_volume['value_feature_map'][value]['feature']
         reward = self.position_value(terrain, alt, self.drop_rewards, self.drop_probabilities)
         print(terrain, reward)
