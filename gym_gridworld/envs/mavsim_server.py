@@ -30,6 +30,13 @@ class MavsimHandler():
         s = '(' + ','.join(formatted_list) + ')'
         return s.format(*alist)
 
+    def head_to(self,heading,altitude):
+        msg = ['FLIGHT','HEAD_TO',heading,1,altitude]
+        msg = self.ListToFormattedString(msg)
+        print("msg",msg)
+        sent = self.send_sock.sendto(msg.encode('utf-8'), self.mavsim_server)
+        time.sleep(0.1)
+
     def fly_path(self,coordinates=[],altitude=3):
         # return 0
         # while not self.mavsim_state:
@@ -38,19 +45,29 @@ class MavsimHandler():
         if coordinates:
             #for coordinate in coordinates:
             #print("FLYING TO", coordinates[0],coordinates[1])
-            msg = ['FLIGHT', 'FLY_TO', coordinates[1], coordinates[0], altitude]
+            msg = ['FLIGHT', 'FLY_TO', coordinates[1]-1, coordinates[0]-1, altitude]
             msg = self.ListToFormattedString(msg)
             sent = self.send_sock.sendto(msg.encode('utf-8'),self.mavsim_server)
             time.sleep(0.1)
             #while not 'GLOBAL_POSITION_INT' in self.mavsim_state:
              #   time.sleep(0.0001)
                 #print("da state dat state", self.mavsim_state)
+            self.timestamp = 0
+            while 1:
+                timestamp = self.mavsim_state['GLOBAL_POSITION_INT']['time_boot_ms']
+                if timestamp == self.timestamp:
+                    continue
+                if (coordinates[0]-1) == int(self.mavsim_state['GLOBAL_POSITION_INT']['vx']) and \
+                        (coordinates[1]-1) == int(self.mavsim_state['GLOBAL_POSITION_INT']['vy']):
+                    break
 
-            while coordinates[1] != int(self.mavsim_state['GLOBAL_POSITION_INT']['vx']) and int(coordinates[0] != self.mavsim_state['GLOBAL_POSITION_INT']['vy']):
+
+                self.timestamp = self.mavsim_state['GLOBAL_POSITION_INT']['time_boot_ms']
+                #coordinates[1] != int(self.mavsim_state['GLOBAL_POSITION_INT']['vx']) and int(coordinates[0] != self.mavsim_state['GLOBAL_POSITION_INT']['vy']):
                 msg = ['FLIGHT', 'MS_NO_ACTION']
                 msg = self.ListToFormattedString(msg)
                 sent = self.send_sock.sendto(msg.encode('utf-8'), self.mavsim_server)
-                time.sleep(0.1)
+                time.sleep(0.2)
 
                     # for msg in msgs:
                     #     msg = ListToFormattedString(msg)
