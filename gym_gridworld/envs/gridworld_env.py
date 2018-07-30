@@ -327,7 +327,7 @@ class GridworldEnv(gym.Env):
         drone_position =  np.where(self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
         hiker_position = self.hiker_position
         region = self.drop_package_grid_size_by_alt[self.altitude]
-        neighbors = self.neighbors(self.original_map_volume['vol'][0],int(drone_position[1]),int(drone_position[2]),3)
+        neighbors = self.neighbors(self.original_map_volume['vol'][0],int(drone_position[1]),int(drone_position[2]),region)
         print(neighbors)
         x = np.random.randint(0,neighbors.shape[0])
         y = np.random.randint(0,neighbors.shape[1])
