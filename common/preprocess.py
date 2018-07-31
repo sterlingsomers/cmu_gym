@@ -89,7 +89,11 @@ class ObsProcesser:
         #feature_screen = np.copy(obs["feature_screen"]) # THIS FIXES EVERYTHING AND YOU CAN SEE THE feature_screen obs cauz of the error for max_recursions etc
         #feature_minimap = np.copy(obs["feature_minimap"])
         pp_obs = {
-            FEATURE_KEYS.rgb_screen: timestep
+                FEATURE_KEYS.rgb_screen: timestep['img'],
+                FEATURE_KEYS.alt0: timestep['image_layers'][0],
+                FEATURE_KEYS.alt1: timestep['image_layers'][1],
+                FEATURE_KEYS.alt2: timestep['image_layers'][2],
+                FEATURE_KEYS.alt3: timestep['image_layers'][3],
         }
 
         # pp_obs = {
@@ -193,10 +197,10 @@ class ActionProcesser:
 
 
 FEATURE_LIST = (
-    "alt0_grass",
-    "alt0_bush",
-    "alt0_drone",
-    "alt0_hiker",
+    "alt0",
+    "alt1",
+    "alt2",
+    "alt3",
     "alt1_pine",
     "alt1_pines",
     "alt1_drone",

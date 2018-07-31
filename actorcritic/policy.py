@@ -37,28 +37,28 @@ class FullyConvPolicy:
             data_format="NHWC",
             num_outputs=64,
             kernel_size=4,
-            stride=1,
+            stride=2,
             padding='SAME',
             activation_fn=tf.nn.relu,
             scope="%s/conv2" % name,
             trainable=self.trainable
         )
-        # conv3 = layers.conv2d(
-        #     inputs=conv2,
-        #     data_format="NHWC",
-        #     num_outputs=64,
-        #     kernel_size=4,
-        #     stride=1,
-        #     padding='SAME',
-        #     activation_fn=tf.nn.relu,
-        #     scope="%s/conv3" % name,
-        #     trainable=self.trainable
-        # )
+        conv3 = layers.conv2d(
+            inputs=conv2,
+            data_format="NHWC",
+            num_outputs=64,
+            kernel_size=3,
+            stride=1,
+            padding='SAME',
+            activation_fn=tf.nn.relu,
+            scope="%s/conv3" % name,
+            trainable=self.trainable
+        )
 
         if self.trainable:
             layers.summarize_activation(conv1)
             layers.summarize_activation(conv2)
-            # layers.summarize_activation(conv3)
+            layers.summarize_activation(conv3)
 
         return conv2
 
@@ -81,7 +81,7 @@ class FullyConvPolicy:
         #     num_classes=MINIMAP_FEATURES.player_relative.scale
         # )[:, :, :, 1:]
         #
-        #channel_axis = 2
+        channel_axis = 2
         # alt0_all = tf.concat(
         #     [self.placeholders.alt0_grass, self.placeholders.alt0_bush, self.placeholders.alt0_drone, self.placeholders.alt0_hiker],
         #     axis=channel_axis
@@ -101,9 +101,11 @@ class FullyConvPolicy:
 
         # VOLUMETRIC APPROACH
         # alt_all = tf.concat(
-        #     [self.placeholders.alt0_grass, self.placeholders.alt0_bush, self.placeholders.alt0_drone, self.placeholders.alt0_hiker,
-        #      self.placeholders.alt1_pine, self.placeholders.alt1_pines, self.placeholders.alt1_drone, self.placeholders.alt2_drone,
-        #      self.placeholders.alt3_drone],
+        #     [tf.cast(self.placeholders.alt0,tf.float32)/255.,
+        #      tf.cast(self.placeholders.alt1,tf.float32)/255.,
+        #      tf.cast(self.placeholders.alt2,tf.float32)/255.,
+        #      tf.cast(self.placeholders.alt3,tf.float32)/255.
+        #      ],
         #     axis=channel_axis
         # )
         # self.spatial_action_logits = layers.conv2d(

@@ -15,11 +15,7 @@ LOG_DIRECTORY = '_files/summaries/Test'
 def _get_placeholders(spatial_dim):
     sd = spatial_dim
     feature_list = [
-        (FEATURE_KEYS.alt0_grass, tf.float32, [None, 20, 20]),
-        (FEATURE_KEYS.alt0_bush, tf.float32, [None, 20, 20]),
     # FEATURE_KEYS.available_action_ids: get_available_actions_flags(obs),
-        (FEATURE_KEYS.alt0_drone, tf.float32, [None, 20, 20]),
-        (FEATURE_KEYS.alt0_hiker, tf.float32, [None, 20, 20]),
         (FEATURE_KEYS.alt1_pine, tf.float32, [None, 20, 20]),  # numpy.array is redundant
         (FEATURE_KEYS.alt1_pines, tf.float32, [None, 20, 20]),
         (FEATURE_KEYS.alt1_drone, tf.float32, [None, 20, 20]),
@@ -34,6 +30,10 @@ def _get_placeholders(spatial_dim):
         (FEATURE_KEYS.selected_action_id, tf.int32, [None]),
         (FEATURE_KEYS.value_target, tf.float32, [None]),
         (FEATURE_KEYS.rgb_screen, tf.float32, [None, 50, 50, 3]),
+        (FEATURE_KEYS.alt0, tf.float32, [None, 50, 50, 3]),
+        (FEATURE_KEYS.alt1, tf.float32, [None, 50, 50, 3]),
+        (FEATURE_KEYS.alt2, tf.float32, [None, 50, 50, 3]),
+        (FEATURE_KEYS.alt3, tf.float32, [None, 50, 50, 3]),
         (FEATURE_KEYS.player_relative_screen, tf.int32, [None, sd, sd]),
         (FEATURE_KEYS.player_relative_minimap, tf.int32, [None, sd, sd]),
         (FEATURE_KEYS.advantage, tf.float32, [None]),
