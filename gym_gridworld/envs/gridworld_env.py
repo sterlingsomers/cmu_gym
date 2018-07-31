@@ -241,6 +241,7 @@ class GridworldEnv(gym.Env):
 
 
     def neighbors(self,arr, x, y, N):
+
         #https://stackoverflow.com/questions/32604856/slicing-outside-numpy-array
         #new_arr = np.zeros((N,N))
 
@@ -280,6 +281,7 @@ class GridworldEnv(gym.Env):
         print("Package state:", package_state)
         reward = reward_dict[package_state]
         return reward
+
 
     def drop_package(self):
         value = 0
@@ -402,6 +404,9 @@ class GridworldEnv(gym.Env):
         #         if self.map_volume[i][key][int(drone_position[0]),int(drone_position[1])]:
         #             return 1
         # return 0
+
+    # def generate_vertical_slices(self):
+    #     pass
 
 
 
@@ -583,6 +588,8 @@ class GridworldEnv(gym.Env):
 
         return imresize(canvas, self.factor * 100, interp='nearest')
 
+
+
     def generate_observation(self):
         obs = {}
         obs['volume'] = self.map_volume
@@ -601,10 +608,6 @@ class GridworldEnv(gym.Env):
             image_layers[0][hiker_position[0]+point[0],hiker_position[1]+point[1],:] = self.map_volume['feature_value_map']['hiker']['color']
 
 
-
-
-
-
         #map = self.original_map_volume['img']
         map = imresize(map, self.factor * 100, interp='nearest') #resize by factor of 5
         #add the hiker
@@ -620,6 +623,33 @@ class GridworldEnv(gym.Env):
         #map[drone_position[0]:drone_position[0] + 5,drone_position[1]:drone_position[1] + 5] = self.plane_image(self.heading,self.map_volume['feature_value_map']['drone'][self.altitude]['color'])
 
         #map = imresize(map, (1000,1000), interp='nearest')
+        #vertical slices at drone's position
+        drone_position = np.where(self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
+        slice1 = np.flip(self.map_volume['vol'][:,int(drone_position[1]),:],0)
+        #slice1 = np.flip(slice1,1)
+        slice2 = np.flip(self.map_volume['vol'][:,:,int(drone_position[2])],0)
+        #slice2 = np.flip(slice2, 1)
+        obs['slices'] = [slice1,slice2]
+
+        #slices as images
+        slice1_img = np.zeros((5,slice1.shape[1],3), dtype=np.uint8)#canvas = np.zeros((self.map_volume['vol'].shape[1], self.map_volume['vol'].shape[1], 3), dtype=np.uint8)
+        combinations = list(itertools.product(range(0, 5), range(0, slice1_img.shape[1])))
+        for x, y in combinations:
+            a = slice1[x,y]
+            if slice1[x, y] == 0.0:
+                slice1_img[x, y, :] = [255, 255, 255]
+            else:
+                slice1_img[x, y, :] = self.original_map_volume['value_feature_map'][slice1[x, y]]['color']
+
+        slice2_img = np.zeros((5,slice2.shape[1],3), dtype=np.uint8)
+        combinations = list(itertools.product(range(0, 5), range(0, slice2_img.shape[1])))
+        for x, y in combinations:
+            if slice2[x, y] == 0.0:
+                slice2_img[x, y, :] = [255, 255, 255]
+            else:
+                slice2_img[x, y, :] = self.original_map_volume['value_feature_map'][slice2[x, y]]['color']
+        obs['slice_images'] = [slice1_img,slice2_img]
+
         obs['img'] = map
         obs['image_layers'] = image_layers
         return obs

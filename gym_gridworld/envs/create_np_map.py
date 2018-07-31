@@ -107,7 +107,7 @@ def convert_map_to_volume_dict(x,y,map,width,height):
     value = max(list(value_feature_map.keys())) + 1
     for i in range(5):
         feature_value_map['drone'][i] = {'val': value, 'color': color_map['drone'][i]}
-        value_feature_map[value] = {'feature': 'drone'}
+        value_feature_map[value] = {'feature': 'drone', 'alt':i, 'color':color_map['drone'][i]}
         value += 1
 
 
