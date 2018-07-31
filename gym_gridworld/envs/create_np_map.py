@@ -53,7 +53,7 @@ def convert_map_to_volume_dict(x,y,map,width,height):
     color_map = {'pine tree':[0,100,14],'pine trees':[0,172,23],'grass':[121,151,0],
                  'bush':[121,151,0],'bushes':[164,203,8],'trail':[145,116,0],
                  'water':[0,34,255],
-                 'drone':{0:[102,0,102],1:[255,0,255],2:[102,0,51],3:[255,0,127],4:[255,0,0]},
+                 'drone':{0:[102,0,51],1:[153,0,153],2:[255,51,255],3:[255,153,255],4:[255,0,0]},
                  'hiker':[255,0,0]}
     #load value maps: feature -> value and value -> feature
     #feature_value_map = {} #{[alt,feature]:value}

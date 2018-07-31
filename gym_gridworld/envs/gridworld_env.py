@@ -39,10 +39,14 @@ class GridworldEnv(gym.Env):
         # # TODO: Pass the environment with arguments
 
         #num_alts = 4
-        self.verbose = True # to show the environment or not
+        self.verbose = False # to show the environment or not
         self.restart_once_done = True  # restart or not once done
-        self.maps = [(70, 50), (400, 35)] # [(70, 50)] #[(86, 266)]  # For testing
+        self.maps = [(70, 50)]#, (400, 35)] # [(70, 50)] #[(86, 266)]  # For testing
         self.dist_old = 1000
+        self.drop_package_grid_size_by_alt = {1: 3, 2: 5, 3: 7}
+        self.drop = False
+        self.reward = 0
+
         #self.map_volume = CNP.map_to_volume_dict(map_x, map_y, width, height)
 
         # self.original_map_volume = copy.deepcopy(self.map_volume)
@@ -50,10 +54,11 @@ class GridworldEnv(gym.Env):
         # self.local_coordinates = [local_x,local_y]
         # self.world_coordinates = [70,50]
         #self.reference_coordinates = [70, 50]
-        self.actions = list(range(15))
+        #self.actions = list(range(15))
         # self.heading = heading
         # self.altitude = altitude
-        self.action_space = spaces.Discrete(15)
+        self.action_space = spaces.Discrete(16)
+        self.actions = list(range(self.action_space.n))
         self.obs_shape = [50,50,3]
         self.observation_space = spaces.Box(low=0, high=255, shape=self.obs_shape)
         self.real_actions = False
@@ -91,6 +96,20 @@ class GridworldEnv(gym.Env):
                           np.zeros((5, 5, 3))]
         self.hiker_image = np.zeros((5, 5, 3))
         # self.hiker_image[:,:,:] = self.map_volume['feature_value_map']['hiker']['color']
+
+        self.drop_probabilities = {"damage_probability": {0: 0.00, 1: 0.01, 2: 0.40, 3: 0.80},
+                                   "stuck_probability": {"pine trees": 0.50, "pine tree": 0.25, "cabin": 0.50,
+                                                         "flight tower": 0.15, "firewatch tower": 0.20},
+                                   "sunk_probability": {"water": 0.50}
+                                   }
+        self.drop_rewards = {"OK": 1,#10,
+                             # "OK_STUCK": 0.5,#5,
+                             # "OK_SUNK": 0.5,#5,
+                             "DAMAGED": -1,#-10,
+                             # "DAMAGED_STUCK": -15,
+                             # "DAMAGED_SUNK": -15,
+                             # "CRASHED": -30
+                             }
 
         self.actionvalue_heading_action = {
             0: {1: 'self.take_action(delta_alt=-1,delta_x=-1,delta_y=0,new_heading=7)',
@@ -212,52 +231,103 @@ class GridworldEnv(gym.Env):
                  5: 'self.take_action(delta_alt=1, delta_x=-1, delta_y=0, new_heading=7)',
                  6: 'self.take_action(delta_alt=1, delta_x=-1, delta_y=-1, new_heading=8)',
                  7: 'self.take_action(delta_alt=1, delta_x=0, delta_y=-1, new_heading=1)',
-                 8: 'self.take_action(delta_alt=1, delta_x=1, delta_y=-1, new_heading=2)'}
+                 8: 'self.take_action(delta_alt=1, delta_x=1, delta_y=-1, new_heading=2)'},
+            15: {1: 'self.drop_package()',
+                 2: 'self.drop_package()',
+                 3: 'self.drop_package()',
+                 4: 'self.drop_package()',
+                 5: 'self.drop_package()',
+                 6: 'self.drop_package()',
+                 7: 'self.drop_package()',
+                 8: 'self.drop_package()', }
 
         }
 
         print("here")
 
-        # self.action_map = {
-        #     0: self.take_action(self.heading,self.altitude,-1,self.heading-1,self.heading-2), #turn left, down 1
+
+    def neighbors(self, arr, x, y, N):
+        # https://stackoverflow.com/questions/32604856/slicing-outside-numpy-array
+        # new_arr = np.zeros((N,N))
+
+        # Ap = np.lib.pad(arr.astype(int),1, 'constant',constant_values=(np.nan,np.nan))
+        # nx = np.arange(N) + x
+        # ny = np.arange(N) + y
+        # Acut = Ap[np.ix_(np.arange(N) + x, np.arange(N) + y)]
+        # Acut[np.isnan(Acut)] = np.nanmean(Acut)
         #
-        # }
+        # return Acut
+        # minx = min(x - N,0)
+        # miny = min(0,y - N)
+        # maxx = max()
 
-    # def __init__(self):
-    #     self.actions = list(range(15))
-    #     self.inv_actions = [0, 2, 1, 4, 3]
-    #     self.action_space = spaces.Discrete(15)
-    #     self.action_pos_dict = {0: [0,0], 1:[-1, 0], 2:[1,0], 3:[0,-1], 4:[0,1]}
-    #
-    #     ''' set observation space '''
-    #     self.obs_shape = [128, 128, 3]  # observation space shape
-    #     self.observation_space = spaces.Box(low=0, high=1, shape=self.obs_shape)
-    #
-    #     ''' initialize system state '''
-    #     this_file_path = os.path.dirname(os.path.realpath(__file__))
-    #     self.grid_map_path = os.path.join(this_file_path, 'plan5.txt')
-    #     self.start_grid_map = self._read_grid_map(self.grid_map_path) # initial grid map
-    #     self.current_grid_map = copy.deepcopy(self.start_grid_map)  # current grid map
-    #     self.observation = self._gridmap_to_observation(self.start_grid_map)
-    #     self.grid_map_shape = self.start_grid_map.shape
-    #
-    #     ''' agent state: start, target, current state '''
-    #     self.agent_start_state, _ = self._get_agent_start_target_state(
-    #                                 self.start_grid_map)
-    #     _, self.agent_target_state = self._get_agent_start_target_state(
-    #                                 self.start_grid_map)
-    #     self.agent_state = copy.deepcopy(self.agent_start_state)
-    #
-    #     ''' set other parameters '''
+        # print(arr[x-N//2:x+N//2,y-N//2:y+N//2])
+        # return arr[x-N//2:x+N//2,y-N//2:y+N//2]
 
-    #
-    #     GridworldEnv.num_env += 1
-    #     self.this_fig_num = GridworldEnv.num_env
-    #     if self.verbose == True:
-    #         self.fig = plt.figure(self.this_fig_num)
-    #         plt.show(block=False)
-    #         plt.axis('off')
-    #         self._render()
+        left = max(0, x - N // 2)
+        right = min(arr.shape[0], x + N // 2)
+        top = max(0, y - N // 2)
+        bottom = min(arr.shape[1], y + N // 2)
+
+        window = arr[left:right + 1, top:bottom + 1]
+
+        # newArr = np.zeros(self.original_map_volume['vol'][0].shape)
+        # newArr[x-N//2:x+N//2+1,y-N//2:y+N//2+1] = window
+        # return newArr
+        return [window, left, top]
+
+        # fillval = window.mean()
+        #
+        # result = np.empty((2 * N + 1, 2 * N + 1))
+        # result[:] = fillval
+        #
+        # ll = N - x
+        # tt = N - y
+        # result[ll + left:ll + right + 1, tt + top:tt + bottom + 1] = window
+        #
+        # return result
+
+    def position_value(self, terrain, altitude, reward_dict, probability_dict):
+        damage_probability = probability_dict['damage_probability'][altitude]
+        if terrain in probability_dict['stuck_probability'].keys():
+            stuck_probability = probability_dict['stuck_probability'][terrain]
+        else:
+            stuck_probability = 0.0
+        if terrain in probability_dict['sunk_probability'].keys():
+            sunk_probability = probability_dict['sunk_probability'][terrain]
+        else:
+            sunk_probability = 0.0
+        damaged = np.random.random() < damage_probability
+        # stuck = np.random.random() < stuck_probability
+        # sunk = np.random.random() < sunk_probability
+        package_state = 'DAMAGED' if damaged else 'OK'
+        # package_state += '_STUCK' if stuck else ''
+        # package_state += '_SUNK' if sunk else ''
+        print("Package state:", package_state)
+        reward = reward_dict[package_state]
+        return reward
+
+    def drop_package(self): # Robert's calculate_drop_value
+        # value = -5
+        # while value < 0 and value < self.original_map_volume['vol'][0].shape[0]:
+
+        alt = self.altitude
+        drone_position = np.where(
+            self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
+
+        region = self.drop_package_grid_size_by_alt[self.altitude]
+        neighbors, left, top = self.neighbors(self.original_map_volume['vol'][0], int(drone_position[1]),
+                                              int(drone_position[2]), region)
+        x = np.random.randint(0, neighbors.shape[0])
+        y = np.random.randint(0, neighbors.shape[1])
+        value = neighbors[x, y]
+        pack_world_coords = (x + left, y + top)
+        terrain = self.original_map_volume['value_feature_map'][value]['feature']
+        reward = self.position_value(terrain, alt, self.drop_rewards, self.drop_probabilities)
+        self.dist = np.linalg.norm(np.array(pack_world_coords) - np.array(self.hiker_position[-2:]))
+        reward -= self.dist*0.05
+        self.reward = reward
+        self.drop = True
 
     def take_action(self, delta_alt=0, delta_x=0, delta_y=0, new_heading=1):
         # print("stop")
@@ -349,7 +419,6 @@ class GridworldEnv(gym.Env):
 
     def step(self, action):
         ''' return next observation, reward, finished, success '''
-
         action = int(action)
         info = {}
         info['success'] = False
@@ -359,11 +428,12 @@ class GridworldEnv(gym.Env):
             self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
         hiker = self.hiker_position
         self.dist = np.linalg.norm(np.array(drone[-2:]) - np.array(hiker[-2:])) # we remove height from the equation so we avoid going diagonally down
-        x = eval(self.actionvalue_heading_action[action][self.heading])
+
+        x = eval(self.actionvalue_heading_action[action][self.heading]) # the actiovalue indexed by action gives all the actions
         crash = self.check_for_crash()
         info['success'] = not crash
         self.render()
-        reward = -0.01
+        reward = 0#-0.01
         if crash:
             reward = -1
             done = True
@@ -376,11 +446,13 @@ class GridworldEnv(gym.Env):
         #     reward = 1 / self.dist  # Put it here to avoid dividing by zero when you crash on the hiker
         # else:
         #     reward = -1 / self.dist
-        if self.check_for_hiker():
+
+        if self.drop:#self.check_for_hiker(): # Maybe redudant cauz if you didnt move then you dropped
             done = True
-            reward = 1
+            reward = self.reward
+            #reward = 1
             #reward = 1 + 1 / self.dist
-            print('SUCCESS!!!')
+            print('DROP!!!')
             if self.restart_once_done: # HAVE IT ALWAYS TRUE!!!
                 observation = self.reset()
                 return (observation, reward, done, info)
@@ -389,14 +461,16 @@ class GridworldEnv(gym.Env):
         return (self.generate_observation(), reward, done, info)
 
     def reset(self):
+        self.drop = False
+        self.reward = 0
         self.dist_old = 1000
         self.heading = random.randint(1, 8)
         self.altitude = 2
         _map = random.choice(self.maps)
         self.map_volume = CNP.map_to_volume_dict(_map[0], _map[1], 10, 10)
         # Set hiker's and drone's locations
-        hiker = (random.randint(2, self.map_volume['vol'].shape[1] - 1), random.randint(2, self.map_volume['vol'].shape[1] - 2)) # (7,7)
-        drone = (random.randint(2, self.map_volume['vol'].shape[1] - 1), random.randint(2, self.map_volume['vol'].shape[1] - 2)) #(2,3)#
+        hiker = (7,7)#(random.randint(2, self.map_volume['vol'].shape[1] - 1), random.randint(2, self.map_volume['vol'].shape[1] - 2)) #
+        drone = (2,3)#(random.randint(2, self.map_volume['vol'].shape[1] - 1), random.randint(2, self.map_volume['vol'].shape[1] - 2)) #
         while drone == hiker:
             drone = (random.randint(2, self.map_volume['vol'].shape[1] - 1),
                      random.randint(2, self.map_volume['vol'].shape[1] - 2))
@@ -406,9 +480,9 @@ class GridworldEnv(gym.Env):
         # self.local_coordinates = [local_x,local_y]
         # self.world_coordinates = [70,50]
         self.reference_coordinates = [_map[0], _map[1]]
-        self.actions = list(range(15))
+        #self.actions = list(range(15))
 
-        self.action_space = spaces.Discrete(15)
+        #self.action_space = spaces.Discrete(15)
         self.real_actions = False
         # put the drone in
         self.map_volume['vol'][self.altitude][drone[0], drone[1]] = \

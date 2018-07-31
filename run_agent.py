@@ -40,21 +40,21 @@ flags.DEFINE_integer("all_summary_freq", 50, "Record all summaries every n batch
 flags.DEFINE_integer("scalar_summary_freq", 5, "Record scalar summaries every n batch")
 flags.DEFINE_string("checkpoint_path", "_files/models", "Path for agent checkpoints")
 flags.DEFINE_string("summary_path", "_files/summaries", "Path for tensorboard summaries")
-flags.DEFINE_string("model_name", "Test_multple_maps", "Name for checkpoints and tensorboard summaries")
-flags.DEFINE_integer("K_batches", 30000,
+flags.DEFINE_string("model_name", "Drop_map", "Name for checkpoints and tensorboard summaries")
+flags.DEFINE_integer("K_batches", 5000,
     "Number of training batches to run in thousands, use -1 to run forever") #(MINE) not for now
 flags.DEFINE_string("map_name", "DefeatRoaches", "Name of a map to use.")
 flags.DEFINE_float("discount", 0.95, "Reward-discount for the agent")
-flags.DEFINE_boolean("training", False,
+flags.DEFINE_boolean("training", True,
     "if should train the model, if false then save only episode score summaries"
 )
-flags.DEFINE_enum("if_output_exists", "continue", ["fail", "overwrite", "continue"],
+flags.DEFINE_enum("if_output_exists", "overwrite", ["fail", "overwrite", "continue"],
     "What to do if summary and model output exists, only for training, is ignored if notraining")
 flags.DEFINE_float("max_gradient_norm", 500.0, "good value might depend on the environment")
 flags.DEFINE_float("loss_value_weight", 0.5, "good value might depend on the environment") # orig:1.0
 flags.DEFINE_float("entropy_weight_spatial", 0.00000001,
     "entropy of spatial action distribution loss weight") # orig:1e-6
-flags.DEFINE_float("entropy_weight_action", 0.001, "entropy of action-id distribution loss weight") # orig:1e-6
+flags.DEFINE_float("entropy_weight_action", 0.0001, "entropy of action-id distribution loss weight") # orig:1e-6
 flags.DEFINE_float("ppo_lambda", 0.95, "lambda parameter for ppo")
 flags.DEFINE_integer("ppo_batch_size", None, "batch size for ppo, if None use n_steps_per_batch")
 flags.DEFINE_integer("ppo_epochs", 3, "epochs per update")
