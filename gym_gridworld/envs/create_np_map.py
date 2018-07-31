@@ -40,6 +40,9 @@ def get_feature_value_maps(x,y,map):
 
     return (feature_value_map, value_feature_map)
 
+
+
+
 def convert_map_to_volume_dict(x,y,map,width,height):
     return_dict = {}
     top_left = (x,y)
@@ -59,7 +62,10 @@ def convert_map_to_volume_dict(x,y,map,width,height):
     #feature_value_map = {} #{[alt,feature]:value}#
     #value_feature_map = {} #{value:(alt,feature)}
     feature_value_map,value_feature_map = get_feature_value_maps(x,y,map)
-    value = 1.0
+    if list(value_feature_map.keys()):
+        value = max(list(value_feature_map.keys())) + 1
+    else:
+        value = 1.0
     for xy, feat in map.items():
         if feat[1] not in list(feature_value_map.keys()):
             #feature_value_map[feat[1]] = {}

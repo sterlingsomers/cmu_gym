@@ -4,6 +4,7 @@ import os
 import time
 import copy
 import math
+import itertools
 from gym import error, spaces, utils
 from gym.utils import seeding
 import numpy as np
@@ -64,6 +65,10 @@ class GridworldEnv(gym.Env):
             stateThread = threading.Thread(target=self.mavsimhandler.read_state)
             stateThread.start()
             time.sleep(0.4)
+
+        self.image_layers = {}
+
+
 
         #5x5 plane descriptions
         self.planes = {}
@@ -234,66 +239,11 @@ class GridworldEnv(gym.Env):
         print("here")
 
 
-        # self.action_map = {
-        #     0: self.take_action(self.heading,self.altitude,-1,self.heading-1,self.heading-2), #turn left, down 1
-        #
-        # }
-
-    # def __init__(self):
-    #     self.actions = list(range(15))
-    #     self.inv_actions = [0, 2, 1, 4, 3]
-    #     self.action_space = spaces.Discrete(15)
-    #     self.action_pos_dict = {0: [0,0], 1:[-1, 0], 2:[1,0], 3:[0,-1], 4:[0,1]}
-    #
-    #     ''' set observation space '''
-    #     self.obs_shape = [128, 128, 3]  # observation space shape
-    #     self.observation_space = spaces.Box(low=0, high=1, shape=self.obs_shape)
-    #
-    #     ''' initialize system state '''
-    #     this_file_path = os.path.dirname(os.path.realpath(__file__))
-    #     self.grid_map_path = os.path.join(this_file_path, 'plan5.txt')
-    #     self.start_grid_map = self._read_grid_map(self.grid_map_path) # initial grid map
-    #     self.current_grid_map = copy.deepcopy(self.start_grid_map)  # current grid map
-    #     self.observation = self._gridmap_to_observation(self.start_grid_map)
-    #     self.grid_map_shape = self.start_grid_map.shape
-    #
-    #     ''' agent state: start, target, current state '''
-    #     self.agent_start_state, _ = self._get_agent_start_target_state(
-    #                                 self.start_grid_map)
-    #     _, self.agent_target_state = self._get_agent_start_target_state(
-    #                                 self.start_grid_map)
-    #     self.agent_state = copy.deepcopy(self.agent_start_state)
-    #
-    #     ''' set other parameters '''
-    #     self.restart_once_done = False  # restart or not once done
-    #     self.verbose = False # to show the environment or not
-    #
-    #     GridworldEnv.num_env += 1
-    #     self.this_fig_num = GridworldEnv.num_env
-    #     if self.verbose == True:
-    #         self.fig = plt.figure(self.this_fig_num)
-    #         plt.show(block=False)
-    #         plt.axis('off')
-    #         self._render()
 
     def neighbors(self,arr, x, y, N):
         #https://stackoverflow.com/questions/32604856/slicing-outside-numpy-array
         #new_arr = np.zeros((N,N))
 
-        # Ap = np.lib.pad(arr.astype(int),1, 'constant',constant_values=(np.nan,np.nan))
-        # nx = np.arange(N) + x
-        # ny = np.arange(N) + y
-        # Acut = Ap[np.ix_(np.arange(N) + x, np.arange(N) + y)]
-        # Acut[np.isnan(Acut)] = np.nanmean(Acut)
-        #
-        # return Acut
-        # minx = min(x - N,0)
-        # miny = min(0,y - N)
-        # maxx = max()
-
-
-        # print(arr[x-N//2:x+N//2,y-N//2:y+N//2])
-        # return arr[x-N//2:x+N//2,y-N//2:y+N//2]
 
         left_offset = x - N//2
         top_offset = y - N // 2
@@ -310,16 +260,6 @@ class GridworldEnv(gym.Env):
         #return newArr
         return [window, left, top]
 
-        # fillval = window.mean()
-        #
-        # result = np.empty((2 * N + 1, 2 * N + 1))
-        # result[:] = fillval
-        #
-        # ll = N - x
-        # tt = N - y
-        # result[ll + left:ll + right + 1, tt + top:tt + bottom + 1] = window
-        #
-        # return result
 
     def position_value(self, terrain, altitude, reward_dict, probability_dict):
         damage_probability = probability_dict['damage_probability'][altitude]
@@ -424,22 +364,7 @@ class GridworldEnv(gym.Env):
 
         return 1
 
-    # def take_action(self,delta_alt=0,delta_x=0,delta_y=0,new_heading=1):
-    #     #print("take action called",delta_alt,delta_x,delta_y,new_heading)
-    #     local_coordinates = self.map_volume[self.altitude]['drone'].nonzero()
-    #     if int(local_coordinates[0]) + delta_y < 0 or  \
-    #         int(local_coordinates[1]) + delta_x < 0 or \
-    #         int(local_coordinates[0] + delta_y > 19) or \
-    #         int(local_coordinates[1] + delta_x > 19):
-    #         #print('take_action returning 0')
-    #         return 0
-    #     #print("this happened")
-    #     new_alt = self.altitude + delta_alt if self.altitude + delta_alt < 4 else 3
-    #     self.map_volume[self.altitude]['drone'][local_coordinates[0],local_coordinates[1]] = 0.0
-    #     self.map_volume[new_alt]['drone'][local_coordinates[0]+delta_y,local_coordinates[1]+delta_x] = 1.0
-    #     self.altitude = new_alt
-    #     self.heading = new_heading
-    #     return 1
+
     def available_action(self,action):
         drone_position = np.where(self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
         vol_shape = self.map_volume['vol'].shape
@@ -579,6 +504,13 @@ class GridworldEnv(gym.Env):
         self.map_volume['img'][hiker[0], hiker[1]] = self.map_volume['feature_value_map']['hiker']['color']
         self.hiker_position = np.where(self.map_volume['vol'] == self.map_volume['feature_value_map']['hiker']['val'])
 
+        self.image_layers[0] = self.create_image_from_volume(0)
+        self.image_layers[1] = self.create_image_from_volume(1)
+        self.image_layers[2] = self.create_image_from_volume(2)
+        self.image_layers[3] = self.create_image_from_volume(3)
+        self.image_layers[4] = self.create_image_from_volume(4)
+
+
         observation = self.generate_observation()
         return observation
 
@@ -639,8 +571,41 @@ class GridworldEnv(gym.Env):
             self.planes[heading][1][point[0], point[1]] = color
         return self.planes[heading][1]
 
+    def create_image_from_volume(self,altitude):
+        canvas = np.zeros((self.map_volume['vol'].shape[1], self.map_volume['vol'].shape[1], 3), dtype=np.uint8)
+        og_vol = self.original_map_volume
+        combinations = list(itertools.product(range(0,canvas.shape[0]), range(0,canvas.shape[0])))
+        for x,y in combinations:
+            if og_vol['vol'][altitude][x,y] == 0.0:
+                canvas[x,y,:] = [255,255,255]
+            else:
+                canvas[x,y,:] = og_vol['value_feature_map'][og_vol['vol'][altitude][x,y]]['color']
+
+        return imresize(canvas, self.factor * 100, interp='nearest')
+
     def generate_observation(self):
-        map = self.original_map_volume['img']
+        obs = {}
+        obs['volume'] = self.map_volume
+        image_layers = copy.deepcopy(self.image_layers)
+        map = copy.deepcopy(self.original_map_volume['img'])
+
+        #put the drone in the image layer
+        drone_position = np.where(self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
+        drone_position = (int(drone_position[1]) * self.factor, int(drone_position[2]) * self.factor)
+        for point in self.planes[self.heading][0]:
+            image_layers[self.altitude][drone_position[0] + point[0],drone_position[1] + point[1],:] = self.map_volume['feature_value_map']['drone'][self.altitude]['color']
+
+        #put the hiker in the image layers
+        hiker_position = (int(self.hiker_position[1] * self.factor), int(self.hiker_position[2]) * self.factor)
+        for point in self.hikers[0][0]:
+            image_layers[0][hiker_position[0]+point[0],hiker_position[1]+point[1],:] = self.map_volume['feature_value_map']['hiker']['color']
+
+
+
+
+
+
+        #map = self.original_map_volume['img']
         map = imresize(map, self.factor * 100, interp='nearest') #resize by factor of 5
         #add the hiker
         hiker_position = (int(self.hiker_position[1]* 5), int(self.hiker_position[2]) * 5)
@@ -655,7 +620,9 @@ class GridworldEnv(gym.Env):
         #map[drone_position[0]:drone_position[0] + 5,drone_position[1]:drone_position[1] + 5] = self.plane_image(self.heading,self.map_volume['feature_value_map']['drone'][self.altitude]['color'])
 
         #map = imresize(map, (1000,1000), interp='nearest')
-        return map
+        obs['img'] = map
+        obs['image_layers'] = image_layers
+        return obs
 
 
 
@@ -666,7 +633,7 @@ class GridworldEnv(gym.Env):
         #    return
         #img = self.observation
         #map = self.original_map_volume['img']
-        map = self.generate_observation()
+        map = self.generate_observation()['img']
         #map = self.map_volume['flat'] / self.altitude
         #fig = plt.figure(self.this_fig_num)
         #img = np.zeros((20,20,3))
@@ -692,7 +659,7 @@ class GridworldEnv(gym.Env):
 
         fig = plt.figure(0)
         plt.clf()
-        plt.imshow(map,vmax=9)
+        plt.imshow(map)
         fig.canvas.draw()
         plt.pause(0.00001)
         return 
@@ -821,6 +788,6 @@ a.reset()
 #         print("hiker after", i)
 #         a.reset()
 
-a.step(15)
+#a.step(15)
 #print(a.check_for_crash())
 print('complete')#, (datetime.datetime.now().second - now.second))
