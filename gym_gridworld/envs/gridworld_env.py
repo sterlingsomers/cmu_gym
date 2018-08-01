@@ -23,12 +23,6 @@ import create_np_map as CNP
 
 from mavsim_server import MavsimHandler
 
-# define colors
-# 0: black; 1 : gray; 2 : blue; 3 : green; 4 : red
-COLORS = {0:[0.0,0.0,0.0], 1:[0.5,0.5,0.5], \
-          2:[0.0,0.0,1.0], 3:[0.0,1.0,0.0], \
-          4:[1.0,0.0,0.0], 6:[1.0,0.0,1.0], \
-          7:[1.0,1.0,0.0]}
 
 class GridworldEnv(gym.Env):
     metadata = {'render.modes': ['human']}
@@ -44,21 +38,10 @@ class GridworldEnv(gym.Env):
         #self.world_coordinates = [70,50]
         self.reference_coordinates = [70,50]
         self.actions = list(range(15))
-        #self.heading = heading
-        #self.altitude = altitude
+
         self.action_space = spaces.Discrete(15)
         self.real_actions = False
-        # put the drone in
-        #self.map_volume['vol'][altitude][local_y,local_x] = self.map_volume['feature_value_map']['drone'][altitude]['val']
-        #self.map_volume['flat'][local_y,local_x] = self.map_volume['feature_value_map']['drone'][altitude]['val']
-        #self.map_volume['img'][local_y,local_x] = self.map_volume['feature_value_map']['drone'][altitude]['color']
-        #self.map_volume[altitude]['drone'][local_y, local_x] = 1.0
-        #put the hiker in@ altitude 0
-        #self.map_volume['vol'][0][hiker_y,hiker_x] = self.map_volume['feature_value_map']['hiker']['val']
-        #self.map_volume['flat'][hiker_y,hiker_x] = self.map_volume['feature_value_map']['hiker']['val']
-        #self.map_volume['img'][hiker_y,hiker_x] = self.map_volume['feature_value_map']['hiker']['color']
-        #self.hiker_position = np.where(self.map_volume['vol'] == self.map_volume['feature_value_map']['hiker']['val'])
-        #self.map_volume[0]['hiker'][hiker_y,hiker_x] = 1.0
+
 
         if self.real_actions:
             self.mavsimhandler = MavsimHandler()
@@ -100,7 +83,17 @@ class GridworldEnv(gym.Env):
         "CRASHED": -30
         }
 
+        self.possible_actions_map = {
+            1: [[0,-1],[-1,-1],[-1,0],[-1,1],[0,1]],
+            2: [[-1,-1],[0,-1],[1,-1],[1,0],[1,1]],
+            3: [[-1,0],[-1,1],[0,1],[1,1],[1,0]],
+            4: [[-1,1],[0,1],[1,1],[1,0],[1,-1]],
+            5: [[0,1],[1,1],[1,0],[1,-1],[0,-1]],
+            6: [[1,1],[1,0],[1,-1],[0,-1],[-1,-1]],
+            7: [[-1,0],[-1,-1],[0,-1],[-1,-1],[-1,0]],
+            8: [[1,-1],[0,-1],[-1,-1],[-1,0],[-1,-1]]
 
+        }
         self.actionvalue_heading_action = {
             0: {1:'self.take_action(delta_alt=-1,delta_x=-1,delta_y=0,new_heading=7)',
                 2:'self.take_action(delta_alt=-1,delta_x=-1,delta_y=-1,new_heading=8)',
@@ -306,6 +299,8 @@ class GridworldEnv(gym.Env):
 
 
 
+
+
     def take_action(self,delta_alt=0,delta_x=0,delta_y=0,new_heading=1):
         #print("stop")
         vol_shape = self.map_volume['vol'].shape
@@ -370,6 +365,8 @@ class GridworldEnv(gym.Env):
     def available_action(self,action):
         drone_position = np.where(self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
         vol_shape = self.map_volume['vol'].shape
+
+
 
 
 
@@ -588,6 +585,32 @@ class GridworldEnv(gym.Env):
 
         return imresize(canvas, self.factor * 100, interp='nearest')
 
+    def create_nextstep_image(self):
+        canvas = np.zeros((5, 5, 3), dtype=np.uint8)
+        slice = np.zeros((5,5))
+        drone_position = np.where(self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
+        drone_position_flat = [int(drone_position[1]), int(drone_position[2])]
+        column_number = 0
+        for xy in self.possible_actions_map[self.heading]:
+            try:
+                column = self.map_volume['vol'][:,drone_position_flat[0]+xy[0],drone_position_flat[1]+xy[1]]
+            except IndexError:
+                column = [1.,1.,1.,1.,1.]
+            slice[:,column_number] = column
+            column_number += 1
+            print("ok")
+        #put the drone in
+        #cheat
+        slice[self.altitude,2] = int(self.map_volume['vol'][drone_position])
+        combinations = list(itertools.product(range(0, canvas.shape[0]), range(0, canvas.shape[0])))
+        for x, y in combinations:
+            if slice[x, y] == 0.0:
+                canvas[x, y, :] = [255, 255, 255]
+            else:
+                canvas[x, y, :] = self.map_volume['value_feature_map'][slice[x, y]]['color']
+        return imresize(np.flip(canvas,0), self.factor * 100, interp='nearest')
+
+
 
 
     def generate_observation(self):
@@ -649,6 +672,8 @@ class GridworldEnv(gym.Env):
             else:
                 slice2_img[x, y, :] = self.original_map_volume['value_feature_map'][slice2[x, y]]['color']
         obs['slice_images'] = [slice1_img,slice2_img]
+
+        nextstepimage = self.create_nextstep_image()
 
         obs['img'] = map
         obs['image_layers'] = image_layers
