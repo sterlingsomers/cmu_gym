@@ -436,8 +436,7 @@ class GridworldEnv(gym.Env):
         crash = self.check_for_crash()
         info['success'] = not crash
         self.render()
-        #dist = np.linalg.norm(np.array(drone[0]) - np.array(hiker[0]))
-        reward = 0#-self.dist*0.05#-self.altitude#1/dist#-0.01#0#1/self.dist#
+        reward = -0.01
         if crash:
             reward = -1# + reward
             done = True
@@ -453,9 +452,9 @@ class GridworldEnv(gym.Env):
         if self.check_for_hiker(): # self.drop:# Maybe redudant cauz if you didnt move then you dropped
             done = True
             #reward = 1.5*self.reward + 1/(self.dist+1e-7) + 0.1/(self.altitude+1e-7)#+ reward#+ 1/dist#+ 1/self.dist
-            #reward = 1
-            reward = 1# + 1 / (self.altitude+1e-7)
-            print('DROP!!!')
+            reward = 1
+            #reward = 1 + 1 / (self.altitude+1e-7)
+            print('SUCCESS!!!')
             if self.restart_once_done: # HAVE IT ALWAYS TRUE!!!
                 observation = self.reset()
                 return (observation, reward, done, info)

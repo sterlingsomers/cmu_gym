@@ -215,8 +215,7 @@ class ActorCriticAgent:
         self._scalar_summary("loss/neg_entropy_action_id", neg_entropy_action_id)
         self._scalar_summary("loss/total", loss)
         self._scalar_summary("value/advantage", tf.reduce_mean(self.placeholders.advantage))
-        self._scalar_summary("action/selected_total_log_prob",
-            tf.reduce_mean(selected_log_probs.total))
+        self._scalar_summary("action/selected_total_log_prob",tf.reduce_mean(selected_log_probs.total))
         # self._scalar_summary("action/selected_spatial_log_prob",
         #     tf.reduce_sum(selected_log_probs.spatial) / sum_spatial_action_available)
 

@@ -37,30 +37,31 @@ class FullyConvPolicy:
             data_format="NHWC",
             num_outputs=64,
             kernel_size=4,
-            stride=2,
+            stride=1,#2,
             padding='SAME',
             activation_fn=tf.nn.relu,
             scope="%s/conv2" % name,
             trainable=self.trainable
         )
-        conv3 = layers.conv2d(
-            inputs=conv2,
-            data_format="NHWC",
-            num_outputs=64,
-            kernel_size=3,
-            stride=1,
-            padding='SAME',
-            activation_fn=tf.nn.relu,
-            scope="%s/conv3" % name,
-            trainable=self.trainable
-        )
+        # conv3 = layers.conv2d(
+        #     inputs=conv2,
+        #     data_format="NHWC",
+        #     num_outputs=64,
+        #     kernel_size=3,
+        #     stride=1,
+        #     padding='SAME',
+        #     activation_fn=tf.nn.relu,
+        #     scope="%s/conv3" % name,
+        #     trainable=self.trainable
+        # )
 
         if self.trainable:
             layers.summarize_activation(conv1)
             layers.summarize_activation(conv2)
-            layers.summarize_activation(conv3)
+            # layers.summarize_activation(conv3)
 
         return conv2
+        # return conv3
 
     def build(self):
         # units_embedded = layers.embed_sequence(
@@ -81,7 +82,7 @@ class FullyConvPolicy:
         #     num_classes=MINIMAP_FEATURES.player_relative.scale
         # )[:, :, :, 1:]
         #
-        channel_axis = 2
+        # channel_axis = 2
         # alt0_all = tf.concat(
         #     [self.placeholders.alt0_grass, self.placeholders.alt0_bush, self.placeholders.alt0_drone, self.placeholders.alt0_hiker],
         #     axis=channel_axis
