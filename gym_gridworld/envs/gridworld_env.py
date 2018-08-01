@@ -573,6 +573,7 @@ class GridworldEnv(gym.Env):
             self.planes[heading][1][point[0], point[1]] = color
         return self.planes[heading][1]
 
+
     def create_image_from_volume(self,altitude):
         canvas = np.zeros((self.map_volume['vol'].shape[1], self.map_volume['vol'].shape[1], 3), dtype=np.uint8)
         og_vol = self.original_map_volume
@@ -584,6 +585,8 @@ class GridworldEnv(gym.Env):
                 canvas[x,y,:] = og_vol['value_feature_map'][og_vol['vol'][altitude][x,y]]['color']
 
         return imresize(canvas, self.factor * 100, interp='nearest')
+
+
 
     def create_nextstep_image(self):
         canvas = np.zeros((5, 5, 3), dtype=np.uint8)
@@ -674,7 +677,7 @@ class GridworldEnv(gym.Env):
         obs['slice_images'] = [slice1_img,slice2_img]
 
         nextstepimage = self.create_nextstep_image()
-
+        obs['nextstepimage'] = nextstepimage
         obs['img'] = map
         obs['image_layers'] = image_layers
         return obs
