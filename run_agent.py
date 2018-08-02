@@ -16,6 +16,7 @@ import tensorflow as tf
 # tf.enable_eager_execution()
 
 #import argparse
+sys.path.append('/Users/paulsomers/COGLE/baselines')
 from baselines import logger
 from baselines.bench import Monitor
 #from baselines.common.misc_util import boolean_flag
@@ -30,6 +31,7 @@ import gym_gridworld
 
 FLAGS = flags.FLAGS
 flags.DEFINE_bool("visualize", False, "Whether to render with pygame.")
+flags.DEFINE_bool("stats", True, "whether to display stats after (not training)")
 flags.DEFINE_integer("resolution", 32, "Resolution for screen and minimap feature layers.")
 flags.DEFINE_integer("step_mul", 100, "Game steps per agent step.")
 flags.DEFINE_integer("n_envs", 20, "Number of environments to run in parallel")
@@ -45,7 +47,7 @@ flags.DEFINE_integer("K_batches", 8000,
     "Number of training batches to run in thousands, use -1 to run forever") #(MINE) not for now
 flags.DEFINE_string("map_name", "DefeatRoaches", "Name of a map to use.")
 flags.DEFINE_float("discount", 0.95, "Reward-discount for the agent")
-flags.DEFINE_boolean("training", True,
+flags.DEFINE_boolean("training", False,
     "if should train the model, if false then save only episode score summaries"
 )
 flags.DEFINE_enum("if_output_exists", "overwrite", ["fail", "overwrite", "continue"],
@@ -260,6 +262,20 @@ def main():
             pass
 
     print("Okay. Work is done")
+    if not FLAGS.training:
+        if FLAGS.stats:
+            #calculate average score
+            summed_score_all_episodes = 0
+            summed_steps_all_episodes = 0
+            summed_crashes_all_episodes = 0
+            num_episodes = len(runner.episode_record.keys())
+            for episode in runner.episode_record:
+                summed_score_all_episodes += runner.episode_record[episode]['score']
+                summed_steps_all_episodes += runner.episode_record[episode]['steps']
+                summed_crashes_all_episodes += runner.episode_record[episode]['crash']
+            print("Average Score: {}".format(summed_score_all_episodes/num_episodes))
+            print("Average Steps: {}".format(summed_steps_all_episodes/num_episodes))
+            print("Total Crashes: {}".format(summed_crashes_all_episodes))
     #_print(i)
     if FLAGS.training:
         _save_if_training(agent)

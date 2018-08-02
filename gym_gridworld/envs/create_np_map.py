@@ -3,7 +3,7 @@ import pickle
 import numpy as np
 from gym_gridworld.envs.mapquery import terrain_request
 from pathlib import Path
-path='./gym_gridworld/'
+path='/Users/paulsomers/COGLE/gym-gridworld/gym_gridworld/envs/'
 # map = pickle.load(open('050070.dict','rb'))
 # top_left = (50,70)
 # #make the volume
@@ -181,6 +181,6 @@ def map_to_volume_dict(x=0,y=0,width=5,height=5):
 
 
 #sample code
-a = map_to_volume_dict(70,50,10,10)
-f,v = get_feature_value_maps(300,200,a) #300,200
-print('complete.')
+#a = map_to_volume_dict(70,50,10,10)
+#f,v = get_feature_value_maps(300,200,a) #300,200
+#print('complete.')

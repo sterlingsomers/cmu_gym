@@ -40,11 +40,12 @@ class GridworldEnv(gym.Env):
         # # TODO: Pass the environment with arguments
 
         #num_alts = 4
-        self.verbose = False # to show the environment or not
+        self.verbose = True# to show the environment or not
         self.restart_once_done = True  # restart or not once done
         self.drop = False
         self.maps = [(400, 35)]#, (400, 35)] # [(70, 50)] #[(86, 266)]  # For testing
         self.dist_old = 1000
+        self.info = {'success':False, 'crash':False}
         #self.map_volume = CNP.map_to_volume_dict(map_x, map_y, width, height)
         self.drop_package_grid_size_by_alt = {1: 3, 2: 5, 3: 7}
         # self.original_map_volume = copy.deepcopy(self.map_volume)
@@ -397,8 +398,9 @@ class GridworldEnv(gym.Env):
         ''' return next observation, reward, finished, success '''
 
         action = int(action)
-        info = {}
-        info['success'] = False
+        #self.info = {}
+        self.info['success'] = False
+        self.info['crash'] = False
 
         done = False
         drone = np.where(
@@ -407,16 +409,17 @@ class GridworldEnv(gym.Env):
         self.dist = np.linalg.norm(np.array(drone[-2:]) - np.array(hiker[-2:])) # we remove height from the equation so we avoid going diagonally down
         x = eval(self.actionvalue_heading_action[action][self.heading])
         crash = self.check_for_crash()
-        info['success'] = not crash
+        self.info['success'] = not crash
         self.render()
         reward = (self.alt_rewards[self.altitude]*0.1)*(1/self.dist**2+1e-7) # -0.01 + #
         if crash:
+            self.info['crash'] = True
             reward = -1
             done = True
             print("CRASH")
             if self.restart_once_done: # HAVE IT ALWAYS TRUE!!! It learned the first time WITHOUT RESETING FROM CRASH
                 observation = self.reset()
-                return (observation, reward, done, info)
+                return (observation, reward, done, self.info)
             #return (self.generate_observation(), reward, done, info)
         # if self.dist < self.dist_old:
         #     reward = 1 / self.dist  # Put it here to avoid dividing by zero when you crash on the hiker
@@ -429,10 +432,10 @@ class GridworldEnv(gym.Env):
             print('SUCCESS!!!')
             if self.restart_once_done: # HAVE IT ALWAYS TRUE!!!
                 observation = self.reset()
-                return (observation, reward, done, info)
+                return (observation, reward, done, self.info)
         # print("state", [ self.observation[self.altitude]['drone'].nonzero()[0][0],self.observation[self.altitude]['drone'].nonzero()[1][0]] )
         self.dist_old = self.dist
-        return (self.generate_observation(), reward, done, info)
+        return (self.generate_observation(), reward, done, self.info)
 
     def reset(self):
         self.dist_old = 1000
@@ -440,6 +443,7 @@ class GridworldEnv(gym.Env):
         self.heading = random.randint(1, 8)
         self.altitude = 2
         self.reward = 0
+        self.info = {}
         _map = random.choice(self.maps)
         self.map_volume = CNP.map_to_volume_dict(_map[0], _map[1], 10, 10)
         # Set hiker's and drone's locations
@@ -517,7 +521,7 @@ class GridworldEnv(gym.Env):
                     #print(p)
                     #print(p == 50.0)
                     if p == 50.0: # Hiker representation in the volume
-                        print("setting hiker_found to True")
+                        #print("setting hiker_found to True")
                         hiker_found = True
 
                 if hiker_found:
@@ -547,8 +551,8 @@ class GridworldEnv(gym.Env):
         canvas = imresize(canvas, self.factor * 100, interp='nearest')
         # hiker_position = (int(self.hiker_position[1] * 5), int(self.hiker_position[2]) * 5)
         # map[hiker_position[0]:hiker_position[0]+5,hiker_position[1]:hiker_position[1]+5,:] = self.hiker_image
-        print("hiker found", hiker_found)
-        print("hiker_point", hiker_point)
+        #print("hiker found", hiker_found)
+        #print("hiker_point", hiker_point)
         if hiker_found:
             for point in self.hikers[0][0]:
                 canvas[hiker_point[0] * self.factor + point[0], hiker_point[1] * self.factor + point[1], :] = \

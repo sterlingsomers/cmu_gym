@@ -36,7 +36,11 @@ class Runner(object):
         self.ppo_par = ppo_par
         self.batch_counter = 0
         self.episode_counter = 0
+        self.episode_score = 0
         self.score = 0.0
+        self.episode_steps = 0
+        self.crashed = 0
+        self.episode_record = {}
         assert self.agent.mode in [ACMode.PPO, ACMode.A2C]
         self.is_ppo = self.agent.mode == ACMode.PPO
         if self.is_ppo:
@@ -61,12 +65,19 @@ class Runner(object):
         self.agent.summary_writer.add_summary(summary, self.episode_counter)
 
     def _handle_episode_end(self, timestep):
+        self.episode_record[self.episode_counter] = {}
+        self.episode_record[self.episode_counter]['score'] = self.episode_score
+        self.episode_record[self.episode_counter]['steps'] = self.episode_steps
+        self.episode_record[self.episode_counter]['crash'] = self.crashed
         #(MINE) This timestep is actually the last set of feature observations
         #score = timestep.observation["score_cumulative"][0]
         self.score = (self.score + timestep) # //self.episode_counter # It is zero at the beginning so you get inf
         print(">>>>>>>>>>>>>>>>>>>>>>>>>>>episode %d ended. Score %f" % (self.episode_counter, self.score))
         self._log_score_to_tb(self.score)
         self.episode_counter += 1
+        self.episode_score = 0.0
+        self.episode_steps = 0
+        self.crashed = 0
         #self.reset() # Error if Monitor doesnt have the option to reset without an env to be done (THIS RESETS ALL ENVS!!! YOU NEED remot.send(env.reset) to reset a specific env. Else restart within the env
 
     def _train_ppo_epoch(self, full_input):
@@ -158,7 +169,8 @@ class Runner(object):
         sys.stdout.flush()
 
     def run_trained_batch(self):
-        sleep(2.0)
+        sleep(0.0)
+        self.episode_steps += 1
         # state = state(0), initialized by the env.reset() in run_agent
         latest_obs = self.latest_obs # (MINE) =state(t)
         # action = agent(state)
@@ -166,6 +178,12 @@ class Runner(object):
         print('|actions:', action_ids)
         obs_raw = self.envs.step(action_ids) # It will also visualize the next observation if all the episodes have ended as after success it retunrs the obs from reset
         latest_obs = self.obs_processer.process(obs_raw[0:-3])  # (MINE) =process(state(t+1)). Processes all inputs/obs from all timesteps
+        self.episode_score += obs_raw[1]
+        if obs_raw[1] == -1 and 'crash' not in self.envs.info:
+            self.crashed = 1
+
+#        if self.envs.info['crash']:
+#            self.crashed = 1
         print('-->|rewards:', np.round(np.mean(obs_raw[1]), 3))
 
 
