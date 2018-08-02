@@ -593,25 +593,57 @@ class GridworldEnv(gym.Env):
         slice = np.zeros((5,5))
         drone_position = np.where(self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
         drone_position_flat = [int(drone_position[1]), int(drone_position[2])]
+        hiker_found = False
+        hiker_point = [0, 0]
+        hiker_background_color = None
         column_number = 0
         for xy in self.possible_actions_map[self.heading]:
             try:
+                #no hiker if using original
                 column = self.map_volume['vol'][:,drone_position_flat[0]+xy[0],drone_position_flat[1]+xy[1]]
+                for p in column:
+                    print(p)
+                    print(p == 50.0)
+                    if p == 50.0:
+                        print("setting hiker_found to True")
+                        hiker_found = True
+
+                if hiker_found:
+                    val = self.original_map_volume['vol'][0][drone_position_flat[0]+xy[0],drone_position_flat[1]+xy[1]]
+                    hiker_background_color = self.original_map_volume['value_feature_map'][val]['color']
+                    #column = self.original_map_volume['vol'][:,drone_position_flat[0]+xy[0],drone_position_flat[1]+xy[1]]
             except IndexError:
                 column = [1.,1.,1.,1.,1.]
             slice[:,column_number] = column
             column_number += 1
             print("ok")
         #put the drone in
-        #cheat
+
         slice[self.altitude,2] = int(self.map_volume['vol'][drone_position])
+        #canvas = imresize(canvas, self.factor*200, interp='nearest')
+
         combinations = list(itertools.product(range(0, canvas.shape[0]), range(0, canvas.shape[0])))
         for x, y in combinations:
             if slice[x, y] == 0.0:
                 canvas[x, y, :] = [255, 255, 255]
+            elif slice[x,y] == 50.0:
+                canvas[x, y, :] = hiker_background_color
+                hiker_point = [x,y]
             else:
                 canvas[x, y, :] = self.map_volume['value_feature_map'][slice[x, y]]['color']
-        return imresize(np.flip(canvas,0), self.factor * 100, interp='nearest')
+
+        #increase the image size, then put the hiker in
+        canvas = imresize(canvas,self.factor * 100, interp='nearest')
+        #hiker_position = (int(self.hiker_position[1] * 5), int(self.hiker_position[2]) * 5)
+        # map[hiker_position[0]:hiker_position[0]+5,hiker_position[1]:hiker_position[1]+5,:] = self.hiker_image
+        print("hiker found", hiker_found)
+        print("hiker_point",hiker_point)
+        if hiker_found:
+            for point in self.hikers[0][0]:
+                canvas[hiker_point[0]*self.factor + point[0], hiker_point[1]*self.factor + point[1], :] = \
+                self.map_volume['feature_value_map']['hiker']['color']
+
+        return imresize(np.flip(canvas,0), 200, interp='nearest')
 
 
 
