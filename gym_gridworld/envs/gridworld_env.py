@@ -39,8 +39,8 @@ class GridworldEnv(gym.Env):
 
         # # TODO: Pass the environment with arguments
 
-        #num_alts = 4
-        self.verbose = True# to show the environment or not
+        ##num_alts = 4
+        self.verbose = False# to show the environment or not
         self.restart_once_done = True  # restart or not once done
         self.drop = False
         self.maps = [(400, 35)]#, (400, 35)] # [(70, 50)] #[(86, 266)]  # For testing
