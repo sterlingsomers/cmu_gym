@@ -358,15 +358,27 @@ def main():
                 surf = pygame.transform.scale(surf, (300, 300))
                 gameDisplay.blit(surf, (x, y))
 
+            dictionary = {}
             running = True
             while nav_runner.episode_counter <= (FLAGS.episodes - 1) and running==True:
                 print('Episode: ', nav_runner.episode_counter)
+                # Init storage structures
+                dictionary[nav_runner.episode_counter] = {}
+                mb_obs = []
+                mb_actions = []
+                mb_flag = []
+                # dictionary[nav_runner.episode_counter]['observations'] = {}
+                # dictionary[nav_runner.episode_counter]['actions'] = []
+                # dictionary[nav_runner.episode_counter]['flag'] = []
+
                 nav_runner.reset_demo()  # Cauz of differences in the arrangement of the dictionaries
                 map_xy = nav_runner.envs.map_image
                 map_alt = nav_runner.envs.alt_view
                 process_img(map_xy, 20, 20)
                 process_img(map_alt, 20, 400)
                 pygame.display.update()
+
+
                 # Quit pygame if the (X) button is pressed on the top left of the window
                 # Seems that without this for event quit doesnt show anything!!!
                 # Also it seems that the pygame.event.get() is responsible to REALLY updating the screen contents
@@ -380,9 +392,17 @@ def main():
                 drop_flag = 0
                 done = 0
                 while done==0:
+
+                    mb_obs.append(nav_runner.latest_obs)
+                    mb_flag.append(drop_flag)
+                    # dictionary[nav_runner.episode_counter]['observations'].append(nav_runner.latest_obs)
+                    # dictionary[nav_runner.episode_counter]['flag'].append(drop_flag)
+
                     # RUN THE MAIN LOOP
                     obs, action, value, reward, done = nav_runner.run_trained_batch(drop_flag) # Just one step. There is no monitor here so no info section
 
+                    # dictionary[nav_runner.episode_counter]['actions'].append(action)
+                    mb_actions.append(action)
                     rewards.append(reward)
 
                     screen_mssg_variable("Value    : ", np.round(value,3), (168, 350))
@@ -410,9 +430,22 @@ def main():
                         drop_runner.latest_obs = nav_runner.latest_obs
                         done2 = 0
                         drop_flag = 1
+                        # Store
+                        mb_obs.append(nav_runner.latest_obs)
+                        mb_flag.append(drop_flag)
+                        # dictionary[nav_runner.episode_counter]['observations'].append(nav_runner.latest_obs)
+                        # dictionary[nav_runner.episode_counter]['flag'].append(drop_flag)
                         while done2==0:
                             obs, action, value, reward, done2 = drop_runner.run_trained_batch(drop_flag)
                             rewards.append(reward)
+
+                            # Store
+                            mb_obs.append(drop_runner.latest_obs)
+                            mb_flag.append(0) # We need to put zero only once
+                            mb_actions.append(action)
+                            # dictionary[nav_runner.episode_counter]['observations'].append(drop_runner.latest_obs)
+                            # dictionary[nav_runner.episode_counter]['flag'].append(drop_flag)
+                            # dictionary[nav_runner.episode_counter]['actions'].append(action)
 
                             screen_mssg_variable("Value    : ", np.round(value, 3), (168, 350))
                             screen_mssg_variable("Reward: ", np.round(reward, 3), (168, 372))
@@ -438,6 +471,9 @@ def main():
                             sleep(1.2)
                             t = t +1
 
+                        dictionary[nav_runner.episode_counter]['observations'] = mb_obs
+                        dictionary[nav_runner.episode_counter]['flag'] = mb_flag
+                        dictionary[nav_runner.episode_counter]['actions'] = mb_actions
                         score = sum(rewards)
                         print(">>>>>>>>>>>>>>>>>>>>>>>>>>> episode %d ended in %d steps. Score %f" % (nav_runner.episode_counter, t, score))
                         nav_runner.episode_counter += 1
