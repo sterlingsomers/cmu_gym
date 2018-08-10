@@ -176,15 +176,31 @@ def main():
     #env = gym.make('gridworld-v0')
     tf.reset_default_graph()
     # The following lines fix the problem with using more than 2 envs!!!
-    config = tf.ConfigProto()
-    config.gpu_options.allow_growth = True
-    sess = tf.Session(config=config)
-    #sess = tf.Session()
-
-    agent = ActorCriticAgent(
+    # config = tf.ConfigProto()
+    # config.gpu_options.allow_growth = True
+    # sess = tf.Session(config=config)
+    # #sess = tf.Session()
+    #
+    # agent = ActorCriticAgent(
+    #     mode=FLAGS.agent_mode,
+    #     sess=sess,
+    #     spatial_dim=FLAGS.resolution, # Here you pass the resolution which is used in the step for the output probabilities map
+    #     unit_type_emb_dim=5,
+    #     loss_value_weight=FLAGS.loss_value_weight,
+    #     entropy_weight_action_id=FLAGS.entropy_weight_action,
+    #     entropy_weight_spatial=FLAGS.entropy_weight_spatial,
+    #     scalar_summary_freq=FLAGS.scalar_summary_freq,
+    #     all_summary_freq=FLAGS.all_summary_freq,
+    #     summary_path=full_summary_path,
+    #     max_gradient_norm=FLAGS.max_gradient_norm,
+    #     num_actions=envs.action_space.n
+    # )
+    # Make drop agent
+    drop_agent = ActorCriticAgent(
         mode=FLAGS.agent_mode,
-        sess=sess,
-        spatial_dim=FLAGS.resolution, # Here you pass the resolution which is used in the step for the output probabilities map
+        sess=[],
+        spatial_dim=FLAGS.resolution,
+        # Here you pass the resolution which is used in the step for the output probabilities map
         unit_type_emb_dim=5,
         loss_value_weight=FLAGS.loss_value_weight,
         entropy_weight_action_id=FLAGS.entropy_weight_action,
@@ -195,14 +211,28 @@ def main():
         max_gradient_norm=FLAGS.max_gradient_norm,
         num_actions=envs.action_space.n
     )
+
+    drop_graph = tf.Graph()
+    with drop_graph.as_default():
+        drop_agent.build_model()
+
+    drop_sess = tf.Session(graph=drop_graph)
+    drop_agent.sess = drop_sess
+
+
+
+    with drop_graph.as_default():
+        if os.path.exists(full_chekcpoint_path):
+            drop_agent.load(full_chekcpoint_path)
+
     # Build Agent
-    agent.build_model()
-    if os.path.exists(full_chekcpoint_path):
-        agent.load(full_chekcpoint_path) #(MINE) LOAD!!!
-    else:
-        agent.init()
-# (MINE) Define TIMESTEPS per episode (batch as each worker has its own episodes -- different timelines)
-    # If it is not training you don't need that many steps. You need one to take the decision...Actually seem to be game steps
+    #agent.build_model()
+    # if os.path.exists(full_chekcpoint_path):
+    #     agent.load(full_chekcpoint_path) #(MINE) LOAD!!!
+    # else:
+    #     agent.init()
+
+
     if FLAGS.n_steps_per_batch is None:
         n_steps_per_batch = 128 if FLAGS.agent_mode == ACMode.PPO else 8
     else:
@@ -217,9 +247,44 @@ def main():
     else:
         ppo_par = None
 
-    runner = Runner(
+    drop_runner = Runner(
         envs=envs,
-        agent=agent,
+        agent=drop_agent,
+        discount=FLAGS.discount,
+        n_steps=n_steps_per_batch,
+        do_training=FLAGS.training,
+        ppo_par=ppo_par
+    )
+
+    # Make navigation agent
+    nav_agent = ActorCriticAgent(
+        mode=FLAGS.agent_mode,
+        sess=[],
+        spatial_dim=FLAGS.resolution,
+        # Here you pass the resolution which is used in the step for the output probabilities map
+        unit_type_emb_dim=5,
+        loss_value_weight=FLAGS.loss_value_weight,
+        entropy_weight_action_id=FLAGS.entropy_weight_action,
+        entropy_weight_spatial=FLAGS.entropy_weight_spatial,
+        scalar_summary_freq=FLAGS.scalar_summary_freq,
+        all_summary_freq=FLAGS.all_summary_freq,
+        summary_path=full_summary_path,
+        max_gradient_norm=FLAGS.max_gradient_norm,
+        num_actions=15
+    )
+    nav_graph = tf.Graph()
+    with nav_graph.as_default():
+        nav_agent.build_model()
+
+    nav_sess = tf.Session(graph=nav_graph)
+    nav_agent.sess = nav_sess
+    with nav_graph.as_default():
+        if os.path.exists('_files/models/Navigation_8_steps_simpleR'):
+            nav_agent.load('_files/models/Navigation_8_steps_simpleR')
+
+    nav_runner = Runner(
+        envs=envs,
+        agent=nav_agent,
         discount=FLAGS.discount,
         n_steps=n_steps_per_batch,
         do_training=FLAGS.training,
@@ -285,7 +350,6 @@ def main():
                 font = pygame.font.SysFont('arial', 16)
                 txt = font.render(text + str(variable), True, WHITE)
                 gameDisplay.blit(txt, area)
-                #pygame.display.update()
 
             def process_img(img, x,y):
                 # swap the axes else the image will come not the same as the matplotlib one
@@ -295,11 +359,11 @@ def main():
                 gameDisplay.blit(surf, (x, y))
 
             running = True
-            while runner.episode_counter <= (FLAGS.episodes - 1) and running==True:
-                print('Episode: ', runner.episode_counter)
-                runner.reset_demo()  # Cauz of differences in the arrangement of the dictionaries
-                map_xy = runner.envs.map_image
-                map_alt = runner.envs.alt_view
+            while nav_runner.episode_counter <= (FLAGS.episodes - 1) and running==True:
+                print('Episode: ', nav_runner.episode_counter)
+                nav_runner.reset_demo()  # Cauz of differences in the arrangement of the dictionaries
+                map_xy = nav_runner.envs.map_image
+                map_alt = nav_runner.envs.alt_view
                 process_img(map_xy, 20, 20)
                 process_img(map_alt, 20, 400)
                 pygame.display.update()
@@ -313,28 +377,19 @@ def main():
                 # Timestep counter
                 t=0
                 rewards = []
+                drop_flag = 0
                 done = 0
                 while done==0:
                     # RUN THE MAIN LOOP
-                    obs, action, value, reward, done = runner.run_trained_batch()
+                    obs, action, value, reward, done = nav_runner.run_trained_batch(drop_flag) # Just one step. There is no monitor here so no info section
 
                     rewards.append(reward)
-                    if done:
-                        score = sum(rewards)
-                        print(">>>>>>>>>>>>>>>>>>>>>>>>>>> episode %d ended in %d steps. Score %f" % (runner.episode_counter, t, score))
-                        runner.episode_counter += 1
 
                     screen_mssg_variable("Value    : ", np.round(value,3), (168, 350))
                     screen_mssg_variable("Reward: ", np.round(reward,3), (168, 372))
                     pygame.display.update()
                     pygame.event.get()
                     sleep(1.5)
-
-                    if action==15:
-                        screen_mssg_variable("Package state:", runner.envs.package_state, (20, 350)) # The update of the text will be at the same time with the update of state
-                        pygame.display.update()
-                        pygame.event.get()  # Update the screen
-                        sleep(1.5)
 
                     # BLIT!!!
                     # First Background covering everyything from previous session
@@ -348,17 +403,56 @@ def main():
                     pygame.event.get() # Show the last state and then reset
                     sleep(1.2)
                     t += 1
+
+                    # Dropping Agent
+                    if done==1:
+                        print('=== DROPPING AGENT IN CHARGE ===')
+                        drop_runner.latest_obs = nav_runner.latest_obs
+                        done2 = 0
+                        drop_flag = 1
+                        while done2==0:
+                            obs, action, value, reward, done2 = drop_runner.run_trained_batch(drop_flag)
+                            rewards.append(reward)
+
+                            screen_mssg_variable("Value    : ", np.round(value, 3), (168, 350))
+                            screen_mssg_variable("Reward: ", np.round(reward, 3), (168, 372))
+                            pygame.display.update()
+                            pygame.event.get()
+                            sleep(1.5)
+
+                            if action == 15:
+                                # The update of the text will be at the same time with the update of state
+                                screen_mssg_variable("Package state:", drop_runner.envs.package_state, (20, 350))
+                                pygame.display.update()
+                                pygame.event.get()  # Update the screen
+                                sleep(1.5)
+
+                            gameDisplay.fill(DARK_BLUE)
+                            map_xy = obs[0]['img']
+                            map_alt = obs[0]['nextstepimage']
+                            process_img(map_xy, 20, 20)
+                            process_img(map_alt, 20, 400)
+                            # Update finally the screen with all the images you blitted in the run_trained_batch
+                            pygame.display.update()  # Updates only the blitted parts of the screen, pygame.display.flip() updates the whole screen
+                            pygame.event.get()  # Show the last state and then reset
+                            sleep(1.2)
+                            t = t +1
+
+                        score = sum(rewards)
+                        print(">>>>>>>>>>>>>>>>>>>>>>>>>>> episode %d ended in %d steps. Score %f" % (nav_runner.episode_counter, t, score))
+                        nav_runner.episode_counter += 1
+
                 clock.tick(15)
         except KeyboardInterrupt:
             pass
 
     print("Okay. Work is done")
     #_print(i)
-    if FLAGS.training:
-        _save_if_training(agent)
-    if not FLAGS.training and FLAGS.save_replay:
-        #envs.env.save_replay('/Users/constantinos/Documents/StarcraftMAC/MyAgents/')
-        envs.env.save_replay('./Replays/MyAgents/')
+    # if FLAGS.training:
+    #     _save_if_training(agent)
+    # if not FLAGS.training and FLAGS.save_replay:
+    #     #envs.env.save_replay('/Users/constantinos/Documents/StarcraftMAC/MyAgents/')
+    #     envs.env.save_replay('./Replays/MyAgents/')
 
     envs.close()
 

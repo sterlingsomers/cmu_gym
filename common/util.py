@@ -7,7 +7,10 @@ def weighted_random_sample(weights):
     :param weights: 2d tensor [n, d] containing positive weights for sampling
     :return: 1d tensor [n] with idx in [0, d) randomly sampled proportional to weights
     """
-    u = tf.random_uniform(tf.shape(weights)) # Example if weights (action num) is 4 you sample one number uniformly from 0-3
+
+    # Maybe because the distr of the actions coming from softmax is exponential you need the log (e.g. https://stats.stackexchange.com/questions/155552/what-does-log-uniformly-distribution-mean)
+    # Better look at this explanation https://github.com/openai/pixel-cnn/issues/24 try the link in the answer. It explains that we add noise (maybe by sampling in continuous space) and then use argmax
+    u = tf.random_uniform(tf.shape(weights)) # Example if weights (action num) is 4 you sample one real number uniformly from 0-3
     return tf.argmax(tf.log(u) / weights, axis=1)
 
 
