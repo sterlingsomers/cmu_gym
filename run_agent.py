@@ -6,6 +6,7 @@ import sys
 from datetime import datetime
 from time import sleep
 import numpy as np
+import pickle
 #from functools import partial
 
 from absl import flags
@@ -35,7 +36,7 @@ flags.DEFINE_bool("visualize", False, "Whether to render with pygame.")
 flags.DEFINE_integer("resolution", 32, "Resolution for screen and minimap feature layers.")
 flags.DEFINE_integer("step_mul", 100, "Game steps per agent step.")
 flags.DEFINE_integer("n_envs", 20, "Number of environments to run in parallel")
-flags.DEFINE_integer("episodes", 10, "Number of complete episodes")
+flags.DEFINE_integer("episodes", 1000, "Number of complete episodes")
 flags.DEFINE_integer("n_steps_per_batch", 32,
     "Number of steps per batch, if None use 8 for a2c and 128 for ppo")  # (MINE) TIMESTEPS HERE!!! You need them cauz you dont want to run till it finds the beacon especially at first episodes - will take forever
 flags.DEFINE_integer("all_summary_freq", 50, "Record all summaries every n batch")
@@ -385,7 +386,7 @@ def main():
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT:
                         running = False
-                sleep(1.5)
+                # sleep(1.5)
                 # Timestep counter
                 t=0
                 rewards = []
@@ -409,7 +410,7 @@ def main():
                     screen_mssg_variable("Reward: ", np.round(reward,3), (168, 372))
                     pygame.display.update()
                     pygame.event.get()
-                    sleep(1.5)
+                    # sleep(1.5)
 
                     # BLIT!!!
                     # First Background covering everyything from previous session
@@ -421,7 +422,7 @@ def main():
                     # Update finally the screen with all the images you blitted in the run_trained_batch
                     pygame.display.update() # Updates only the blitted parts of the screen, pygame.display.flip() updates the whole screen
                     pygame.event.get() # Show the last state and then reset
-                    sleep(1.2)
+                    # sleep(1.2)
                     t += 1
 
                     # Dropping Agent
@@ -451,14 +452,14 @@ def main():
                             screen_mssg_variable("Reward: ", np.round(reward, 3), (168, 372))
                             pygame.display.update()
                             pygame.event.get()
-                            sleep(1.5)
+                            # sleep(1.5)
 
                             if action == 15:
                                 # The update of the text will be at the same time with the update of state
                                 screen_mssg_variable("Package state:", drop_runner.envs.package_state, (20, 350))
                                 pygame.display.update()
                                 pygame.event.get()  # Update the screen
-                                sleep(1.5)
+                                # sleep(1.5)
 
                             gameDisplay.fill(DARK_BLUE)
                             map_xy = obs[0]['img']
@@ -468,17 +469,23 @@ def main():
                             # Update finally the screen with all the images you blitted in the run_trained_batch
                             pygame.display.update()  # Updates only the blitted parts of the screen, pygame.display.flip() updates the whole screen
                             pygame.event.get()  # Show the last state and then reset
-                            sleep(1.2)
+                            # sleep(1.2)
                             t = t +1
 
                         dictionary[nav_runner.episode_counter]['observations'] = mb_obs
                         dictionary[nav_runner.episode_counter]['flag'] = mb_flag
                         dictionary[nav_runner.episode_counter]['actions'] = mb_actions
+
                         score = sum(rewards)
                         print(">>>>>>>>>>>>>>>>>>>>>>>>>>> episode %d ended in %d steps. Score %f" % (nav_runner.episode_counter, t, score))
                         nav_runner.episode_counter += 1
 
                 clock.tick(15)
+
+            print("...saving dictionary.")
+            with open('./data/trajectories.tj', 'wb') as handle:
+                pickle.dump(dictionary, handle)
+
         except KeyboardInterrupt:
             pass
 
