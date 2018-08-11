@@ -19,7 +19,7 @@ from scipy.misc import imresize
 
 from gym_gridworld.envs import create_np_map as CNP
 
-#from mavsim_server import MavsimHandler
+from gym_gridworld.envs.mavsim_server import MavsimHandler
 
 # define colors
 # 0: black; 1 : gray; 2 : blue; 3 : green; 4 : red
@@ -42,7 +42,7 @@ class GridworldEnv(gym.Env):
         self.verbose = True # to show the environment or not
         self.restart_once_done = True  # restart or not once done
         self.drop = False
-        self.maps = [(400,35), (350,90), (430,110),(390,50), (230,70)] #[(86, 266)] (70,50) # For testing, 70,50 there is no where to drop in the whole map
+        self.maps = [(70,50)]#[(400,35), (350,90), (430,110),(390,50), (230,70)] #[(86, 266)] (70,50) # For testing, 70,50 there is no where to drop in the whole map
         self.dist_old = 1000
         self.drop_package_grid_size_by_alt = {1: 3, 2: 5, 3: 7}
         self.factor = 5
@@ -51,7 +51,7 @@ class GridworldEnv(gym.Env):
         self.actions = list(range(self.action_space.n))
         self.obs_shape = [50,50,3]
         self.observation_space = spaces.Box(low=0, high=255, shape=self.obs_shape)
-        self.real_actions = False
+        self.real_actions = True
 
         if self.real_actions:
             self.mavsimhandler = MavsimHandler()
@@ -354,10 +354,16 @@ class GridworldEnv(gym.Env):
         if self.real_actions:
             drone_position = np.where(
                 self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
+            coordinates = [self.reference_coordinates[0] + int(drone_position[1]),
+                           self.reference_coordinates[1] + int(drone_position[2])]
+            print("drone new position", drone_position)
+            print("new altitude", self.altitude)
+            print("sending coordinates", coordinates)
+            # assume the drone is the right spot, right heading
+            success = self.mavsimhandler.head_to(new_heading, self.altitude)
+            # success = self.mavsimhandler.fly_path(coordinates=coordinates,altitude=self.altitude)
 
-            success = self.mavsimhandler.fly_path(coordinates=[self.reference_coordinates[0] + int(drone_position[1]),
-                                                               self.reference_coordinates[1] + int(drone_position[2])],
-                                                  altitude=self.altitude)
+            print("SUCCESS", success)
 
         return 1
 
@@ -508,7 +514,7 @@ class GridworldEnv(gym.Env):
     def reset(self):
         self.dist_old = 1000
         self.drop = False
-        self.heading = random.randint(1, 8)
+        self.heading = 1#random.randint(1, 8)
         self.altitude = 3
         self.reward = 0
         _map = random.choice(self.maps)
@@ -517,7 +523,7 @@ class GridworldEnv(gym.Env):
         #hiker = (random.randint(2, self.map_volume['vol'].shape[1] - 1), random.randint(2, self.map_volume['vol'].shape[1] - 2)) #(8,8) #
         hiker = (random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))  # (7,8) #
         #drone = random.choice([(hiker[0]-1, hiker[1]-1),(hiker[0]-1, hiker[1]),(hiker[0], hiker[1]-1)])## Package drop starts close to hiker!!! #(random.randint(2, self.map_volume['vol'].shape[1] - 1), random.randint(2, self.map_volume['vol'].shape[1] - 2)) # (8,8) #
-        drone = (random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))
+        drone = (8,5)#(random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))
         while drone == hiker:
             drone = (random.randint(2, self.map_volume['vol'].shape[1] - 1),
                      random.randint(2, self.map_volume['vol'].shape[1] - 2))
@@ -529,7 +535,7 @@ class GridworldEnv(gym.Env):
         self.reference_coordinates = [_map[0], _map[1]]
 
 
-        self.real_actions = False
+        self.real_actions = True
         # put the drone in
         self.map_volume['vol'][self.altitude][drone[0], drone[1]] = \
         self.map_volume['feature_value_map']['drone'][self.altitude]['val']

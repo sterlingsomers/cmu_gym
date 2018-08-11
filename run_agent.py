@@ -386,7 +386,7 @@ def main():
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT:
                         running = False
-                # sleep(1.5)
+                sleep(1.5)
                 # Timestep counter
                 t=0
                 rewards = []
@@ -410,7 +410,7 @@ def main():
                     screen_mssg_variable("Reward: ", np.round(reward,3), (168, 372))
                     pygame.display.update()
                     pygame.event.get()
-                    # sleep(1.5)
+                    sleep(1.5)
 
                     # BLIT!!!
                     # First Background covering everyything from previous session
@@ -422,7 +422,7 @@ def main():
                     # Update finally the screen with all the images you blitted in the run_trained_batch
                     pygame.display.update() # Updates only the blitted parts of the screen, pygame.display.flip() updates the whole screen
                     pygame.event.get() # Show the last state and then reset
-                    # sleep(1.2)
+                    sleep(1.2)
                     t += 1
 
                     # Dropping Agent
@@ -452,14 +452,14 @@ def main():
                             screen_mssg_variable("Reward: ", np.round(reward, 3), (168, 372))
                             pygame.display.update()
                             pygame.event.get()
-                            # sleep(1.5)
+                            sleep(1.5)
 
                             if action == 15:
                                 # The update of the text will be at the same time with the update of state
                                 screen_mssg_variable("Package state:", drop_runner.envs.package_state, (20, 350))
                                 pygame.display.update()
                                 pygame.event.get()  # Update the screen
-                                # sleep(1.5)
+                                sleep(1.5)
 
                             gameDisplay.fill(DARK_BLUE)
                             map_xy = obs[0]['img']
@@ -469,7 +469,7 @@ def main():
                             # Update finally the screen with all the images you blitted in the run_trained_batch
                             pygame.display.update()  # Updates only the blitted parts of the screen, pygame.display.flip() updates the whole screen
                             pygame.event.get()  # Show the last state and then reset
-                            # sleep(1.2)
+                            sleep(1.2)
                             t = t +1
 
                         dictionary[nav_runner.episode_counter]['observations'] = mb_obs
