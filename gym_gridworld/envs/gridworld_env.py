@@ -42,7 +42,7 @@ class GridworldEnv(gym.Env):
         self.verbose = True # to show the environment or not
         self.restart_once_done = True  # restart or not once done
         self.drop = False
-        self.maps = [(70,50)]#[(400,35), (350,90), (430,110),(390,50), (230,70)] #[(86, 266)] (70,50) # For testing, 70,50 there is no where to drop in the whole map
+        self.maps = [(400,35), (350,90), (430,110),(390,50), (230,70)] #[(86, 266)] (70,50) # For testing, 70,50 there is no where to drop in the whole map
         self.dist_old = 1000
         self.drop_package_grid_size_by_alt = {1: 3, 2: 5, 3: 7}
         self.factor = 5
@@ -305,6 +305,11 @@ class GridworldEnv(gym.Env):
         #reward = reward*(1/(self.pack_dist+1e-7))*0.1
         self.reward = reward*is_hiker_in_neighbors # YOU CANNOT DO THAT EVEN IF IT WORKS FOR THAT MAP AS IT DOESNT GET PENALTY FOR DAMAGING THE PACK!
         #print(terrain, reward)
+        ###APL ADDITION
+        if self.real_actions:
+            success = self.mavsimhandler.drop_package()
+
+
 
     def take_action(self, delta_alt=0, delta_x=0, delta_y=0, new_heading=1):
         # print("stop")

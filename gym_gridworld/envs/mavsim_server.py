@@ -30,6 +30,13 @@ class MavsimHandler():
         s = '(' + ','.join(formatted_list) + ')'
         return s.format(*alist)
 
+    def drop_package(self):
+        msg = ['FLIGHT', 'MS_DROP_PAYLOAD', 1]
+        msg = self.ListToFormattedString(msg)
+        print("msg", msg)
+        sent = self.send_sock.sendto(msg.encode('utf-8'), self.mavsim_server)
+        time.sleep(0.1)
+
     def head_to(self,heading,altitude):
         msg = ['FLIGHT','HEAD_TO',heading,1,altitude]
         msg = self.ListToFormattedString(msg)
