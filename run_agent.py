@@ -36,14 +36,14 @@ flags.DEFINE_bool("visualize", False, "Whether to render with pygame.")
 flags.DEFINE_integer("resolution", 32, "Resolution for screen and minimap feature layers.")
 flags.DEFINE_integer("step_mul", 100, "Game steps per agent step.")
 flags.DEFINE_integer("n_envs", 20, "Number of environments to run in parallel")
-flags.DEFINE_integer("episodes", 1000, "Number of complete episodes")
+flags.DEFINE_integer("episodes", 100, "Number of complete episodes")
 flags.DEFINE_integer("n_steps_per_batch", 32,
     "Number of steps per batch, if None use 8 for a2c and 128 for ppo")  # (MINE) TIMESTEPS HERE!!! You need them cauz you dont want to run till it finds the beacon especially at first episodes - will take forever
 flags.DEFINE_integer("all_summary_freq", 50, "Record all summaries every n batch")
 flags.DEFINE_integer("scalar_summary_freq", 5, "Record scalar summaries every n batch")
 flags.DEFINE_string("checkpoint_path", "_files/models", "Path for agent checkpoints")
 flags.DEFINE_string("summary_path", "_files/summaries", "Path for tensorboard summaries")
-flags.DEFINE_string("model_name", "Dropping_8_steps", "Name for checkpoints and tensorboard summaries")
+flags.DEFINE_string("model_name", "Drop_correct_repr_8steps", "Name for checkpoints and tensorboard summaries")
 flags.DEFINE_integer("K_batches", 10000, # Batch is like a training epoch!
     "Number of training batches to run in thousands, use -1 to run forever") #(MINE) not for now
 flags.DEFINE_string("map_name", "DefeatRoaches", "Name of a map to use.")
@@ -280,8 +280,8 @@ def main():
     nav_sess = tf.Session(graph=nav_graph)
     nav_agent.sess = nav_sess
     with nav_graph.as_default():
-        if os.path.exists('_files/models/Navigation_8_steps_simpleR'):
-            nav_agent.load('_files/models/Navigation_8_steps_simpleR')
+        if os.path.exists('_files/models/Navigate_correct_repr'):
+            nav_agent.load('_files/models/Navigate_correct_repr')
 
     nav_runner = Runner(
         envs=envs,
@@ -368,6 +368,11 @@ def main():
                 mb_obs = []
                 mb_actions = []
                 mb_flag = []
+                mb_representation = []
+                mb_fc = []
+                mb_rewards = []
+                mb_values = []
+                mb_drone_pos = []
                 # dictionary[nav_runner.episode_counter]['observations'] = {}
                 # dictionary[nav_runner.episode_counter]['actions'] = []
                 # dictionary[nav_runner.episode_counter]['flag'] = []
@@ -379,6 +384,8 @@ def main():
                 process_img(map_alt, 20, 400)
                 pygame.display.update()
 
+                dictionary[nav_runner.episode_counter]['hiker_pos'] = nav_runner.envs.hiker_position
+                dictionary[nav_runner.episode_counter]['map_volume'] = nav_runner.envs.map_volume
 
                 # Quit pygame if the (X) button is pressed on the top left of the window
                 # Seems that without this for event quit doesnt show anything!!!
@@ -389,22 +396,29 @@ def main():
                 # sleep(1.5)
                 # Timestep counter
                 t=0
-                rewards = []
+
                 drop_flag = 0
                 done = 0
                 while done==0:
 
                     mb_obs.append(nav_runner.latest_obs)
                     mb_flag.append(drop_flag)
+
+                    drone_pos = np.where(nav_runner.envs.map_volume['vol'] == nav_runner.envs.map_volume['feature_value_map']['drone'][nav_runner.envs.altitude]['val'])
+                    mb_drone_pos.append(drone_pos)
+
                     # dictionary[nav_runner.episode_counter]['observations'].append(nav_runner.latest_obs)
                     # dictionary[nav_runner.episode_counter]['flag'].append(drop_flag)
 
                     # RUN THE MAIN LOOP
-                    obs, action, value, reward, done = nav_runner.run_trained_batch(drop_flag) # Just one step. There is no monitor here so no info section
+                    obs, action, value, reward, done, representation, fc = nav_runner.run_trained_batch(drop_flag) # Just one step. There is no monitor here so no info section
 
                     # dictionary[nav_runner.episode_counter]['actions'].append(action)
                     mb_actions.append(action)
-                    rewards.append(reward)
+                    mb_rewards.append(reward)
+                    mb_representation.append(representation)
+                    mb_fc.append(fc)
+                    mb_values.append(value)
 
                     screen_mssg_variable("Value    : ", np.round(value,3), (168, 350))
                     screen_mssg_variable("Reward: ", np.round(reward,3), (168, 372))
@@ -437,13 +451,22 @@ def main():
                         # dictionary[nav_runner.episode_counter]['observations'].append(nav_runner.latest_obs)
                         # dictionary[nav_runner.episode_counter]['flag'].append(drop_flag)
                         while done2==0:
-                            obs, action, value, reward, done2 = drop_runner.run_trained_batch(drop_flag)
-                            rewards.append(reward)
+
+                            drone_pos = np.where(drop_runner.envs.map_volume['vol'] ==
+                                                 drop_runner.envs.map_volume['feature_value_map']['drone'][
+                                                     drop_runner.envs.altitude]['val'])
+                            mb_drone_pos.append(drone_pos)
+
+                            obs, action, value, reward, done2, representation, fc = drop_runner.run_trained_batch(drop_flag)
+                            mb_rewards.append(reward)
 
                             # Store
                             mb_obs.append(drop_runner.latest_obs)
                             mb_flag.append(0) # We need to put zero only once
                             mb_actions.append(action)
+                            mb_representation.append(representation)
+                            mb_fc.append(fc)
+                            mb_values.append(value)
                             # dictionary[nav_runner.episode_counter]['observations'].append(drop_runner.latest_obs)
                             # dictionary[nav_runner.episode_counter]['flag'].append(drop_flag)
                             # dictionary[nav_runner.episode_counter]['actions'].append(action)
@@ -459,6 +482,7 @@ def main():
                                 screen_mssg_variable("Package state:", drop_runner.envs.package_state, (20, 350))
                                 pygame.display.update()
                                 pygame.event.get()  # Update the screen
+                                dictionary[nav_runner.episode_counter]['pack_hiker_dist'] = drop_runner.envs.pack_dist
                                 # sleep(1.5)
 
                             gameDisplay.fill(DARK_BLUE)
@@ -475,15 +499,21 @@ def main():
                         dictionary[nav_runner.episode_counter]['observations'] = mb_obs
                         dictionary[nav_runner.episode_counter]['flag'] = mb_flag
                         dictionary[nav_runner.episode_counter]['actions'] = mb_actions
+                        dictionary[nav_runner.episode_counter]['rewards'] = mb_rewards
+                        dictionary[nav_runner.episode_counter]['representation'] = mb_representation
+                        dictionary[nav_runner.episode_counter]['fc'] = mb_fc
+                        dictionary[nav_runner.episode_counter]['values'] = mb_values
+                        dictionary[nav_runner.episode_counter]['drone_pos'] = mb_drone_pos
 
-                        score = sum(rewards)
+
+                        score = sum(mb_rewards)
                         print(">>>>>>>>>>>>>>>>>>>>>>>>>>> episode %d ended in %d steps. Score %f" % (nav_runner.episode_counter, t, score))
                         nav_runner.episode_counter += 1
 
                 clock.tick(15)
 
             print("...saving dictionary.")
-            with open('./data/trajectories.tj', 'wb') as handle:
+            with open('./data/230_70_static_100.tj', 'wb') as handle:
                 pickle.dump(dictionary, handle)
 
         except KeyboardInterrupt:

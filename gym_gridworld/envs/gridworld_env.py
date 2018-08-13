@@ -42,7 +42,7 @@ class GridworldEnv(gym.Env):
         self.verbose = True # to show the environment or not
         self.restart_once_done = True  # restart or not once done
         self.drop = False
-        self.maps = [(400,35), (350,90), (430,110),(390,50), (230,70)] #[(86, 266)] (70,50) # For testing, 70,50 there is no where to drop in the whole map
+        self.maps = [(230,70)]#[(400,35), (350,90), (430,110),(390,50), (230,70)] #[(86, 266)] (70,50) # For testing, 70,50 there is no where to drop in the whole map
         self.dist_old = 1000
         self.drop_package_grid_size_by_alt = {1: 3, 2: 5, 3: 7}
         self.factor = 5
@@ -93,15 +93,26 @@ class GridworldEnv(gym.Env):
         self.alt_rewards = {0:-1, 1:1, 2:-0.5, 3:-0.8}
         
 
+        # self.possible_actions_map = {
+        #     1: [[0, -1], [-1, -1], [-1, 0], [-1, 1], [0, 1]],
+        #     2: [[-1, -1], [0, -1], [1, -1], [1, 0], [1, 1]],
+        #     3: [[-1, 0], [-1, 1], [0, 1], [1, 1], [1, 0]],
+        #     4: [[-1, 1], [0, 1], [1, 1], [1, 0], [1, -1]],
+        #     5: [[0, 1], [1, 1], [1, 0], [1, -1], [0, -1]],
+        #     6: [[1, 1], [1, 0], [1, -1], [0, -1], [-1, -1]],
+        #     7: [[-1, 0], [-1, -1], [0, -1], [-1, -1], [-1, 0]],
+        #     8: [[1, -1], [0, -1], [-1, -1], [-1, 0], [-1, -1]]
+        #
+        # }
         self.possible_actions_map = {
             1: [[0, -1], [-1, -1], [-1, 0], [-1, 1], [0, 1]],
-            2: [[-1, -1], [0, -1], [1, -1], [1, 0], [1, 1]],
+            2: [[-1, -1], [-1, 0], [-1, 1], [0, 1], [1, 1]],
             3: [[-1, 0], [-1, 1], [0, 1], [1, 1], [1, 0]],
             4: [[-1, 1], [0, 1], [1, 1], [1, 0], [1, -1]],
             5: [[0, 1], [1, 1], [1, 0], [1, -1], [0, -1]],
             6: [[1, 1], [1, 0], [1, -1], [0, -1], [-1, -1]],
-            7: [[-1, 0], [-1, -1], [0, -1], [-1, -1], [-1, 0]],
-            8: [[1, -1], [0, -1], [-1, -1], [-1, 0], [-1, -1]]
+            7: [[1, 0], [1, -1], [0, -1], [-1, -1], [-1, 0]],
+            8: [[1, -1], [0, -1], [-1, -1], [-1, 0], [-1, 1]]
 
         }
         self.actionvalue_heading_action = {
@@ -515,9 +526,9 @@ class GridworldEnv(gym.Env):
         self.map_volume = CNP.map_to_volume_dict(_map[0], _map[1], 10, 10)
         # Set hiker's and drone's locations
         #hiker = (random.randint(2, self.map_volume['vol'].shape[1] - 1), random.randint(2, self.map_volume['vol'].shape[1] - 2)) #(8,8) #
-        hiker = (random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))  # (7,8) #
+        hiker = (6,3)#(random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))  # (7,8) #
         #drone = random.choice([(hiker[0]-1, hiker[1]-1),(hiker[0]-1, hiker[1]),(hiker[0], hiker[1]-1)])## Package drop starts close to hiker!!! #(random.randint(2, self.map_volume['vol'].shape[1] - 1), random.randint(2, self.map_volume['vol'].shape[1] - 2)) # (8,8) #
-        drone = (random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))
+        drone = (1,8)#(random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))
         while drone == hiker:
             drone = (random.randint(2, self.map_volume['vol'].shape[1] - 1),
                      random.randint(2, self.map_volume['vol'].shape[1] - 2))
