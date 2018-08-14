@@ -36,7 +36,7 @@ flags.DEFINE_bool("visualize", False, "Whether to render with pygame.")
 flags.DEFINE_integer("resolution", 32, "Resolution for screen and minimap feature layers.")
 flags.DEFINE_integer("step_mul", 100, "Game steps per agent step.")
 flags.DEFINE_integer("n_envs", 20, "Number of environments to run in parallel")
-flags.DEFINE_integer("episodes", 100, "Number of complete episodes")
+flags.DEFINE_integer("episodes", 5, "Number of complete episodes")
 flags.DEFINE_integer("n_steps_per_batch", 32,
     "Number of steps per batch, if None use 8 for a2c and 128 for ppo")  # (MINE) TIMESTEPS HERE!!! You need them cauz you dont want to run till it finds the beacon especially at first episodes - will take forever
 flags.DEFINE_integer("all_summary_freq", 50, "Record all summaries every n batch")
@@ -373,6 +373,7 @@ def main():
                 mb_rewards = []
                 mb_values = []
                 mb_drone_pos = []
+                mb_heading = []
                 # dictionary[nav_runner.episode_counter]['observations'] = {}
                 # dictionary[nav_runner.episode_counter]['actions'] = []
                 # dictionary[nav_runner.episode_counter]['flag'] = []
@@ -403,6 +404,7 @@ def main():
 
                     mb_obs.append(nav_runner.latest_obs)
                     mb_flag.append(drop_flag)
+                    mb_heading.append(nav_runner.envs.heading)
 
                     drone_pos = np.where(nav_runner.envs.map_volume['vol'] == nav_runner.envs.map_volume['feature_value_map']['drone'][nav_runner.envs.altitude]['val'])
                     mb_drone_pos.append(drone_pos)
@@ -446,17 +448,18 @@ def main():
                         done2 = 0
                         drop_flag = 1
                         # Store
+                        drone_pos = np.where(nav_runner.envs.map_volume['vol'] ==
+                                             nav_runner.envs.map_volume['feature_value_map']['drone'][
+                                                 nav_runner.envs.altitude]['val'])
+                        mb_drone_pos.append(drone_pos)
                         mb_obs.append(nav_runner.latest_obs)
                         mb_flag.append(drop_flag)
+                        mb_heading.append(nav_runner.envs.heading)
                         # dictionary[nav_runner.episode_counter]['observations'].append(nav_runner.latest_obs)
                         # dictionary[nav_runner.episode_counter]['flag'].append(drop_flag)
                         while done2==0:
 
-                            drone_pos = np.where(drop_runner.envs.map_volume['vol'] ==
-                                                 drop_runner.envs.map_volume['feature_value_map']['drone'][
-                                                     drop_runner.envs.altitude]['val'])
-                            mb_drone_pos.append(drone_pos)
-
+                            # Step
                             obs, action, value, reward, done2, representation, fc = drop_runner.run_trained_batch(drop_flag)
                             mb_rewards.append(reward)
 
@@ -467,9 +470,12 @@ def main():
                             mb_representation.append(representation)
                             mb_fc.append(fc)
                             mb_values.append(value)
-                            # dictionary[nav_runner.episode_counter]['observations'].append(drop_runner.latest_obs)
-                            # dictionary[nav_runner.episode_counter]['flag'].append(drop_flag)
-                            # dictionary[nav_runner.episode_counter]['actions'].append(action)
+                            mb_heading.append(drop_runner.envs.heading)
+                            drone_pos = np.where(drop_runner.envs.map_volume['vol'] ==
+                                                 drop_runner.envs.map_volume['feature_value_map']['drone'][
+                                                     drop_runner.envs.altitude]['val'])
+                            mb_drone_pos.append(drone_pos) # The last location will be doubled as if it is a drop action the drone doesn't change location so obs will be the same!!!
+
 
                             screen_mssg_variable("Value    : ", np.round(value, 3), (168, 350))
                             screen_mssg_variable("Reward: ", np.round(reward, 3), (168, 372))
@@ -504,6 +510,7 @@ def main():
                         dictionary[nav_runner.episode_counter]['fc'] = mb_fc
                         dictionary[nav_runner.episode_counter]['values'] = mb_values
                         dictionary[nav_runner.episode_counter]['drone_pos'] = mb_drone_pos
+                        dictionary[nav_runner.episode_counter]['headings'] = mb_heading
 
 
                         score = sum(mb_rewards)
@@ -513,8 +520,8 @@ def main():
                 clock.tick(15)
 
             print("...saving dictionary.")
-            with open('./data/230_70_static_100.tj', 'wb') as handle:
-                pickle.dump(dictionary, handle)
+            # with open('./data/230_70_static_100.tj', 'wb') as handle:
+            #     pickle.dump(dictionary, handle)
 
         except KeyboardInterrupt:
             pass
