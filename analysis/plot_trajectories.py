@@ -20,6 +20,7 @@ ax.set_zlabel('alt')
 
 img = obs[0]['map_volume']['img'] / 255.0
 X1, Y1 = ogrid[0:img.shape[0], 0:img.shape[1]]
+print(X1,Y1)
 ax.plot_surface(X1, Y1, np.atleast_2d(0), rstride=1, cstride=1, facecolors=img)
 
 # for i in range(len(obs)):
