@@ -368,6 +368,12 @@ def main():
                 mb_obs = []
                 mb_actions = []
                 mb_flag = []
+                mb_representation = []
+                mb_fc = []
+                mb_rewards = []
+                mb_values = []
+                mb_drone_pos = []
+                mb_heading = []
                 # dictionary[nav_runner.episode_counter]['observations'] = {}
                 # dictionary[nav_runner.episode_counter]['actions'] = []
                 # dictionary[nav_runner.episode_counter]['flag'] = []
@@ -379,6 +385,8 @@ def main():
                 process_img(map_alt, 20, 400)
                 pygame.display.update()
 
+                dictionary[nav_runner.episode_counter]['hiker_pos'] = nav_runner.envs.hiker_position
+                dictionary[nav_runner.episode_counter]['map_volume'] = nav_runner.envs.map_volume
 
                 # Quit pygame if the (X) button is pressed on the top left of the window
                 # Seems that without this for event quit doesnt show anything!!!
@@ -386,7 +394,7 @@ def main():
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT:
                         running = False
-                sleep(1.5)
+                # sleep(1.5)
                 # Timestep counter
                 t=0
                 rewards = []
@@ -396,21 +404,29 @@ def main():
 
                     mb_obs.append(nav_runner.latest_obs)
                     mb_flag.append(drop_flag)
+                    mb_heading.append(nav_runner.envs.heading)
+
+                    drone_pos = np.where(nav_runner.envs.map_volume['vol'] == nav_runner.envs.map_volume['feature_value_map']['drone'][nav_runner.envs.altitude]['val'])
+                    mb_drone_pos.append(drone_pos)
+
                     # dictionary[nav_runner.episode_counter]['observations'].append(nav_runner.latest_obs)
                     # dictionary[nav_runner.episode_counter]['flag'].append(drop_flag)
 
                     # RUN THE MAIN LOOP
-                    obs, action, value, reward, done = nav_runner.run_trained_batch(drop_flag) # Just one step. There is no monitor here so no info section
+                    obs, action, value, reward, done, representation, fc = nav_runner.run_trained_batch(drop_flag) # Just one step. There is no monitor here so no info section
 
                     # dictionary[nav_runner.episode_counter]['actions'].append(action)
                     mb_actions.append(action)
-                    rewards.append(reward)
+                    mb_rewards.append(reward)
+                    mb_representation.append(representation)
+                    mb_fc.append(fc)
+                    mb_values.append(value)
 
                     screen_mssg_variable("Value    : ", np.round(value,3), (168, 350))
                     screen_mssg_variable("Reward: ", np.round(reward,3), (168, 372))
                     pygame.display.update()
                     pygame.event.get()
-                    sleep(1.5)
+                    # sleep(1.5)
 
                     # BLIT!!!
                     # First Background covering everyything from previous session
@@ -422,7 +438,7 @@ def main():
                     # Update finally the screen with all the images you blitted in the run_trained_batch
                     pygame.display.update() # Updates only the blitted parts of the screen, pygame.display.flip() updates the whole screen
                     pygame.event.get() # Show the last state and then reset
-                    sleep(1.2)
+                    # sleep(1.2)
                     t += 1
 
                     # Dropping Agent
@@ -432,34 +448,48 @@ def main():
                         done2 = 0
                         drop_flag = 1
                         # Store
+                        drone_pos = np.where(nav_runner.envs.map_volume['vol'] ==
+                                             nav_runner.envs.map_volume['feature_value_map']['drone'][
+                                                 nav_runner.envs.altitude]['val'])
+                        mb_drone_pos.append(drone_pos)
                         mb_obs.append(nav_runner.latest_obs)
                         mb_flag.append(drop_flag)
+                        mb_heading.append(nav_runner.envs.heading)
                         # dictionary[nav_runner.episode_counter]['observations'].append(nav_runner.latest_obs)
                         # dictionary[nav_runner.episode_counter]['flag'].append(drop_flag)
                         while done2==0:
-                            obs, action, value, reward, done2 = drop_runner.run_trained_batch(drop_flag)
-                            rewards.append(reward)
+
+                            # Step
+                            obs, action, value, reward, done2, representation, fc = drop_runner.run_trained_batch(drop_flag)
+                            mb_rewards.append(reward)
 
                             # Store
                             mb_obs.append(drop_runner.latest_obs)
                             mb_flag.append(0) # We need to put zero only once
                             mb_actions.append(action)
-                            # dictionary[nav_runner.episode_counter]['observations'].append(drop_runner.latest_obs)
-                            # dictionary[nav_runner.episode_counter]['flag'].append(drop_flag)
-                            # dictionary[nav_runner.episode_counter]['actions'].append(action)
+                            mb_representation.append(representation)
+                            mb_fc.append(fc)
+                            mb_values.append(value)
+                            mb_heading.append(drop_runner.envs.heading)
+                            drone_pos = np.where(drop_runner.envs.map_volume['vol'] ==
+                                                 drop_runner.envs.map_volume['feature_value_map']['drone'][
+                                                     drop_runner.envs.altitude]['val'])
+                            mb_drone_pos.append(drone_pos) # The last location will be doubled as if it is a drop action the drone doesn't change location so obs will be the same!!!
+
 
                             screen_mssg_variable("Value    : ", np.round(value, 3), (168, 350))
                             screen_mssg_variable("Reward: ", np.round(reward, 3), (168, 372))
                             pygame.display.update()
                             pygame.event.get()
-                            sleep(1.5)
+                            # sleep(1.5)
 
                             if action == 15:
                                 # The update of the text will be at the same time with the update of state
                                 screen_mssg_variable("Package state:", drop_runner.envs.package_state, (20, 350))
                                 pygame.display.update()
                                 pygame.event.get()  # Update the screen
-                                sleep(1.5)
+                                dictionary[nav_runner.episode_counter]['pack_hiker_dist'] = drop_runner.envs.pack_dist
+                                # sleep(1.5)
 
                             gameDisplay.fill(DARK_BLUE)
                             map_xy = obs[0]['img']
@@ -469,22 +499,29 @@ def main():
                             # Update finally the screen with all the images you blitted in the run_trained_batch
                             pygame.display.update()  # Updates only the blitted parts of the screen, pygame.display.flip() updates the whole screen
                             pygame.event.get()  # Show the last state and then reset
-                            sleep(1.2)
+                            # sleep(1.2)
                             t = t +1
 
                         dictionary[nav_runner.episode_counter]['observations'] = mb_obs
                         dictionary[nav_runner.episode_counter]['flag'] = mb_flag
                         dictionary[nav_runner.episode_counter]['actions'] = mb_actions
+                        dictionary[nav_runner.episode_counter]['rewards'] = mb_rewards
+                        dictionary[nav_runner.episode_counter]['representation'] = mb_representation
+                        dictionary[nav_runner.episode_counter]['fc'] = mb_fc
+                        dictionary[nav_runner.episode_counter]['values'] = mb_values
+                        dictionary[nav_runner.episode_counter]['drone_pos'] = mb_drone_pos
+                        dictionary[nav_runner.episode_counter]['headings'] = mb_heading
 
-                        score = sum(rewards)
+
+                        score = sum(mb_rewards)
                         print(">>>>>>>>>>>>>>>>>>>>>>>>>>> episode %d ended in %d steps. Score %f" % (nav_runner.episode_counter, t, score))
                         nav_runner.episode_counter += 1
 
                 clock.tick(15)
 
             print("...saving dictionary.")
-            with open('./data/trajectories.tj', 'wb') as handle:
-                pickle.dump(dictionary, handle)
+            # with open('./data/230_70_static_100.tj', 'wb') as handle:
+            #     pickle.dump(dictionary, handle)
 
         except KeyboardInterrupt:
             pass

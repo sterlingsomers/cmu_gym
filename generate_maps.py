@@ -45,4 +45,4 @@ def encode_map(x, y, w, h, scale):
 
 
 # There are features missing so you cannot encode the whole map!!! Also the above function wil return an error in this case
-encode_map(430,110,10,10, 5) # 5 recommended scale for 10x10 maps
+encode_map(65,466,10,10, 5) # 5 recommended scale for 10x10 maps

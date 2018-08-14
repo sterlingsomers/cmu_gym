@@ -19,7 +19,7 @@ from scipy.misc import imresize
 
 from gym_gridworld.envs import create_np_map as CNP
 
-from gym_gridworld.envs.mavsim_server import MavsimHandler
+#from mavsim_server import MavsimHandler
 
 # define colors
 # 0: black; 1 : gray; 2 : blue; 3 : green; 4 : red
@@ -51,7 +51,7 @@ class GridworldEnv(gym.Env):
         self.actions = list(range(self.action_space.n))
         self.obs_shape = [50,50,3]
         self.observation_space = spaces.Box(low=0, high=255, shape=self.obs_shape)
-        self.real_actions = True
+        self.real_actions = False
 
         if self.real_actions:
             self.mavsimhandler = MavsimHandler()
@@ -91,7 +91,19 @@ class GridworldEnv(gym.Env):
                              # "CRASHED": -30
                              }
         self.alt_rewards = {0:-1, 1:1, 2:-0.5, 3:-0.8}
+        
 
+        # self.possible_actions_map = {
+        #     1: [[0, -1], [-1, -1], [-1, 0], [-1, 1], [0, 1]],
+        #     2: [[-1, -1], [0, -1], [1, -1], [1, 0], [1, 1]],
+        #     3: [[-1, 0], [-1, 1], [0, 1], [1, 1], [1, 0]],
+        #     4: [[-1, 1], [0, 1], [1, 1], [1, 0], [1, -1]],
+        #     5: [[0, 1], [1, 1], [1, 0], [1, -1], [0, -1]],
+        #     6: [[1, 1], [1, 0], [1, -1], [0, -1], [-1, -1]],
+        #     7: [[-1, 0], [-1, -1], [0, -1], [-1, -1], [-1, 0]],
+        #     8: [[1, -1], [0, -1], [-1, -1], [-1, 0], [-1, -1]]
+        #
+        # }
         self.possible_actions_map = {
             1: [[0, -1], [-1, -1], [-1, 0], [-1, 1], [0, 1]],
             2: [[-1, -1], [-1, 0], [-1, 1], [0, 1], [1, 1]],
@@ -518,16 +530,16 @@ class GridworldEnv(gym.Env):
     def reset(self):
         self.dist_old = 1000
         self.drop = False
-        self.heading = 1#random.randint(1, 8)
+        self.heading = random.randint(1, 8)
         self.altitude = 3
         self.reward = 0
         _map = random.choice(self.maps)
         self.map_volume = CNP.map_to_volume_dict(_map[0], _map[1], 10, 10)
         # Set hiker's and drone's locations
         #hiker = (random.randint(2, self.map_volume['vol'].shape[1] - 1), random.randint(2, self.map_volume['vol'].shape[1] - 2)) #(8,8) #
-        hiker = (random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))  # (7,8) #
+        hiker = (6,3)#(random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))  # (7,8) #
         #drone = random.choice([(hiker[0]-1, hiker[1]-1),(hiker[0]-1, hiker[1]),(hiker[0], hiker[1]-1)])## Package drop starts close to hiker!!! #(random.randint(2, self.map_volume['vol'].shape[1] - 1), random.randint(2, self.map_volume['vol'].shape[1] - 2)) # (8,8) #
-        drone = (8,5)#(random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))
+        drone = (1,8)#(random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))
         while drone == hiker:
             drone = (random.randint(2, self.map_volume['vol'].shape[1] - 1),
                      random.randint(2, self.map_volume['vol'].shape[1] - 2))

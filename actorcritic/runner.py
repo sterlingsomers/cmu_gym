@@ -170,7 +170,7 @@ class Runner(object):
         latest_obs = self.latest_obs # (MINE) =state(t)
 
         # action = agent(state)
-        action_ids, value_estimate, representation = self.agent.step_eval(latest_obs) # (MINE) AGENT STEP = INPUT TO NN THE CURRENT STATE AND OUTPUT ACTION
+        action_ids, value_estimate, representation, fc = self.agent.step_eval(latest_obs) # (MINE) AGENT STEP = INPUT TO NN THE CURRENT STATE AND OUTPUT ACTION
         print('|actions:', action_ids)
         if drop_on:
             obs_raw = self.envs.step_drop(action_ids) # It will also visualize the next observation if all the episodes have ended as after success it retunrs the obs from reset
@@ -187,4 +187,4 @@ class Runner(object):
         self.batch_counter += 1
         #print('Batch %d finished' % self.batch_counter)
         sys.stdout.flush()
-        return obs_raw[0:-3], action_ids[0], value_estimate[0], obs_raw[1], obs_raw[2]
+        return obs_raw[0:-3], action_ids[0], value_estimate[0], obs_raw[1], obs_raw[2], representation, fc
