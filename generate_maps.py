@@ -40,6 +40,7 @@ def encode_map(x, y, w, h, scale):
     map = create_np_map.convert_map_to_volume_dict(x, y, terrain_slice_dict, w, h)
 
     print("saving map image")
+
     image = scale_image(map['img'],scale)
     imageio.imwrite(path + 'maps/' + filename + '.png', image)
 
