@@ -9,6 +9,8 @@ import itertools
 
 import bad_navigation
 
+import run_agent
+
 
 def ListToFormattedString(alist):
     # Each item is right-adjusted, width=3
@@ -49,8 +51,8 @@ combinations = list(itertools.product(hiker_positions_x,hiker_positions_y))
                 # [288,269],[327,264],[389,381],[417,304],[452,312],[380,268],[411,271],[418,277],[431,282]] #v5
 
 #custom combinations
-combinations = [[52,473]]
-path_coordinates =[[70,481]]
+combinations = [[230,70]]
+path_coordinates = [[120,60],[237,60],[237,70]]
 
 #last_hiker_x = 25
 #last_hiker_y = 33
@@ -62,7 +64,7 @@ for combination in combinations:
 
     print(path_coordinates)
 
-    for i in range(2):
+    for i in range(1):
 
         mission_uuid = uuid.uuid4().hex
         session_uuid = uuid.uuid4().hex
@@ -98,8 +100,12 @@ for combination in combinations:
 
         #if Simon's xml file has coordinates, fly to them
         #path_coordinates = [[30,483]]
+
+        #Fly to the drone starting position, so heading will be 5 (down)
         bad_navigation.fly_path(coordinates=path_coordinates)
 
+        #start the drone
+        run_agent.main()
 
 
         #First edit the xml file
@@ -113,14 +119,14 @@ for combination in combinations:
         #sed - i
         #'0,/150/s/150/170/' / cogle / cogle - mavsim / cogle_mavsim / assets / godiland_nav_v0.xml
 
-        print("starting the q-learner.")
-
-
-
-        subprocess.run(["docker", "exec", "q-learner-container33", "python3", "main.py", "--env-id", "apl-nav-godiland-v{}".format(version_number), "--drop_payload_agent",
-             "--qfunction", "./q_functions/multi_redrop-v{}.qf".format(version_number)])
-
-        print("DONE.")
+        #print("starting the q-learner.")
+        #
+        #
+        #
+        # subprocess.run(["docker", "exec", "q-learner-container33", "python3", "main.py", "--env-id", "apl-nav-godiland-v{}".format(version_number), "--drop_payload_agent",
+        #      "--qfunction", "./q_functions/multi_redrop-v{}.qf".format(version_number)])
+        #
+        # print("DONE.")
         print("reseting.")
         msg = "('{}', '{}', '{}')".format('SIM', 'CLOSE', mission_uuid)
         #print(sending, msg)

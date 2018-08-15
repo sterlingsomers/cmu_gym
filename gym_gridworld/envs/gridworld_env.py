@@ -19,7 +19,7 @@ from scipy.misc import imresize
 
 from gym_gridworld.envs import create_np_map as CNP
 
-#from mavsim_server import MavsimHandler
+from gym_gridworld.envs.mavsim_server import MavsimHandler
 
 # define colors
 # 0: black; 1 : gray; 2 : blue; 3 : green; 4 : red
@@ -51,7 +51,7 @@ class GridworldEnv(gym.Env):
         self.actions = list(range(self.action_space.n))
         self.obs_shape = [50,50,3]
         self.observation_space = spaces.Box(low=0, high=255, shape=self.obs_shape)
-        self.real_actions = False
+        self.real_actions = True
 
         if self.real_actions:
             self.mavsimhandler = MavsimHandler()
@@ -530,7 +530,7 @@ class GridworldEnv(gym.Env):
     def reset(self):
         self.dist_old = 1000
         self.drop = False
-        self.heading = random.randint(1, 8)
+        self.heading = 5#random.randint(1, 8)
         self.altitude = 3
         self.reward = 0
         _map = random.choice(self.maps)
