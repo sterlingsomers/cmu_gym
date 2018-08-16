@@ -36,7 +36,7 @@ flags.DEFINE_bool("visualize", False, "Whether to render with pygame.")
 flags.DEFINE_integer("resolution", 32, "Resolution for screen and minimap feature layers.")
 flags.DEFINE_integer("step_mul", 100, "Game steps per agent step.")
 flags.DEFINE_integer("n_envs", 20, "Number of environments to run in parallel")
-flags.DEFINE_integer("episodes", 500, "Number of complete episodes")
+flags.DEFINE_integer("episodes", 10, "Number of complete episodes")
 flags.DEFINE_integer("n_steps_per_batch", 32,
     "Number of steps per batch, if None use 8 for a2c and 128 for ppo")  # (MINE) TIMESTEPS HERE!!! You need them cauz you dont want to run till it finds the beacon especially at first episodes - will take forever
 flags.DEFINE_integer("all_summary_freq", 50, "Record all summaries every n batch")
@@ -394,7 +394,7 @@ def main():
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT:
                         running = False
-                # sleep(1.5)
+                sleep(1.5)
                 # Timestep counter
                 t=0
 
@@ -426,7 +426,7 @@ def main():
                     screen_mssg_variable("Reward: ", np.round(reward,3), (168, 372))
                     pygame.display.update()
                     pygame.event.get()
-                    # sleep(1.5)
+                    sleep(1.5)
 
                     # BLIT!!!
                     # First Background covering everyything from previous session
@@ -438,7 +438,7 @@ def main():
                     # Update finally the screen with all the images you blitted in the run_trained_batch
                     pygame.display.update() # Updates only the blitted parts of the screen, pygame.display.flip() updates the whole screen
                     pygame.event.get() # Show the last state and then reset
-                    # sleep(1.2)
+                    sleep(1.2)
                     t += 1
 
                     # Dropping Agent
@@ -455,8 +455,6 @@ def main():
                         mb_obs.append(nav_runner.latest_obs)
                         mb_flag.append(drop_flag)
                         mb_heading.append(nav_runner.envs.heading)
-                        # dictionary[nav_runner.episode_counter]['observations'].append(nav_runner.latest_obs)
-                        # dictionary[nav_runner.episode_counter]['flag'].append(drop_flag)
                         while done2==0:
 
                             # Step
@@ -481,7 +479,7 @@ def main():
                             screen_mssg_variable("Reward: ", np.round(reward, 3), (168, 372))
                             pygame.display.update()
                             pygame.event.get()
-                            # sleep(1.5)
+                            sleep(1.5)
 
                             if action == 15:
                                 # The update of the text will be at the same time with the update of state
@@ -489,7 +487,7 @@ def main():
                                 pygame.display.update()
                                 pygame.event.get()  # Update the screen
                                 dictionary[nav_runner.episode_counter]['pack_hiker_dist'] = drop_runner.envs.pack_dist
-                                # sleep(1.5)
+                                sleep(1.5)
 
                             gameDisplay.fill(DARK_BLUE)
                             map_xy = obs[0]['img']
@@ -499,7 +497,7 @@ def main():
                             # Update finally the screen with all the images you blitted in the run_trained_batch
                             pygame.display.update()  # Updates only the blitted parts of the screen, pygame.display.flip() updates the whole screen
                             pygame.event.get()  # Show the last state and then reset
-                            # sleep(1.2)
+                            sleep(1.2)
                             t = t +1
 
                         dictionary[nav_runner.episode_counter]['observations'] = mb_obs
@@ -520,7 +518,7 @@ def main():
                 clock.tick(15)
 
             print("...saving dictionary.")
-            with open('./data/350_90_static_500.tj', 'wb') as handle:
+            with open('./data/390_50_static_100.tj', 'wb') as handle:
                 pickle.dump(dictionary, handle)
 
         except KeyboardInterrupt:
