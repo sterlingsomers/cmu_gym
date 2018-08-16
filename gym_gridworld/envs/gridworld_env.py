@@ -51,7 +51,7 @@ class GridworldEnv(gym.Env):
         self.actions = list(range(self.action_space.n))
         self.obs_shape = [50,50,3]
         self.observation_space = spaces.Box(low=0, high=255, shape=self.obs_shape)
-        self.real_actions = True
+        self.real_actions = False
 
         if self.real_actions:
             self.mavsimhandler = MavsimHandler()
@@ -551,7 +551,7 @@ class GridworldEnv(gym.Env):
         self.reference_coordinates = [_map[0], _map[1]]
 
 
-        self.real_actions = True
+        self.real_actions = False
         # put the drone in
         self.map_volume['vol'][self.altitude][drone[0], drone[1]] = \
         self.map_volume['feature_value_map']['drone'][self.altitude]['val']

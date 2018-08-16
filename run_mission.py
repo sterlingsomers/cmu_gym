@@ -20,9 +20,7 @@ def ListToFormattedString(alist):
     s = '(' + ','.join(formatted_list) + ')'
     return s.format(*alist)
 
-#TODO
-#NOTE: drone going to 90, 340 for [110, 70] -- WHY???
-#
+
 pilot_name = "Qualitative_analysis_near_one_tree"
 version_number = 2
 custom = True
