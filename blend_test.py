@@ -4,7 +4,7 @@ import numpy as np
 import random
 import itertools
 
-#example from whiteboard start
+
 
 not_dicts = ['FILLED-SLOTS','EMPTY-SLOTS','BLENDED-SLOTS','IGNORED-SLOTS','RESULT-CHUNK','MATCHED-CHUNK-VALUES',
              'MATCHED-VALUES-MAGNITUDES']
