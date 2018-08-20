@@ -9,10 +9,16 @@ import numpy as np
 import pickle
 #from functools import partial
 
+import torch.nn as nn
+import torch.optim as optim
+
 from absl import flags
 from actorcritic.agent import ActorCriticAgent, ACMode
 from actorcritic.runner import Runner, PPORunParams
 # from common.multienv import SubprocVecEnv, make_sc2env, SingleEnv, make_env
+import cogle_xai_state_abstractor
+from cogle_xai_state_abstractor.models import segmentation, cnn_lstm
+from cogle_xai_state_abstractor.utils import transformations
 
 import tensorflow as tf
 # import tensorflow.contrib.eager as tfe
@@ -292,6 +298,14 @@ def main():
         ppo_par=ppo_par
     )
 
+    # Define segmenation model.
+    segmentation_model = segmentation.StateSegmentationModel(
+        net=cnn_lstm.CNN_LSTM(128, 2, 64),
+        criterion=nn.CrossEntropyLoss(),
+        optimizer=optim.SGD,
+        load_path=os.path.join(os.path.split(cogle_xai_state_abstractor.__file__)[0], 'checkpoints/best_checkpoint.pth'),
+    )
+
     # runner.reset() # Reset env which means you get first observation. You need reset if you run episodic tasks!!! SC2 is not episodic task!!!
 
     if FLAGS.K_batches >= 0:
@@ -400,6 +414,8 @@ def main():
 
                 drop_flag = 0
                 done = 0
+                hidden = None
+                episode_segment_ids = []
                 while done==0:
 
                     mb_obs.append(nav_runner.latest_obs)
@@ -414,6 +430,10 @@ def main():
 
                     # RUN THE MAIN LOOP
                     obs, action, value, reward, done, representation, fc = nav_runner.run_trained_batch(drop_flag) # Just one step. There is no monitor here so no info section
+
+                    segmentation_input = transformations.prepare_input_observation(obs[0]['img'])
+                    segment_id, hidden = segmentation_model.predict_timestep(segmentation_input, hidden)
+                    episode_segment_ids.append(segment_id)
 
                     # dictionary[nav_runner.episode_counter]['actions'].append(action)
                     mb_actions.append(action)
@@ -460,6 +480,11 @@ def main():
                             # Step
                             obs, action, value, reward, done2, representation, fc = drop_runner.run_trained_batch(drop_flag)
                             mb_rewards.append(reward)
+
+                            segmentation_input = transformations.prepare_input_observation(obs[0]['img'])
+                            segment_id, hidden = segmentation_model.predict_timestep(segmentation_input, hidden)
+                            episode_segment_ids.append(segment_id)
+                    
 
                             # Store
                             mb_obs.append(drop_runner.latest_obs)
@@ -516,6 +541,7 @@ def main():
                         nav_runner.episode_counter += 1
 
                 clock.tick(15)
+                import pdb; pdb.set_trace()
 
             print("...saving dictionary.")
             with open('./data/390_50_static_100.tj', 'wb') as handle:
