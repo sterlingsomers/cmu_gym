@@ -1,3 +1,8 @@
+#ACT-R
+This uses custom ACT-R9
+Run run-act-r.command
+
+
 # gym-gridworld
 
 Basic implementation of gridworld game 

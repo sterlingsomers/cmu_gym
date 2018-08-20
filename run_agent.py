@@ -42,7 +42,7 @@ flags.DEFINE_bool("visualize", False, "Whether to render with pygame.")
 flags.DEFINE_integer("resolution", 32, "Resolution for screen and minimap feature layers.")
 flags.DEFINE_integer("step_mul", 100, "Game steps per agent step.")
 flags.DEFINE_integer("n_envs", 20, "Number of environments to run in parallel")
-flags.DEFINE_integer("episodes", 10, "Number of complete episodes")
+flags.DEFINE_integer("episodes", 1, "Number of complete episodes")
 flags.DEFINE_integer("n_steps_per_batch", 32,
     "Number of steps per batch, if None use 8 for a2c and 128 for ppo")  # (MINE) TIMESTEPS HERE!!! You need them cauz you dont want to run till it finds the beacon especially at first episodes - will take forever
 flags.DEFINE_integer("all_summary_freq", 50, "Record all summaries every n batch")
@@ -400,7 +400,7 @@ def main():
                 pygame.display.update()
 
                 dictionary[nav_runner.episode_counter]['hiker_pos'] = nav_runner.envs.hiker_position
-                dictionary[nav_runner.episode_counter]['map_volume'] = map_xy
+                dictionary[nav_runner.episode_counter]['map_volume'] = nav_runner.envs.map_volume
 
                 # Quit pygame if the (X) button is pressed on the top left of the window
                 # Seems that without this for event quit doesnt show anything!!!
@@ -411,7 +411,7 @@ def main():
                 sleep(1.5)
                 # Timestep counter
                 t=0
-
+                rewards = []
                 drop_flag = 0
                 done = 0
                 hidden = None
@@ -475,6 +475,8 @@ def main():
                         mb_obs.append(nav_runner.latest_obs)
                         mb_flag.append(drop_flag)
                         mb_heading.append(nav_runner.envs.heading)
+                        # dictionary[nav_runner.episode_counter]['observations'].append(nav_runner.latest_obs)
+                        # dictionary[nav_runner.episode_counter]['flag'].append(drop_flag)
                         while done2==0:
 
                             # Step
@@ -484,7 +486,7 @@ def main():
                             segmentation_input = transformations.prepare_input_observation(obs[0]['img'])
                             segment_id, hidden = segmentation_model.predict_timestep(segmentation_input, hidden)
                             episode_segment_ids.append(segment_id)
-                    
+
 
                             # Store
                             mb_obs.append(drop_runner.latest_obs)

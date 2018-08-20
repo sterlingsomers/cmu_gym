@@ -19,7 +19,7 @@ from scipy.misc import imresize
 
 from gym_gridworld.envs import create_np_map as CNP
 
-#from mavsim_server import MavsimHandler
+from gym_gridworld.envs.mavsim_server import MavsimHandler
 
 # define colors
 # 0: black; 1 : gray; 2 : blue; 3 : green; 4 : red
@@ -316,6 +316,11 @@ class GridworldEnv(gym.Env):
         #reward = reward*(1/(self.pack_dist+1e-7))*0.1
         self.reward = reward*is_hiker_in_neighbors # YOU CANNOT DO THAT EVEN IF IT WORKS FOR THAT MAP AS IT DOESNT GET PENALTY FOR DAMAGING THE PACK!
         #print(terrain, reward)
+        ###APL ADDITION
+        if self.real_actions:
+            success = self.mavsimhandler.drop_package()
+
+
 
     def take_action(self, delta_alt=0, delta_x=0, delta_y=0, new_heading=1):
         # print("stop")
@@ -365,10 +370,16 @@ class GridworldEnv(gym.Env):
         if self.real_actions:
             drone_position = np.where(
                 self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
+            coordinates = [self.reference_coordinates[0] + int(drone_position[1]),
+                           self.reference_coordinates[1] + int(drone_position[2])]
+            print("drone new position", drone_position)
+            print("new altitude", self.altitude)
+            print("sending coordinates", coordinates)
+            # assume the drone is the right spot, right heading
+            success = self.mavsimhandler.head_to(new_heading, self.altitude)
+            # success = self.mavsimhandler.fly_path(coordinates=coordinates,altitude=self.altitude)
 
-            success = self.mavsimhandler.fly_path(coordinates=[self.reference_coordinates[0] + int(drone_position[1]),
-                                                               self.reference_coordinates[1] + int(drone_position[2])],
-                                                  altitude=self.altitude)
+            print("SUCCESS", success)
 
         return 1
 
@@ -519,7 +530,7 @@ class GridworldEnv(gym.Env):
     def reset(self):
         self.dist_old = 1000
         self.drop = False
-        self.heading = random.randint(1, 8)
+        self.heading = 5#random.randint(1, 8)
         self.altitude = 3
         self.reward = 0
         _map = random.choice(self.maps)
