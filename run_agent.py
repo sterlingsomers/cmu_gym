@@ -534,6 +534,7 @@ def main():
                         dictionary[nav_runner.episode_counter]['values'] = mb_values
                         dictionary[nav_runner.episode_counter]['drone_pos'] = mb_drone_pos
                         dictionary[nav_runner.episode_counter]['headings'] = mb_heading
+                        dictionary[nav_runner.episode_counter]['segment_id'] = segment_id
 
 
                         score = sum(mb_rewards)
@@ -541,7 +542,7 @@ def main():
                         nav_runner.episode_counter += 1
 
                 clock.tick(15)
-                import pdb; pdb.set_trace()
+                #import pdb; pdb.set_trace()
 
             print("...saving dictionary.")
             with open('./data/390_50_static_100.tj', 'wb') as handle:
