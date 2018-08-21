@@ -1,6 +1,6 @@
 import numpy as np
 import itertools
-import actr
+from blending_and_salience import actr
 import random
 import json
 
@@ -196,4 +196,4 @@ actr.run(10)
 d = actr.get_history_data("blending-trace")
 d = json.loads(d)
 
-asdf = actr.get_history_data("blending-times")
+print("done")
