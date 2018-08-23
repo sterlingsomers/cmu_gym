@@ -192,9 +192,9 @@ for x in chks:
 
 
 #Probe
-chk = ['isa', 'observation', 'one', ['one',1], 'two', ['two',1],'three', ['three',2],
-             'four', ['four',1], 'five', ['five',1], 'six', ['six',2],
-             'seven', ['seven',1], 'eight', ['eight',1], 'nine', ['nine',2],'actual_x',['actual_x',0],'actual_y',['actual_y',1]]
+chk = ['isa', 'observation', 'one', ['one',2], 'two', ['two',1],'three', ['three',1],
+             'four', ['four',2], 'five', ['five',1], 'six', ['six',1],
+             'seven', ['seven',2], 'eight', ['eight',1], 'nine', ['nine',1],'actual_x',['actual_x',0],'actual_y',['actual_y',1]]
 chunk = actr.define_chunks(chk)
 actr.schedule_simple_event_now("set-buffer-chunk",
                                ['imaginal', chunk[0]])
