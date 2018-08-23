@@ -9,7 +9,7 @@ import pickle
 from pylab import ogrid
 
 # You dont need so many data for one static case.
-pickle_in = open('/Users/paulsomers/COGLE/gym-gridworld/data/left_trees_static_100.tj','rb')
+pickle_in = open('/Users/paulsomers/COGLE/gym-gridworld/data/1_trail_100.tj','rb')
 obs = pickle.load(pickle_in)
 
 ''' Dropping locations heatmap '''

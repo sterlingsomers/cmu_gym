@@ -518,7 +518,7 @@ def main():
                 clock.tick(15)
 
             print("...saving dictionary.")
-            with open('./data/right_trees_static_100.tj', 'wb') as handle:
+            with open('./data/1_trail_100.tj', 'wb') as handle:
                 pickle.dump(dictionary, handle)
 
         except KeyboardInterrupt:
