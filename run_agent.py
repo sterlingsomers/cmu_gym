@@ -43,7 +43,7 @@ flags.DEFINE_integer("all_summary_freq", 50, "Record all summaries every n batch
 flags.DEFINE_integer("scalar_summary_freq", 5, "Record scalar summaries every n batch")
 flags.DEFINE_string("checkpoint_path", "_files/models", "Path for agent checkpoints")
 flags.DEFINE_string("summary_path", "_files/summaries", "Path for tensorboard summaries")
-flags.DEFINE_string("model_name", "Drop_test", "Name for checkpoints and tensorboard summaries")
+flags.DEFINE_string("model_name", "Drop_tree_grass", "Name for checkpoints and tensorboard summaries")
 flags.DEFINE_integer("K_batches", 10000, # Batch is like a training epoch!
     "Number of training batches to run in thousands, use -1 to run forever") #(MINE) not for now
 flags.DEFINE_string("map_name", "DefeatRoaches", "Name of a map to use.")
@@ -518,7 +518,7 @@ def main():
                 clock.tick(15)
 
             print("...saving dictionary.")
-            with open('./data/1_trail_100.tj', 'wb') as handle:
+            with open('./data/tree_grass_trail_100.tj', 'wb') as handle:
                 pickle.dump(dictionary, handle)
 
         except KeyboardInterrupt:
