@@ -36,7 +36,7 @@ flags.DEFINE_bool("visualize", False, "Whether to render with pygame.")
 flags.DEFINE_integer("resolution", 32, "Resolution for screen and minimap feature layers.")
 flags.DEFINE_integer("step_mul", 100, "Game steps per agent step.")
 flags.DEFINE_integer("n_envs", 20, "Number of environments to run in parallel")
-flags.DEFINE_integer("episodes", 100, "Number of complete episodes")
+flags.DEFINE_integer("episodes", 500, "Number of complete episodes")
 flags.DEFINE_integer("n_steps_per_batch", 32,
     "Number of steps per batch, if None use 8 for a2c and 128 for ppo")  # (MINE) TIMESTEPS HERE!!! You need them cauz you dont want to run till it finds the beacon especially at first episodes - will take forever
 flags.DEFINE_integer("all_summary_freq", 50, "Record all summaries every n batch")
@@ -518,7 +518,7 @@ def main():
                 clock.tick(15)
 
             print("...saving dictionary.")
-            with open('./data/tree_grass_trail_100.tj', 'wb') as handle:
+            with open('./data/test.tj', 'wb') as handle:
                 pickle.dump(dictionary, handle)
 
         except KeyboardInterrupt:
