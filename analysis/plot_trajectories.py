@@ -7,7 +7,7 @@ import pickle
 from scipy.misc import imresize
 from pylab import ogrid
 
-pickle_in = open('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/390_50_static_100.tj','rb')
+pickle_in = open('/Users/paulsomers/COGLE/gym-gridworld/data/tree_grass_trees_100.tj','rb')
 obs = pickle.load(pickle_in)
 
 fig = plt.figure(1)
@@ -20,7 +20,7 @@ ax.set_ylabel('lon')
 ax.set_zlabel('alt')
 
 
-img = obs[0]['map_volume']
+img = obs[10]['map_volume']
 img = imresize(img, 0.2, interp='nearest')
 img = img/255.0
 X1, Y1 = ogrid[-0.5:img.shape[0], -0.5:img.shape[1]]

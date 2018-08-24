@@ -6,7 +6,7 @@ import pickle
 
 
 '''Get the data'''
-pickle_in = open('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/390_50_static_100.tj','rb')
+pickle_in = open('/Users/paulsomers/COGLE/gym-gridworld/data/tree_grass_trees_100.tj','rb')
 obs = pickle.load(pickle_in)
 dict = {}
 
