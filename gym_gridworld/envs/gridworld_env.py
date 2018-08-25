@@ -44,7 +44,7 @@ class GridworldEnv(gym.Env):
             [2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
             [2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
             [2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-            [2, 2, 2, 2, 2, 3, 2, 2, 2, 2],
+            [2, 2, 2, 2, 2, 4, 2, 2, 2, 2],
             [2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
             [2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
             [2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
@@ -533,17 +533,17 @@ class GridworldEnv(gym.Env):
     def reset(self):
         self.dist_old = 1000
         self.drop = False
-        self.heading = random.randint(1, 8)
+        self.heading = 1#random.randint(1, 8)
         self.altitude = 3
         self.reward = 0
         _map = random.choice(self.maps)
-        self.map_volume = CNP.create_custom_map(np.rot90(np.rot90(np.rot90(self.custom_map))))#CNP.map_to_volume_dict(_map[0], _map[1], 10, 10)
+        self.map_volume = CNP.create_custom_map(self.custom_map)#CNP.map_to_volume_dict(_map[0], _map[1], 10, 10)
         # Set hiker's and drone's location
         #hiker = (random.randint(2, self.map_volume['vol'].shape[1] - 1), random.randint(2, self.map_volume['vol'].shape[1] - 2)) #(8,8) #
         #(8, 1)  # (6,3)#
-        hiker = (5,5)#(random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))  # (7,8) #
+        hiker = (4,5)#(random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))  # (7,8) #
         #drone = random.choice([(hiker[0]-1, hiker[1]-1),(hiker[0]-1, hiker[1]),(hiker[0], hiker[1]-1)])## Package drop starts close to hiker!!! #(random.randint(2, self.map_volume['vol'].shape[1] - 1), random.randint(2, self.map_volume['vol'].shape[1] - 2)) # (8,8) #
-        drone = (6,5)#(2,6)#(random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2)) #(1,8)
+        drone = hiker#(2,6)#(random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2)) #(1,8)
         # while drone == hiker:
         #     drone = (random.randint(2, self.map_volume['vol'].shape[1] - 1),
         #              random.randint(2, self.map_volume['vol'].shape[1] - 2))

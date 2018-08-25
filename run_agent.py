@@ -361,10 +361,10 @@ def main():
 
             dictionary = {}
             running = True
-            while nav_runner.episode_counter <= (FLAGS.episodes - 1) and running==True:
-                print('Episode: ', nav_runner.episode_counter)
+            while drop_runner.episode_counter <= (FLAGS.episodes - 1) and running==True:
+                print('Episode: ', drop_runner.episode_counter)
                 # Init storage structures
-                dictionary[nav_runner.episode_counter] = {}
+                dictionary[drop_runner.episode_counter] = {}
                 mb_obs = []
                 mb_actions = []
                 mb_flag = []
@@ -374,19 +374,22 @@ def main():
                 mb_values = []
                 mb_drone_pos = []
                 mb_heading = []
-                # dictionary[nav_runner.episode_counter]['observations'] = {}
-                # dictionary[nav_runner.episode_counter]['actions'] = []
-                # dictionary[nav_runner.episode_counter]['flag'] = []
+                mb_top_view = []
+                mb_ego_view = []
+                # dictionary[drop_runner.episode_counter]['observations'] = {}
+                # dictionary[drop_runner.episode_counter]['actions'] = []
+                # dictionary[drop_runner.episode_counter]['flag'] = []
 
-                nav_runner.reset_demo()  # Cauz of differences in the arrangement of the dictionaries
-                map_xy = nav_runner.envs.map_image
-                map_alt = nav_runner.envs.alt_view
+                drop_runner.reset_demo()  # Cauz of differences in the arrangement of the dictionaries
+                map_xy = drop_runner.envs.map_image
+                map_alt = drop_runner.envs.alt_view
+                gameDisplay.fill(DARK_BLUE)
                 process_img(map_xy, 20, 20)
                 process_img(map_alt, 20, 400)
                 pygame.display.update()
 
-                dictionary[nav_runner.episode_counter]['hiker_pos'] = nav_runner.envs.hiker_position
-                dictionary[nav_runner.episode_counter]['map_volume'] = map_xy
+                dictionary[drop_runner.episode_counter]['hiker_pos'] = drop_runner.envs.hiker_position
+                dictionary[drop_runner.episode_counter]['map_volume'] = map_xy
 
                 # Quit pygame if the (X) button is pressed on the top left of the window
                 # Seems that without this for event quit doesnt show anything!!!
@@ -398,127 +401,80 @@ def main():
                 # Timestep counter
                 t=0
 
-                drop_flag = 0
+                drop_flag = 1
                 done = 0
-                while done==0:
-
-                    mb_obs.append(nav_runner.latest_obs)
-                    mb_flag.append(drop_flag)
-                    mb_heading.append(nav_runner.envs.heading)
-
-                    drone_pos = np.where(nav_runner.envs.map_volume['vol'] == nav_runner.envs.map_volume['feature_value_map']['drone'][nav_runner.envs.altitude]['val'])
+                while not done:
+                    print('=== DROPPING AGENT IN CHARGE ===')
+                    #drop_runner.latest_obs = drop_runner.latest_obs
+                    #drop_runner.latest_obs = drop_runner.latest_obs
+                    mb_obs.append(drop_runner.latest_obs)
+                    mb_heading.append(drop_runner.envs.heading)
+                    drone_pos = np.where(drop_runner.envs.map_volume['vol'] ==
+                                         drop_runner.envs.map_volume['feature_value_map']['drone'][
+                                             drop_runner.envs.altitude]['val'])
                     mb_drone_pos.append(drone_pos)
 
-                    # dictionary[nav_runner.episode_counter]['observations'].append(nav_runner.latest_obs)
-                    # dictionary[nav_runner.episode_counter]['flag'].append(drop_flag)
 
-                    # RUN THE MAIN LOOP
-                    obs, action, value, reward, done, representation, fc = nav_runner.run_trained_batch(drop_flag) # Just one step. There is no monitor here so no info section
-
-                    # dictionary[nav_runner.episode_counter]['actions'].append(action)
-                    mb_actions.append(action)
+                    # Step
+                    obs, action, value, reward, done, representation, fc = drop_runner.run_trained_batch(drop_flag)
                     mb_rewards.append(reward)
+
+
+                    # Store
+
+                    #mb_flag.append(0) # We need to put zero only once
+                    mb_actions.append(action)
                     mb_representation.append(representation)
                     mb_fc.append(fc)
                     mb_values.append(value)
+                     # The last location will be doubled as if it is a drop action the drone doesn't change location so obs will be the same!!!
 
-                    screen_mssg_variable("Value    : ", np.round(value,3), (168, 350))
-                    screen_mssg_variable("Reward: ", np.round(reward,3), (168, 372))
+
+                    screen_mssg_variable("Value    : ", np.round(value, 3), (168, 350))
+                    screen_mssg_variable("Reward: ", np.round(reward, 3), (168, 372))
                     pygame.display.update()
                     pygame.event.get()
                     # sleep(1.5)
 
-                    # BLIT!!!
-                    # First Background covering everyything from previous session
+                    if action == 15:
+                        # The update of the text will be at the same time with the update of state
+                        screen_mssg_variable("Package state:", drop_runner.envs.package_state, (20, 350))
+                        pygame.display.update()
+                        pygame.event.get()  # Update the screen
+                        dictionary[drop_runner.episode_counter]['pack_hiker_dist'] = drop_runner.envs.pack_dist
+                        # sleep(1.5)
+
                     gameDisplay.fill(DARK_BLUE)
                     map_xy = obs[0]['img']
                     map_alt = obs[0]['nextstepimage']
                     process_img(map_xy, 20, 20)
                     process_img(map_alt, 20, 400)
                     # Update finally the screen with all the images you blitted in the run_trained_batch
-                    pygame.display.update() # Updates only the blitted parts of the screen, pygame.display.flip() updates the whole screen
-                    pygame.event.get() # Show the last state and then reset
+                    pygame.display.update()  # Updates only the blitted parts of the screen, pygame.display.flip() updates the whole screen
+                    pygame.event.get()  # Show the last state and then reset
                     # sleep(1.2)
-                    t += 1
+                    t = t +1
 
-                    # Dropping Agent
-                    if done==1:
-                        print('=== DROPPING AGENT IN CHARGE ===')
-                        drop_runner.latest_obs = nav_runner.latest_obs
-                        done2 = 0
-                        drop_flag = 1
-                        # Store
-                        drone_pos = np.where(nav_runner.envs.map_volume['vol'] ==
-                                             nav_runner.envs.map_volume['feature_value_map']['drone'][
-                                                 nav_runner.envs.altitude]['val'])
-                        mb_drone_pos.append(drone_pos)
-                        mb_obs.append(nav_runner.latest_obs)
-                        mb_flag.append(drop_flag)
-                        mb_heading.append(nav_runner.envs.heading)
-                        while done2==0:
-
-                            # Step
-                            obs, action, value, reward, done2, representation, fc = drop_runner.run_trained_batch(drop_flag)
-                            mb_rewards.append(reward)
-
-                            # Store
-                            mb_obs.append(drop_runner.latest_obs)
-                            mb_flag.append(0) # We need to put zero only once
-                            mb_actions.append(action)
-                            mb_representation.append(representation)
-                            mb_fc.append(fc)
-                            mb_values.append(value)
-                            mb_heading.append(drop_runner.envs.heading)
-                            drone_pos = np.where(drop_runner.envs.map_volume['vol'] ==
-                                                 drop_runner.envs.map_volume['feature_value_map']['drone'][
-                                                     drop_runner.envs.altitude]['val'])
-                            mb_drone_pos.append(drone_pos) # The last location will be doubled as if it is a drop action the drone doesn't change location so obs will be the same!!!
+                dictionary[drop_runner.episode_counter]['observations'] = mb_obs
+                dictionary[drop_runner.episode_counter]['flag'] = mb_flag
+                dictionary[drop_runner.episode_counter]['actions'] = mb_actions
+                dictionary[drop_runner.episode_counter]['rewards'] = mb_rewards
+                dictionary[drop_runner.episode_counter]['representation'] = mb_representation
+                dictionary[drop_runner.episode_counter]['fc'] = mb_fc
+                dictionary[drop_runner.episode_counter]['values'] = mb_values
+                dictionary[drop_runner.episode_counter]['drone_pos'] = mb_drone_pos
+                dictionary[drop_runner.episode_counter]['headings'] = mb_heading
 
 
-                            screen_mssg_variable("Value    : ", np.round(value, 3), (168, 350))
-                            screen_mssg_variable("Reward: ", np.round(reward, 3), (168, 372))
-                            pygame.display.update()
-                            pygame.event.get()
-                            # sleep(1.5)
+                score = sum(mb_rewards)
+                print(">>>>>>>>>>>>>>>>>>>>>>>>>>> episode %d ended in %d steps. Score %f" % (drop_runner.episode_counter, t, score))
+                drop_runner.episode_counter += 1
 
-                            if action == 15:
-                                # The update of the text will be at the same time with the update of state
-                                screen_mssg_variable("Package state:", drop_runner.envs.package_state, (20, 350))
-                                pygame.display.update()
-                                pygame.event.get()  # Update the screen
-                                dictionary[nav_runner.episode_counter]['pack_hiker_dist'] = drop_runner.envs.pack_dist
-                                # sleep(1.5)
-
-                            gameDisplay.fill(DARK_BLUE)
-                            map_xy = obs[0]['img']
-                            map_alt = obs[0]['nextstepimage']
-                            process_img(map_xy, 20, 20)
-                            process_img(map_alt, 20, 400)
-                            # Update finally the screen with all the images you blitted in the run_trained_batch
-                            pygame.display.update()  # Updates only the blitted parts of the screen, pygame.display.flip() updates the whole screen
-                            pygame.event.get()  # Show the last state and then reset
-                            # sleep(1.2)
-                            t = t +1
-
-                        dictionary[nav_runner.episode_counter]['observations'] = mb_obs
-                        dictionary[nav_runner.episode_counter]['flag'] = mb_flag
-                        dictionary[nav_runner.episode_counter]['actions'] = mb_actions
-                        dictionary[nav_runner.episode_counter]['rewards'] = mb_rewards
-                        dictionary[nav_runner.episode_counter]['representation'] = mb_representation
-                        dictionary[nav_runner.episode_counter]['fc'] = mb_fc
-                        dictionary[nav_runner.episode_counter]['values'] = mb_values
-                        dictionary[nav_runner.episode_counter]['drone_pos'] = mb_drone_pos
-                        dictionary[nav_runner.episode_counter]['headings'] = mb_heading
-
-
-                        score = sum(mb_rewards)
-                        print(">>>>>>>>>>>>>>>>>>>>>>>>>>> episode %d ended in %d steps. Score %f" % (nav_runner.episode_counter, t, score))
-                        nav_runner.episode_counter += 1
 
                 clock.tick(15)
 
             print("...saving dictionary.")
-            with open('./data/test.tj', 'wb') as handle:
+            with open('./data/tree_grass_bush_100_static_heading.tj', 'wb') as handle:
                 pickle.dump(dictionary, handle)
 
         except KeyboardInterrupt:

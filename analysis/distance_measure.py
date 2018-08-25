@@ -4,12 +4,15 @@ import matplotlib as mpl
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 
-pickle_in = open('/Users/paulsomers/COGLE/gym-gridworld/data/test.tj','rb')
+pickle_in = open('/Users/paulsomers/COGLE/gym-gridworld/data/tree_grass_grass_100_static_heading.tj','rb')
 obs1 = pickle.load(pickle_in)
 #fc1 = obs1[0]['fc']
-pickle_in = open('/Users/paulsomers/COGLE/gym-gridworld/data/tree_grass_grass_100.tj','rb')
+pickle_in = open('/Users/paulsomers/COGLE/gym-gridworld/data/tree_grass_tree_100_static_heading.tj','rb')
 obs2 = pickle.load(pickle_in)
 #fc2 = obs2[0]['fc']
+
+
+
 
 
 def find_divergent_step(case1,case2,case1index=0,case2index=0):
@@ -52,16 +55,30 @@ def find_matching_cases(case1,case2,position,heading):
 
     return r_dict
 
-
 matching_cases = find_matching_cases(obs1, obs2, (np.array([3]), np.array([5]), np.array([5])),5)
 index1 = 0
-index2 = 2
+index2 = 0
 divergent_step = find_divergent_step(obs1,obs2,index1,index2)
 #now that I know where they diverge, what were they doing before that?
-position1 = obs1[index1]['drone_pos'][divergent_step-2]
-position2 = obs2[index2]['drone_pos'][divergent_step-2]
-heading1 = obs1[index1]['headings'][divergent_step-2]
-heading2 = obs2[index1]['headings'][divergent_step-2]
+
+
+fig = plt.figure()
+fig.add_subplot(2,2,1)
+plt.imshow(obs1[index1]['observations'][divergent_step - 1]['rgb_screen'].reshape(50,50,3)) # 50x50
+fig.add_subplot(2,2,2)
+plt.imshow(obs1[index1]['observations'][divergent_step - 1]['alt_view'].reshape(50,50,3))
+fig.add_subplot(2,2,3)
+plt.imshow(obs2[index2]['observations'][divergent_step - 1]['rgb_screen'].reshape(50,50,3))
+fig.add_subplot(2,2,4)
+plt.imshow(obs2[index2]['observations'][divergent_step - 1]['alt_view'].reshape(50,50,3))
+plt.show()
+
+#measure distances at divergent - 1
+fc1 = obs1[index1]['fc']
+fc2 = obs2[index2]['fc']
+
+print(np.linalg.norm(fc1[divergent_step-1]-fc2[divergent_step-1]))
+
 # distances = []
 # #euclidean distance
 # #dist = np.linalg.norm(fc1[0]-fc2[0])

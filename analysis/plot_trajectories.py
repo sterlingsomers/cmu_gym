@@ -7,7 +7,7 @@ import pickle
 from scipy.misc import imresize
 from pylab import ogrid
 
-pickle_in = open('/Users/paulsomers/COGLE/gym-gridworld/data/tree_grass_trees_100.tj','rb')
+pickle_in = open('/Users/paulsomers/COGLE/gym-gridworld/data/tree_grass_tree_100_static_heading.tj','rb')
 obs = pickle.load(pickle_in)
 
 fig = plt.figure(1)
@@ -66,7 +66,7 @@ ax.plot_surface(X1, Y1, np.atleast_2d(0), rstride=1, cstride=1, facecolors=img, 
 
 
 #print(obs[1]['headings'][0])
-trace=obs[4]['drone_pos'] # 0 and 8 are almost the same, 4 is weird, doesnt go down
+trace=obs[2]['drone_pos'] # 0 and 8 are almost the same, 4 is weird, doesnt go down
 trace_zxy = np.concatenate( trace, axis=1 )
 z = trace_zxy[0]
 x = trace_zxy[1]

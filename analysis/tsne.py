@@ -6,8 +6,17 @@ import pickle
 
 
 '''Get the data'''
-pickle_in = open('/Users/paulsomers/COGLE/gym-gridworld/data/tree_grass_trees_100.tj','rb')
-obs = pickle.load(pickle_in)
+pickle_in = open('/Users/paulsomers/COGLE/gym-gridworld/data/tree_grass_grass_100.tj','rb')
+obs1 = pickle.load(pickle_in)
+
+pickle_in = open('/Users/paulsomers/COGLE/gym-gridworld/data/tree_grass_trail_100.tj','rb')
+obs2 = pickle.load(pickle_in)
+obs = {}
+for x in range(len(obs1.keys()) + len(obs2.keys())):
+    if x < len(obs1.keys()):
+        obs[x] = obs1[x]
+    else:
+        obs[x] = obs2[x-len(obs1.keys())]
 dict = {}
 
 t = 0
@@ -15,7 +24,8 @@ t = 0
 for epis in range(len(obs)):
     print('Episode:',epis)
     # Get position of the flag
-    indx = np.nonzero(obs[epis]['flag'])[0][0]
+    indx = 0
+    #indx = np.nonzero(obs[epis]['flag'])[0][0]
     print('indx=',indx)
     traj_length = obs[epis]['flag'].__len__()-1 # We take out the last obs as the drone has dropped
     print('traj=',traj_length)
