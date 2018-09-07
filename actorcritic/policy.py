@@ -166,8 +166,7 @@ class FullyConvPolicy:
             scope="fc1",
             trainable=self.trainable
         )
-        # (MINE) From the previous layer you extract action_id_probs (non spatial - categorical - actions) and value
-        # estimate
+        # The output of the fc is multiplied by the weights of the action and value layers and squashed by their activation functions respectively.
         action_id_probs = layers.fully_connected(
             self.fc1,
             num_outputs=self.num_actions,#len(actions.FUNCTIONS),
