@@ -538,7 +538,12 @@ class GridworldEnv(gym.Env):
         self.altitude = 3
         self.reward = 0
         _map = random.choice(self.maps)
-        self.map_volume = CNP.create_custom_map(np.rot90(np.rot90(np.rot90(self.custom_map))))#CNP.map_to_volume_dict(_map[0], _map[1], 10, 10)
+        #self.map_volume = CNP.create_custom_map(np.rot90(np.rot90(np.rot90(self.custom_map))))#CNP.map_to_volume_dict(_map[0], _map[1], 10, 10)
+
+        #random map
+        start = random.choice([1, 1, 1, 1, 1, 1, 1, 1, 1, 1])
+        stop = random.choice([3, 3, 3, 3, 3, 3, 3, 3, 3, 3])
+        self.map_volume = CNP.create_custom_map(np.random.random_integers(start, stop, (10, 10)))
         # Set hiker's and drone's location
         #hiker = (random.randint(2, self.map_volume['vol'].shape[1] - 1), random.randint(2, self.map_volume['vol'].shape[1] - 2)) #(8,8) #
         #(8, 1)  # (6,3)#

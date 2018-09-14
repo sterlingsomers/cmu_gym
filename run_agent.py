@@ -43,7 +43,7 @@ flags.DEFINE_integer("all_summary_freq", 50, "Record all summaries every n batch
 flags.DEFINE_integer("scalar_summary_freq", 5, "Record scalar summaries every n batch")
 flags.DEFINE_string("checkpoint_path", "_files/models", "Path for agent checkpoints")
 flags.DEFINE_string("summary_path", "_files/summaries", "Path for tensorboard summaries")
-flags.DEFINE_string("model_name", "Drop_rand_positive_reward", "Name for checkpoints and tensorboard summaries")
+flags.DEFINE_string("model_name", "Drop_rand_positive_reward_reducedsteppenalty_distancereward_withfix", "Name for checkpoints and tensorboard summaries")
 flags.DEFINE_integer("K_batches", 10000, # Batch is like a training epoch!
     "Number of training batches to run in thousands, use -1 to run forever") #(MINE) not for now
 flags.DEFINE_string("map_name", "DefeatRoaches", "Name of a map to use.")
@@ -397,7 +397,7 @@ def main():
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT:
                         running = False
-                # sleep(1.5)
+                sleep(1.5)
                 # Timestep counter
                 t=0
 
@@ -434,7 +434,7 @@ def main():
                     screen_mssg_variable("Reward: ", np.round(reward, 3), (168, 372))
                     pygame.display.update()
                     pygame.event.get()
-                    # sleep(1.5)
+                    sleep(1.5)
 
                     if action == 15:
                         # The update of the text will be at the same time with the update of state
@@ -452,7 +452,7 @@ def main():
                     # Update finally the screen with all the images you blitted in the run_trained_batch
                     pygame.display.update()  # Updates only the blitted parts of the screen, pygame.display.flip() updates the whole screen
                     pygame.event.get()  # Show the last state and then reset
-                    # sleep(1.2)
+                    sleep(1.2)
                     t = t +1
 
                 dictionary[drop_runner.episode_counter]['observations'] = mb_obs
@@ -474,7 +474,7 @@ def main():
                 clock.tick(15)
 
             print("...saving dictionary.")
-            with open('./data/positive_reward_270deg_heading.tj', 'wb') as handle:
+            with open('./data/positive_reward_test.tj', 'wb') as handle:
                 pickle.dump(dictionary, handle)
 
         except KeyboardInterrupt:
