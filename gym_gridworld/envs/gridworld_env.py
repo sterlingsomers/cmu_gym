@@ -102,12 +102,12 @@ class GridworldEnv(gym.Env):
                                    "sunk_probability": {"water": 0.50}
                                    }
         self.drop_rewards = {"OK": 1,#10,
-                             # "OK_STUCK": 5,
-                             # "OK_SUNK": 5,
+                             "OK_STUCK": 0.1,#5,
+                             "OK_SUNK": 0.1,#5,
                              "DAMAGED": 0,#-10,
-                             # "DAMAGED_STUCK": -15,
-                             # "DAMAGED_SUNK": -15,
-                             # "CRASHED": -30
+                             "DAMAGED_STUCK": 0,#-15,
+                             "DAMAGED_SUNK": 0,#-15,
+                             "CRASHED": 0#-30
                              }
         self.alt_rewards = {0:0, 1:1, 2:0.2, 3:0}
         
@@ -293,20 +293,20 @@ class GridworldEnv(gym.Env):
 
     def position_value(self, terrain, altitude, reward_dict, probability_dict):
         damage_probability = probability_dict['damage_probability'][altitude]
-        # if terrain in probability_dict['stuck_probability'].keys():
-        #     stuck_probability = probability_dict['stuck_probability'][terrain]
-        # else:
-        #     stuck_probability = 0.0
-        # if terrain in probability_dict['sunk_probability'].keys():
-        #     sunk_probability = probability_dict['sunk_probability'][terrain]
-        # else:
-        #     sunk_probability = 0.0
+        if terrain in probability_dict['stuck_probability'].keys():
+            stuck_probability = probability_dict['stuck_probability'][terrain]
+        else:
+            stuck_probability = 0.0
+        if terrain in probability_dict['sunk_probability'].keys():
+            sunk_probability = probability_dict['sunk_probability'][terrain]
+        else:
+            sunk_probability = 0.0
         damaged = np.random.random() < damage_probability
-        # stuck = np.random.random() < stuck_probability
-        # sunk = np.random.random() < sunk_probability
+        stuck = np.random.random() < stuck_probability
+        sunk = np.random.random() < sunk_probability
         self.package_state = 'DAMAGED' if damaged else 'OK'
-        # package_state += '_STUCK' if stuck else ''
-        # package_state += '_SUNK' if sunk else ''
+        self.package_state += '_STUCK' if stuck else ''
+        self.package_state += '_SUNK' if sunk else ''
         print("Package state:", self.package_state)
         reward = reward_dict[self.package_state]
         return reward
