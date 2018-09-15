@@ -321,7 +321,7 @@ class GridworldEnv(gym.Env):
             local_coordinates[1] == self.map_volume['vol'].shape[1] - 1 or \
             local_coordinates[2] == self.map_volume['vol'].shape[1] - 1:
             print("NOACTION")
-            self.reward = 0
+            self.reward = -0.25
             self.drop = True
             return 0
 
