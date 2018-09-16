@@ -45,11 +45,11 @@ class GridworldEnv(gym.Env):
             [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
             [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
             [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-            [2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-            [2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-            [2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-            [2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-            [2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
         ]
         custom_map = np.array(custom_map)
         self.custom_map = custom_map
@@ -543,7 +543,7 @@ class GridworldEnv(gym.Env):
         #random map
         start = random.choice([1, 1, 1, 1, 1, 1, 1, 1, 1, 1])
         stop = random.choice([3, 3, 3, 3, 3, 3, 3, 3, 3, 3])
-        self.map_volume = CNP.create_custom_map(np.random.random_integers(start, stop, (10, 10)))
+        self.map_volume = CNP.create_custom_map(np.random.random_integers(start, stop, (10, 10)))#CNP.create_custom_map(self.custom_map)#CNP.create_custom_map(np.random.random_integers(start, stop, (10, 10)))
         # Set hiker's and drone's location
         #hiker = (random.randint(2, self.map_volume['vol'].shape[1] - 1), random.randint(2, self.map_volume['vol'].shape[1] - 2)) #(8,8) #
         #(8, 1)  # (6,3)#
