@@ -97,13 +97,15 @@ class GridworldEnv(gym.Env):
         # self.hiker_image[:,:,:] = self.map_volume['feature_value_map']['hiker']['color']
 
         self.drop_probabilities = {"damage_probability": {0: 0.00, 1: 0.01, 2: 0.40, 3: 0.80},
-                                   "stuck_probability": {"pine trees": 0.50, "pine tree": 0.25, "cabin": 0.50,
+                                   "stuck_probability": {"pine trees": 1.0,#0.50,
+                                                          "pine tree": 1.0,#0.25,
+                                                          "cabin": 0.50,
                                                          "flight tower": 0.15, "firewatch tower": 0.20},
                                    "sunk_probability": {"water": 0.50}
                                    }
         self.drop_rewards = {"OK": 1,#10,
-                             "OK_STUCK": 0.1,#5,
-                             "OK_SUNK": 0.1,#5,
+                             "OK_STUCK": 0.2,#5,
+                             "OK_SUNK": 0.2,#5,
                              "DAMAGED": 0,#-10,
                              "DAMAGED_STUCK": 0,#-15,
                              "DAMAGED_SUNK": 0,#-15,
