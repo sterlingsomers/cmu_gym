@@ -42,15 +42,15 @@ class GridworldEnv(gym.Env):
         self.verbose = True # to show the environment or not
         self.restart_once_done = True  # restart or not once done
         self.drop = False
-        self.maps = [(400,35)]#[(171,323),(400,35), (350,90), (430,110),(390,50), (230,70)] #[(86, 266)] (70,50) # For testing, 70,50 there is no where to drop in the whole map
+        self.maps = [(171,323)]#[(171,323),(400,35), (350,90), (430,110),(390,50), (230,70)] #[(86, 266)] (70,50) # For testing, 70,50 there is no where to drop in the whole map
         self.dist_old = 1000
         self.drop_package_grid_size_by_alt = {1: 3, 2: 5, 3: 7}
-        self.factor = 5#2.5
+        self.factor = 2.5 # 10x10: 5, 20x20: 2.5
         self.reward = 0
         self.action_space = spaces.Discrete(16)
         self.actions = list(range(self.action_space.n))
-        self.map_w = 10
-        self.map_h = 10
+        self.map_w = 20
+        self.map_h = 20
         self.obs_shape = [50,50,3]
         self.observation_space = spaces.Box(low=0, high=255, shape=self.obs_shape)
         self.real_actions = False
@@ -600,18 +600,6 @@ class GridworldEnv(gym.Env):
             try:
                 # no hiker if using original
                 column = self.map_volume['vol'][:, drone_position_flat[0] + xy[0], drone_position_flat[1] + xy[1]]
-                # for p in column:
-                #     #print(p)
-                #     #print(p == 50.0)
-                #     if p == 50.0: # Hiker representation in the volume
-                #         #print("setting hiker_found to True")
-                #         hiker_found = True
-                #
-                # if hiker_found:
-                #     val = self.original_map_volume['vol'][0][
-                #         drone_position_flat[0] + xy[0], drone_position_flat[1] + xy[1]]
-                #     hiker_background_color = self.original_map_volume['value_feature_map'][val]['color']
-                #     # column = self.original_map_volume['vol'][:,drone_position_flat[0]+xy[0],drone_position_flat[1]+xy[1]]
             except IndexError:
                 column = [1., 1., 1., 1., 1.]
             slice[:, column_number] = column
@@ -624,14 +612,12 @@ class GridworldEnv(gym.Env):
         for x, y in combinations:
             if slice[x, y] == 0.0:
                 canvas[x, y, :] = [255, 255, 255]
-            # elif slice[x, y] == 50.0:
-            #     canvas[x, y, :] = hiker_background_color
-            #     hiker_point = [x, y]
             else:
                 canvas[x, y, :] = self.map_volume['value_feature_map'][slice[x, y]]['color']
 
         # increase the image size, then put the hiker in
-        canvas = imresize(canvas, int(self.factor * 50), interp='nearest')
+        #canvas = imresize(canvas, int(self.factor * 100), interp='nearest') # for 10x10
+        canvas = imresize(canvas, int(self.factor * 200), interp='nearest')
         return imresize(np.flip(canvas, 0), 200, interp='nearest')
         # return imresize(np.flip(canvas, 0), 100, interp='nearest')
 
@@ -646,11 +632,13 @@ class GridworldEnv(gym.Env):
         drone_position = np.where(
             self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
         drone_position = ( int(drone_position[1] * self.factor), int(drone_position[2] * self.factor) )
+        print('DRONE POS', drone_position)
         for point in self.planes[self.heading][0]:
             image_layers[self.altitude][drone_position[0] + point[0], drone_position[1] + point[1], :] = \
             self.map_volume['feature_value_map']['drone'][self.altitude]['color']
             map[drone_position[0] + point[0], drone_position[1] + point[1], :] = \
             self.map_volume['feature_value_map']['drone'][self.altitude]['color']
+            print("POINT:", point)
 
         # put the hiker in the image layers
         hiker_position = ( int(self.hiker_position[1] * self.factor), int(self.hiker_position[2] * self.factor) )
