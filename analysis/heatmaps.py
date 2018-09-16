@@ -31,7 +31,8 @@ plot.imshow(counts, interpolation='catrom',cmap='jet', alpha= 0.5, extent=extent
 
 plt.show()
 
-''' Trajectories '''
+''' Trajectories heatmap in 2D '''
+# TODO: Try to do it in 3D! Here you dont take into account the z-axis
 # counts = np.zeros([10,10])
 # for i in range(len(obs)):
 #     trace = np.array(obs[i]['drone_pos'][:-1]) # Take out the last one as you remain still when you drop

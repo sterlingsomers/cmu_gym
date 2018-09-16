@@ -64,9 +64,10 @@ ax.plot_surface(X1, Y1, np.atleast_2d(0), rstride=1, cstride=1, facecolors=img, 
 # plt.show()
 
 
-
+''' Plot one trajecotry from an episode '''
+epis = 4
 #print(obs[1]['headings'][0])
-trace=obs[4]['drone_pos'] # 0 and 8 are almost the same, 4 is weird, doesnt go down
+trace=obs[epis]['drone_pos'] # 0 and 8 are almost the same, 4 is weird, doesnt go down
 trace_zxy = np.concatenate( trace, axis=1 )
 z = trace_zxy[0]
 x = trace_zxy[1]
@@ -83,7 +84,7 @@ yi = trace[0][2][0]
 
 # plot trajectory
 ax.plot(x, y, z, linewidth=2.0)#, label='trajectory')
-# plot indicator lines
+# plot indicator lines (dashed lines pointing to the start and end location on the 2D map at the bottom)
 ax.plot([xf,xf],[yf,yf],[0,zf],'--',alpha=0.8, linewidth=1.0, color='deeppink') # You connect two points [x1,x2],[y1,y2],[z1,z2]
 ax.plot([xi,xi],[yi,yi],[0,zi],'--',alpha=0.8, linewidth=1.0, color='fuchsia')
 

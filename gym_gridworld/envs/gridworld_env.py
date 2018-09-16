@@ -42,13 +42,15 @@ class GridworldEnv(gym.Env):
         self.verbose = True # to show the environment or not
         self.restart_once_done = True  # restart or not once done
         self.drop = False
-        self.maps = [(400,35), (350,90), (430,110),(390,50), (230,70)] #[(86, 266)] (70,50) # For testing, 70,50 there is no where to drop in the whole map
+        self.maps = [(400,35)]#[(171,323),(400,35), (350,90), (430,110),(390,50), (230,70)] #[(86, 266)] (70,50) # For testing, 70,50 there is no where to drop in the whole map
         self.dist_old = 1000
         self.drop_package_grid_size_by_alt = {1: 3, 2: 5, 3: 7}
-        self.factor = 5
+        self.factor = 5#2.5
         self.reward = 0
         self.action_space = spaces.Discrete(16)
         self.actions = list(range(self.action_space.n))
+        self.map_w = 10
+        self.map_h = 10
         self.obs_shape = [50,50,3]
         self.observation_space = spaces.Box(low=0, high=255, shape=self.obs_shape)
         self.real_actions = False
@@ -523,7 +525,7 @@ class GridworldEnv(gym.Env):
         self.altitude = 3
         self.reward = 0
         _map = random.choice(self.maps)
-        self.map_volume = CNP.map_to_volume_dict(_map[0], _map[1], 10, 10)
+        self.map_volume = CNP.map_to_volume_dict(_map[0], _map[1], self.map_w, self.map_h)
         # Set hiker's and drone's locations
         #hiker = (random.randint(2, self.map_volume['vol'].shape[1] - 1), random.randint(2, self.map_volume['vol'].shape[1] - 2)) #(8,8) #
         #(8, 1)  # (6,3)#
@@ -582,7 +584,7 @@ class GridworldEnv(gym.Env):
             else:
                 canvas[x, y, :] = og_vol['value_feature_map'][og_vol['vol'][altitude][x, y]]['color']
 
-        return imresize(canvas, self.factor * 100, interp='nearest')
+        return imresize(canvas, int(self.factor * 100), interp='nearest')
 
     def create_nextstep_image(self):
         canvas = np.zeros((5, 5, 3), dtype=np.uint8)
@@ -629,91 +631,116 @@ class GridworldEnv(gym.Env):
                 canvas[x, y, :] = self.map_volume['value_feature_map'][slice[x, y]]['color']
 
         # increase the image size, then put the hiker in
-        canvas = imresize(canvas, self.factor * 100, interp='nearest')
-        # hiker_position = (int(self.hiker_position[1] * 5), int(self.hiker_position[2]) * 5)
-        # map[hiker_position[0]:hiker_position[0]+5,hiker_position[1]:hiker_position[1]+5,:] = self.hiker_image
-        # print("hiker found", hiker_found)
-        # print("hiker_point", hiker_point)
-        # if hiker_found:
-        #     for point in self.hikers[0][0]:
-        #         canvas[hiker_point[0] * self.factor + point[0], hiker_point[1] * self.factor + point[1], :] = \
-        #             self.map_volume['feature_value_map']['hiker']['color']
-
+        canvas = imresize(canvas, int(self.factor * 50), interp='nearest')
         return imresize(np.flip(canvas, 0), 200, interp='nearest')
+        # return imresize(np.flip(canvas, 0), 100, interp='nearest')
 
     def generate_observation(self):
         obs = {}
         obs['volume'] = self.map_volume
         image_layers = copy.deepcopy(self.image_layers)
         map = copy.deepcopy(self.original_map_volume['img'])
+        map = imresize(map, int(self.factor * 100), interp='nearest')  # resize by factor of 5 for 10x10 map
 
-        # put the drone in the image layer
+        # put the drone in the map and image layer
         drone_position = np.where(
             self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
-        drone_position = (int(drone_position[1]) * self.factor, int(drone_position[2]) * self.factor)
+        drone_position = ( int(drone_position[1] * self.factor), int(drone_position[2] * self.factor) )
         for point in self.planes[self.heading][0]:
             image_layers[self.altitude][drone_position[0] + point[0], drone_position[1] + point[1], :] = \
             self.map_volume['feature_value_map']['drone'][self.altitude]['color']
+            map[drone_position[0] + point[0], drone_position[1] + point[1], :] = \
+            self.map_volume['feature_value_map']['drone'][self.altitude]['color']
 
         # put the hiker in the image layers
-        hiker_position = (int(self.hiker_position[1] * self.factor), int(self.hiker_position[2]) * self.factor)
+        hiker_position = ( int(self.hiker_position[1] * self.factor), int(self.hiker_position[2] * self.factor) )
         for point in self.hikers[0][0]:
             image_layers[0][hiker_position[0] + point[0], hiker_position[1] + point[1], :] = \
             self.map_volume['feature_value_map']['hiker']['color']
-
-        # map = self.original_map_volume['img']
-        map = imresize(map, self.factor * 100, interp='nearest')  # resize by factor of 5
-        # add the hiker
-        hiker_position = (int(self.hiker_position[1] * 5), int(self.hiker_position[2]) * 5)
-        # map[hiker_position[0]:hiker_position[0]+5,hiker_position[1]:hiker_position[1]+5,:] = self.hiker_image
-        for point in self.hikers[0][0]:
             map[hiker_position[0] + point[0], hiker_position[1] + point[1], :] = \
             self.map_volume['feature_value_map']['hiker']['color']
-        # add the drone
-        drone_position = np.where(
-            self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
-        drone_position = (int(drone_position[1]) * 5, int(drone_position[2]) * 5)
-        for point in self.planes[self.heading][0]:
-            map[drone_position[0] + point[0], drone_position[1] + point[1], :] = \
-            self.map_volume['feature_value_map']['drone'][self.altitude]['color']
-        # map[drone_position[0]:drone_position[0] + 5,drone_position[1]:drone_position[1] + 5] = self.plane_image(self.heading,self.map_volume['feature_value_map']['drone'][self.altitude]['color'])
-
-        # map = imresize(map, (1000,1000), interp='nearest')
 
         '''vertical slices at drone's position'''
-        drone_position = np.where(
-            self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
-        # slice1 = np.flip(self.map_volume['vol'][:, int(drone_position[1]), :], 0)
-        # # slice1 = np.flip(slice1,1)
-        # slice2 = np.flip(self.map_volume['vol'][:, :, int(drone_position[2])], 0)
-        # # slice2 = np.flip(slice2, 1)
-        # obs['slices'] = [slice1, slice2]
-        #
-        # # slices as images
-        # slice1_img = np.zeros((5, slice1.shape[1], 3),
-        #                       dtype=np.uint8)  # canvas = np.zeros((self.map_volume['vol'].shape[1], self.map_volume['vol'].shape[1], 3), dtype=np.uint8)
-        # combinations = list(itertools.product(range(0, 5), range(0, slice1_img.shape[1])))
-        # for x, y in combinations:
-        #     a = slice1[x, y]
-        #     if slice1[x, y] == 0.0:
-        #         slice1_img[x, y, :] = [255, 255, 255]
-        #     else:
-        #         slice1_img[x, y, :] = self.original_map_volume['value_feature_map'][slice1[x, y]]['color']
-        #
-        # slice2_img = np.zeros((5, slice2.shape[1], 3), dtype=np.uint8)
-        # combinations = list(itertools.product(range(0, 5), range(0, slice2_img.shape[1])))
-        # for x, y in combinations:
-        #     if slice2[x, y] == 0.0:
-        #         slice2_img[x, y, :] = [255, 255, 255]
-        #     else:
-        #         slice2_img[x, y, :] = self.original_map_volume['value_feature_map'][slice2[x, y]]['color']
-        # obs['slice_images'] = [slice1_img, slice2_img]
-
         nextstepimage = self.create_nextstep_image()
         obs['nextstepimage'] = nextstepimage
         obs['img'] = map
         obs['image_layers'] = image_layers
         return obs
+
+    # def generate_observation(self):
+    #     obs = {}
+    #     obs['volume'] = self.map_volume
+    #     image_layers = copy.deepcopy(self.image_layers)
+    #     map = copy.deepcopy(self.original_map_volume['img'])
+    #
+    #     # put the drone in the image layer
+    #     drone_position = np.where(
+    #         self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
+    #     drone_position = (int(drone_position[1] * self.factor), int(drone_position[2] * self.factor))
+    #     for point in self.planes[self.heading][0]:
+    #         image_layers[self.altitude][drone_position[0] + point[0], drone_position[1] + point[1], :] = \
+    #         self.map_volume['feature_value_map']['drone'][self.altitude]['color']
+    #
+    #     # put the hiker in the image layers
+    #     hiker_position = (int(self.hiker_position[1] * self.factor), int(self.hiker_position[2] * self.factor))
+    #     for point in self.hikers[0][0]:
+    #         image_layers[0][hiker_position[0] + point[0], hiker_position[1] + point[1], :] = \
+    #         self.map_volume['feature_value_map']['hiker']['color']
+    #
+    #     # map = self.original_map_volume['img']
+    #     map = imresize(map, int(self.factor * 100), interp='nearest')  # resize by factor of 5
+    #     #map = imresize(map, self.factor * 50, interp='nearest')  # resize by factor of 5
+    #     # add the hiker
+    #     hiker_position = (int(self.hiker_position[1] * 5), int(self.hiker_position[2]) * 5)
+    #     # map[hiker_position[0]:hiker_position[0]+5,hiker_position[1]:hiker_position[1]+5,:] = self.hiker_image
+    #     for point in self.hikers[0][0]:
+    #         map[hiker_position[0] + point[0], hiker_position[1] + point[1], :] = \
+    #         self.map_volume['feature_value_map']['hiker']['color']
+    #     # add the drone
+    #     drone_position = np.where(
+    #         self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
+    #     drone_position = (int(drone_position[1]) * 5, int(drone_position[2]) * 5)
+    #     for point in self.planes[self.heading][0]:
+    #         map[drone_position[0] + point[0], drone_position[1] + point[1], :] = \
+    #         self.map_volume['feature_value_map']['drone'][self.altitude]['color']
+    #     # map[drone_position[0]:drone_position[0] + 5,drone_position[1]:drone_position[1] + 5] = self.plane_image(self.heading,self.map_volume['feature_value_map']['drone'][self.altitude]['color'])
+    #
+    #     # map = imresize(map, (1000,1000), interp='nearest')
+    #
+    #     '''vertical slices at drone's position'''
+    #     drone_position = np.where(
+    #         self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
+    #     # slice1 = np.flip(self.map_volume['vol'][:, int(drone_position[1]), :], 0)
+    #     # # slice1 = np.flip(slice1,1)
+    #     # slice2 = np.flip(self.map_volume['vol'][:, :, int(drone_position[2])], 0)
+    #     # # slice2 = np.flip(slice2, 1)
+    #     # obs['slices'] = [slice1, slice2]
+    #     #
+    #     # # slices as images
+    #     # slice1_img = np.zeros((5, slice1.shape[1], 3),
+    #     #                       dtype=np.uint8)  # canvas = np.zeros((self.map_volume['vol'].shape[1], self.map_volume['vol'].shape[1], 3), dtype=np.uint8)
+    #     # combinations = list(itertools.product(range(0, 5), range(0, slice1_img.shape[1])))
+    #     # for x, y in combinations:
+    #     #     a = slice1[x, y]
+    #     #     if slice1[x, y] == 0.0:
+    #     #         slice1_img[x, y, :] = [255, 255, 255]
+    #     #     else:
+    #     #         slice1_img[x, y, :] = self.original_map_volume['value_feature_map'][slice1[x, y]]['color']
+    #     #
+    #     # slice2_img = np.zeros((5, slice2.shape[1], 3), dtype=np.uint8)
+    #     # combinations = list(itertools.product(range(0, 5), range(0, slice2_img.shape[1])))
+    #     # for x, y in combinations:
+    #     #     if slice2[x, y] == 0.0:
+    #     #         slice2_img[x, y, :] = [255, 255, 255]
+    #     #     else:
+    #     #         slice2_img[x, y, :] = self.original_map_volume['value_feature_map'][slice2[x, y]]['color']
+    #     # obs['slice_images'] = [slice1_img, slice2_img]
+    #
+    #     nextstepimage = self.create_nextstep_image()
+    #     obs['nextstepimage'] = nextstepimage
+    #     obs['img'] = map
+    #     obs['image_layers'] = image_layers
+    #     return obs
 
     def render(self, mode='human', close=False):
 
