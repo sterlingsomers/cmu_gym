@@ -33,8 +33,8 @@ def _get_placeholders(spatial_dim):
         (FEATURE_KEYS.selected_spatial_action, tf.int32, [None, 2]),
         (FEATURE_KEYS.selected_action_id, tf.int32, [None]),
         (FEATURE_KEYS.value_target, tf.float32, [None]),
-        (FEATURE_KEYS.rgb_screen, tf.float32, [None, 50, 50, 3]),
-        (FEATURE_KEYS.alt_view, tf.float32, [None, 50, 50, 3]),
+        (FEATURE_KEYS.rgb_screen, tf.float32, [None, 100, 100, 3]),
+        (FEATURE_KEYS.alt_view, tf.float32, [None, 100, 100, 3]),
         (FEATURE_KEYS.player_relative_screen, tf.int32, [None, sd, sd]),
         (FEATURE_KEYS.player_relative_minimap, tf.int32, [None, sd, sd]),
         (FEATURE_KEYS.advantage, tf.float32, [None]),
@@ -297,8 +297,8 @@ class ActorCriticAgent:
 
     def step_eval(self, obs):
         # (MINE) Pass the observations through the net
-        ob = np.zeros((1, 50, 50, 3))
-        obsb =np.zeros((1, 50, 50, 3))
+        ob = np.zeros((1, 100, 100, 3))
+        obsb =np.zeros((1, 100, 100, 3))
         ob[0] = obs['rgb_screen']
         obsb[0] = obs['alt_view']
 
