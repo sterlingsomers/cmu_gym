@@ -67,24 +67,24 @@ def convert_map_to_volume_dict(x,y,map,width,height):
     else:
         value = 1.0
 
-
     for xy, feat in map.items():
-        #print(feat[1], feature_value_map.keys())
-        if feat[1] not in list(feature_value_map.keys()):
-            #feature_value_map[feat[1]] = {}
+        # print(feat[1], feature_value_map.keys())
+        id = '{} {}'.format(feat[1], feat[0])
+        if id not in list(feature_value_map.keys()):
+            # feature_value_map[feat[1]] = {}
 
-            #for i in range(5):
-            feature_value_map[feat[1]] = {'val': value, 'color':color_map[feat[1]]}
-            value_feature_map[value] = {'feature':feat[1], 'alt':float(feat[0]), 'color':color_map[feat[1]]}
+            # for i in range(5):
+            feature_value_map[id] = {'val': value, 'color':color_map[id]}
+            value_feature_map[value] = {'feature':id[:-2], 'alt':float(id), 'color':color_map[id]}
             value += 1
 
-            #value += 20
-        #put it in the flat
-        flat[xy[1] - top_left[1], xy[0] - top_left[0]] = feature_value_map[feat[1]]['val']
-        img[xy[1]- top_left[1], xy[0] - top_left[0], :] = feature_value_map[feat[1]]['color']
-        #project it downwards through the volume
-        for z in range(feat[0],-1,-1):
-            vol[z,xy[1] - top_left[1],xy[0] - top_left[0]] = feature_value_map[feat[1]]['val']
+            # value += 20
+        # put it in the flat
+        flat[xy[1] - top_left[1], xy[0] - top_left[0]] = feature_value_map[id]['val']
+        img[xy[1] - top_left[1], xy[0] - top_left[0], :] = feature_value_map[id]['color']
+        # project it downwards through the volume
+        for z in range(feat[0], -1, -1):
+            vol[z, xy[1] - top_left[1], xy[0] - top_left[0]] = feature_value_map[id]['val']
 
 
 
@@ -222,7 +222,7 @@ def create_custom_map(map):
     return_dict['value_feature_map'] = values_to_features
     return_dict['vol'] = vol
     return_dict['img'] = img
-    print("OK")
+    #print("OK")
     return return_dict
 
 
