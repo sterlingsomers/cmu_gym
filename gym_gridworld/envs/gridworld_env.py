@@ -43,14 +43,16 @@ class GridworldEnv(gym.Env):
         self.dropping = True # This is for the reset to select the proper starting locations for hiker and drone
         self.restart_once_done = True  # restart or not once done
         self.drop = False
-        self.maps = [(400,35), (350,90), (430,110),(390,50), (230,70)] #[(86, 266)] (70,50) # For testing, 70,50 there is no where to drop in the whole map
+        self.maps = [(171,323)]#[(400,35), (350,90), (430,110),(390,50), (230,70)] #[(86, 266)] (70,50) # For testing, 70,50 there is no where to drop in the whole map
+        self.mapw = 20
+        self.maph = 20
         self.dist_old = 1000
         self.drop_package_grid_size_by_alt = {1: 3, 2: 5, 3: 7}
         self.factor = 5
         self.reward = 0
         self.action_space = spaces.Discrete(16)
         self.actions = list(range(self.action_space.n))
-        self.obs_shape = [50,50,3]
+        self.obs_shape = [100,100,3]#[50,50,3]
         self.observation_space = spaces.Box(low=0, high=255, shape=self.obs_shape)
         self.real_actions = False
 
@@ -527,7 +529,7 @@ class GridworldEnv(gym.Env):
         self.altitude = 2
         self.reward = 0
         _map = random.choice(self.maps)
-        self.map_volume = CNP.map_to_volume_dict(_map[0], _map[1], 10, 10)
+        self.map_volume = CNP.map_to_volume_dict(_map[0], _map[1], self.mapw, self.maph)
         # Set hiker's and drone's locations
         #hiker = (random.randint(2, self.map_volume['vol'].shape[1] - 1), random.randint(2, self.map_volume['vol'].shape[1] - 2)) #(8,8) #
         #if self.dropping:
@@ -647,7 +649,7 @@ class GridworldEnv(gym.Env):
         #         canvas[hiker_point[0] * self.factor + point[0], hiker_point[1] * self.factor + point[1], :] = \
         #             self.map_volume['feature_value_map']['hiker']['color']
 
-        return imresize(np.flip(canvas, 0), 200, interp='nearest')
+        return imresize(np.flip(canvas, 0), self.map_volume['vol'].shape[2]*20, interp='nearest')
 
     def generate_observation(self):
         obs = {}
