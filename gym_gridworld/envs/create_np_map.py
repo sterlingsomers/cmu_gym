@@ -67,21 +67,22 @@ def convert_map_to_volume_dict(x,y,map,width,height):
 
     for xy, feat in map.items():
         #print(feat[1], feature_value_map.keys())
-        if feat[1] not in list(feature_value_map.keys()):
+        id = '{} {}'.format(feat[1], feat[0])
+        if id not in list(feature_value_map.keys()):
             #feature_value_map[feat[1]] = {}
 
             #for i in range(5):
-            feature_value_map[feat[1]] = {'val': value, 'color':color_map[feat[1]]}
-            value_feature_map[value] = {'feature':feat[1], 'alt':float(feat[0]), 'color':color_map[feat[1]]}
+            feature_value_map[id] = {'val': value, 'color':color_map[id]}
+            value_feature_map[value] = {'feature':id[:-2], 'alt':float(id), 'color':color_map[id]}
             value += 1
 
             #value += 20
         #put it in the flat
-        flat[xy[1] - top_left[1], xy[0] - top_left[0]] = feature_value_map[feat[1]]['val']
-        img[xy[1]- top_left[1], xy[0] - top_left[0], :] = feature_value_map[feat[1]]['color']
+        flat[xy[1] - top_left[1], xy[0] - top_left[0]] = feature_value_map[id]['val']
+        img[xy[1]- top_left[1], xy[0] - top_left[0], :] = feature_value_map[id]['color']
         #project it downwards through the volume
         for z in range(feat[0],-1,-1):
-            vol[z,xy[1] - top_left[1],xy[0] - top_left[0]] = feature_value_map[feat[1]]['val']
+            vol[z,xy[1] - top_left[1],xy[0] - top_left[0]] = feature_value_map[id]['val']
 
 
 
@@ -118,31 +119,6 @@ def convert_map_to_volume_dict(x,y,map,width,height):
     feature_value_map['hiker']['color'] = color_map['hiker']
     value_feature_map[value] = {'feature':'hiker', 'alt':0, 'color':color_map['hiker']}
 
-    # for i in range(len(vol)):
-    #     key_string = i#'alt{}'.format(i)
-    #     if key_string not in return_dict:
-    #         return_dict[key_string] = {}
-    #         return_dict[key_string]['map'] = vol[i]
-    #
-    #     #what features are at that altitude?
-    #     current_features = []
-    #     for value,feature in value_feature_map.items():
-    #         if feature[0] == i:
-    #             current_features.append(feature[1])
-    #
-    #     current_features.append('drone')
-    #     if i == 0:
-    #         current_features.append('hiker')
-    #
-    #     for current_feature in current_features:
-    #         return_dict[key_string][current_feature] = np.zeros((20,20))
-    #
-    #     non_zeros = np.transpose(vol[i].nonzero())
-    #     for non_zero in non_zeros:
-    #         feature = value_feature_map[vol[i][non_zero[0]][non_zero[1]]][1]
-    #         #return_dict[key_string][feature][non_zero[0][non_zero[1]]] = 1.0
-    #         return_dict[key_string][feature][non_zero[0],non_zero[1]] = 1.0
-    #         #buil
     return return_dict
 
 def map_to_volume_dict(x=0,y=0,width=5,height=5):

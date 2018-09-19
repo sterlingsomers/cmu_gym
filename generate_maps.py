@@ -26,7 +26,7 @@ def encode_map(x, y, w, h, scale):
     #         print("File exists!!!")
     #         return
 
-    terrain_dict = generate_gridworld_from_map.load_terrain_file('./data/world_map_terrain.json')
+    terrain_dict = generate_gridworld_from_map.load_terrain_file('./data/world_map_terrain_new.json')
     terrain_slice_dict = {}
     for lon in range(x,x + w): # 70, 60 e.g. 70,50 starting point (0,0) point for the 10x10 map. To real world coords just add 70 to x and 50 to y
         for lat in range(y, y + h): # 50, 60
@@ -45,4 +45,4 @@ def encode_map(x, y, w, h, scale):
 
 
 # There are features missing so you cannot encode the whole map!!! Also the above function wil return an error in this case
-encode_map(430,110,10,10, 5) # 5 recommended scale for 10x10 maps
+encode_map(167,174,20,20, 5) # 5 recommended scale for 10x10 maps
