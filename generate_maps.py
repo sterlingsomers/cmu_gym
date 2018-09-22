@@ -45,4 +45,9 @@ def encode_map(x, y, w, h, scale):
 
 
 # There are features missing so you cannot encode the whole map!!! Also the above function wil return an error in this case
-encode_map(430,110,10,10, 5) # 5 recommended scale for 10x10 maps
+#(330,352)
+# ms = [ (65,466),(260,241),(291,231),(241,163),(265,311),(224,153),(265,308),(321,337),(167,174),(149,341),(146,456),(385,291),(334,203),(360,112),(20,94),(308,110),(164,90),(171,333)]
+# for mp in ms:
+#     print(mp)
+#     encode_map(mp[0], mp[1],10,10, 5) # 5 recommended scale for 10x10 maps
+encode_map(330, 352,10,10, 5)
