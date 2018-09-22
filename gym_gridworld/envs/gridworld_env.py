@@ -67,7 +67,9 @@ class GridworldEnv(gym.Env):
         self.verbose = True # to show the environment or not
         self.restart_once_done = True  # restart or not once done
         self.drop = False
-        self.maps = [(265,308)]#[(400,35), (350,90), (430,110),(390,50), (230,70)] #[(86, 266)] (70,50) # For testing, 70,50 there is no where to drop in the whole map
+        #self.maps = [(265,308)]#[(400,35), (350,90), (430,110),(390,50), (230,70)] #[(86, 266)] (70,50) # For testing, 70,50 there is no where to drop in the whole map
+        #self.maps = [ (65,466),(260,241),(291,231),(241,163),(265,311),(224,153),(265,308),(321,337),(167,174),(149,341),(146,456),(385,291),(334,203),(360,112),(20,94),(308,110),(164,90),(171,333)] #[(86, 266)] (70,50) # (330,352) For testing, 70,50 there is no where to drop in the whole map
+        self.maps = [(260, 241)]
         self.mapw = 20
         self.maph = 20
         self.dist_old = 1000
@@ -565,17 +567,18 @@ class GridworldEnv(gym.Env):
         self.altitude = 3
         self.reward = 0
         _map = random.choice(self.maps)
-        #self.map_volume = CNP.create_custom_map(np.rot90(np.rot90(np.rot90(self.custom_map))))#CNP.map_to_volume_dict(_map[0], _map[1], 10, 10)
+        #self.map_volume = CNP.create_custom_map(np.rot90(np.rot90(np.rot90(self.custom_map))))#CCNP.map_to_volume_dict(_map[0], _map[1], 10, 10)
+        self.map_volume = CNP.map_to_volume_dict(_map[0], _map[1], 20, 20)
 
         #random map
-        start = random.choice([1, 1, 1, 1, 1, 1, 1, 1, 1, 1])
-        stop = random.choice([12, 12, 12, 12, 12, 12, 12, 12, 12, 12])
-        random_integers = np.random.random_integers(start, stop, (20, 20))
-        flag = bn.rvs(p=0.99, size=(20, 20))
-        # add (1-p)% of any value
-        other_features = np.full((20, 20), 13)
-        random_integers[flag == 0] = other_features[flag == 0]
-        self.map_volume = CNP.create_custom_map(random_integers)
+#        start = random.choice([1, 1, 1, 1, 1, 1, 1, 1, 1, 1])
+#        stop = random.choice([12, 12, 12, 12, 12, 12, 12, 12, 12, 12])
+#        random_integers = np.random.random_integers(start, stop, (20, 20))
+#        flag = bn.rvs(p=0.99, size=(20, 20))
+#        # add (1-p)% of any value
+#        other_features = np.full((20, 20), 13)
+#        random_integers[flag == 0] = other_features[flag == 0]
+        #self.map_volume = CNP.create_custom_map(random_integers)
         #self.map_volume = CNP.create_custom_map(np.random.random_integers(start, stop, (20, 20)))#CNP.create_custom_map(np.random.random_integers(start, stop, (20, 20)))#CNP.map_to_volume_dict(_map[0],_map[1], self.mapw, self.maph)#CNP.create_custom_map(self.custom_map)#CNP.create_custom_map(np.random.random_integers(start, stop, (20, 20)))#CNP.map_to_volume_dict(_map[0],_map[1], self.mapw, self.maph)#CNP.create_custom_map(np.random.random_integers(start, stop, (10, 10)))#CNP.create_custom_map(self.custom_map)#CNP.create_custom_map(np.random.random_integers(start, stop, (10, 10)))
 
         # Set hiker's and drone's location
