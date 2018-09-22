@@ -36,14 +36,14 @@ flags.DEFINE_bool("visualize", False, "Whether to render with pygame.")
 flags.DEFINE_integer("resolution", 32, "Resolution for screen and minimap feature layers.")
 flags.DEFINE_integer("step_mul", 100, "Game steps per agent step.")
 flags.DEFINE_integer("n_envs", 20, "Number of environments to run in parallel")
-flags.DEFINE_integer("episodes", 100, "Number of complete episodes")
+flags.DEFINE_integer("episodes", 500, "Number of complete episodes")
 flags.DEFINE_integer("n_steps_per_batch", 32,
     "Number of steps per batch, if None use 8 for a2c and 128 for ppo")  # (MINE) TIMESTEPS HERE!!! You need them cauz you dont want to run till it finds the beacon especially at first episodes - will take forever
 flags.DEFINE_integer("all_summary_freq", 50, "Record all summaries every n batch")
 flags.DEFINE_integer("scalar_summary_freq", 5, "Record scalar summaries every n batch")
 flags.DEFINE_string("checkpoint_path", "_files/models", "Path for agent checkpoints")
 flags.DEFINE_string("summary_path", "_files/summaries", "Path for tensorboard summaries")
-flags.DEFINE_string("model_name", "Drop_2020", "Name for checkpoints and tensorboard summaries")
+flags.DEFINE_string("model_name", "drop_2020", "Name for checkpoints and tensorboard summaries")
 flags.DEFINE_integer("K_batches", 10000, # Batch is like a training epoch!
     "Number of training batches to run in thousands, use -1 to run forever") #(MINE) not for now
 flags.DEFINE_string("map_name", "DefeatRoaches", "Name of a map to use.")
@@ -360,8 +360,11 @@ def main():
                 gameDisplay.blit(surf, (x, y))
 
             dictionary = {}
+            _map_volumes = []
             running = True
+
             while drop_runner.episode_counter <= (FLAGS.episodes - 1) and running==True:
+
                 print('Episode: ', drop_runner.episode_counter)
                 # Init storage structures
                 dictionary[drop_runner.episode_counter] = {}
@@ -376,6 +379,7 @@ def main():
                 mb_heading = []
                 mb_top_view = []
                 mb_ego_view = []
+                mb_vol = []
                 # dictionary[drop_runner.episode_counter]['observations'] = {}
                 # dictionary[drop_runner.episode_counter]['actions'] = []
                 # dictionary[drop_runner.episode_counter]['flag'] = []
@@ -390,6 +394,7 @@ def main():
 
                 dictionary[drop_runner.episode_counter]['hiker_pos'] = drop_runner.envs.hiker_position
                 dictionary[drop_runner.episode_counter]['map_volume'] = map_xy
+                #dictionary[drop_runner.episode_counter]['vol'] = drop_runner.envs.map_volume
 
                 # Quit pygame if the (X) button is pressed on the top left of the window
                 # Seems that without this for event quit doesnt show anything!!!
@@ -397,13 +402,17 @@ def main():
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT:
                         running = False
-                sleep(1.5)
+                #sleep(1.5)
                 # Timestep counter
                 t=0
 
                 drop_flag = 1
                 done = 0
+                count = 0
                 while not done:
+                    count += 1
+                    if count >= 20:
+                        break
                     print('=== DROPPING AGENT IN CHARGE ===')
                     #drop_runner.latest_obs = drop_runner.latest_obs
                     #drop_runner.latest_obs = drop_runner.latest_obs
@@ -413,7 +422,7 @@ def main():
                                          drop_runner.envs.map_volume['feature_value_map']['drone'][
                                              drop_runner.envs.altitude]['val'])
                     mb_drone_pos.append(drone_pos)
-
+                    mb_vol.append(drop_runner.envs.map_volume)
 
                     # Step
                     obs, action, value, reward, done, representation, fc = drop_runner.run_trained_batch(drop_flag)
@@ -434,7 +443,7 @@ def main():
                     screen_mssg_variable("Reward: ", np.round(reward, 3), (168, 372))
                     pygame.display.update()
                     pygame.event.get()
-                    sleep(1.5)
+                    #sleep(1.5)
 
                     if action == 15:
                         # The update of the text will be at the same time with the update of state
@@ -452,7 +461,7 @@ def main():
                     # Update finally the screen with all the images you blitted in the run_trained_batch
                     pygame.display.update()  # Updates only the blitted parts of the screen, pygame.display.flip() updates the whole screen
                     pygame.event.get()  # Show the last state and then reset
-                    sleep(1.2)
+                    #sleep(1.2)
                     t = t +1
 
                 dictionary[drop_runner.episode_counter]['observations'] = mb_obs
@@ -464,7 +473,7 @@ def main():
                 dictionary[drop_runner.episode_counter]['values'] = mb_values
                 dictionary[drop_runner.episode_counter]['drone_pos'] = mb_drone_pos
                 dictionary[drop_runner.episode_counter]['headings'] = mb_heading
-
+                dictionary[drop_runner.episode_counter]['vol'] = mb_vol
 
                 score = sum(mb_rewards)
                 print(">>>>>>>>>>>>>>>>>>>>>>>>>>> episode %d ended in %d steps. Score %f" % (drop_runner.episode_counter, t, score))
@@ -474,8 +483,10 @@ def main():
                 clock.tick(15)
 
             print("...saving dictionary.")
-            with open('./data/positive_reward_test.tj', 'wb') as handle:
+            with open('./data/positive_reward_ignore.tj', 'wb') as handle:
                 pickle.dump(dictionary, handle)
+            # with open('./data/map_volumes.tj', 'wb') as handle:
+            #     pickle.dump(_map_volumes,handle)
 
         except KeyboardInterrupt:
             pass

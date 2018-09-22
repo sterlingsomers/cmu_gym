@@ -16,6 +16,7 @@ import threading
 import random
 import pygame
 from scipy.misc import imresize
+from scipy.stats import bernoulli as bn
 
 from gym_gridworld.envs import create_np_map as CNP
 
@@ -568,12 +569,19 @@ class GridworldEnv(gym.Env):
 
         #random map
         start = random.choice([1, 1, 1, 1, 1, 1, 1, 1, 1, 1])
-        stop = random.choice([34, 34, 34, 34, 34, 34, 34, 34, 34, 34]) #up to 34
-        self.map_volume = CNP.map_to_volume_dict(_map[0],_map[1], self.mapw, self.maph)#CNP.create_custom_map(np.random.random_integers(start, stop, (20, 20)))#CNP.map_to_volume_dict(_map[0],_map[1], self.mapw, self.maph)#CNP.create_custom_map(self.custom_map)#CNP.create_custom_map(np.random.random_integers(start, stop, (20, 20)))#CNP.map_to_volume_dict(_map[0],_map[1], self.mapw, self.maph)#CNP.create_custom_map(np.random.random_integers(start, stop, (10, 10)))#CNP.create_custom_map(self.custom_map)#CNP.create_custom_map(np.random.random_integers(start, stop, (10, 10)))
+        stop = random.choice([12, 12, 12, 12, 12, 12, 12, 12, 12, 12])
+        random_integers = np.random.random_integers(start, stop, (20, 20))
+        flag = bn.rvs(p=0.99, size=(20, 20))
+        # add (1-p)% of any value
+        other_features = np.full((20, 20), 13)
+        random_integers[flag == 0] = other_features[flag == 0]
+        self.map_volume = CNP.create_custom_map(random_integers)
+        #self.map_volume = CNP.create_custom_map(np.random.random_integers(start, stop, (20, 20)))#CNP.create_custom_map(np.random.random_integers(start, stop, (20, 20)))#CNP.map_to_volume_dict(_map[0],_map[1], self.mapw, self.maph)#CNP.create_custom_map(self.custom_map)#CNP.create_custom_map(np.random.random_integers(start, stop, (20, 20)))#CNP.map_to_volume_dict(_map[0],_map[1], self.mapw, self.maph)#CNP.create_custom_map(np.random.random_integers(start, stop, (10, 10)))#CNP.create_custom_map(self.custom_map)#CNP.create_custom_map(np.random.random_integers(start, stop, (10, 10)))
+
         # Set hiker's and drone's location
         #hiker = (random.randint(2, self.map_volume['vol'].shape[1] - 1), random.randint(2, self.map_volume['vol'].shape[1] - 2)) #(8,8) #
         #(8, 1)  # (6,3)#
-        hiker = (random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))  # (7,8) #
+        hiker = (10,10)#(random.randint(3, self.map_volume['vol'].shape[1] - 3), random.randint(3, self.map_volume['vol'].shape[1] - 3))  # (7,8) #
         #drone = random.choice([(hiker[0]-1, hiker[1]-1),(hiker[0]-1, hiker[1]),(hiker[0], hiker[1]-1)])## Package drop starts close to hiker!!! #(random.randint(2, self.map_volume['vol'].shape[1] - 1), random.randint(2, self.map_volume['vol'].shape[1] - 2)) # (8,8) #
         drone = hiker#(2,6)#(random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2)) #(1,8)
         # while drone == hiker:
