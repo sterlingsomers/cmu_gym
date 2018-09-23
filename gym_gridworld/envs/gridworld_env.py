@@ -40,16 +40,26 @@ class GridworldEnv(gym.Env):
 
         #num_alts = 4
         custom_map = [
-            [2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-            [2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-            [2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-            [2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-            [2, 2, 2, 2, 2, 3, 2, 2, 2, 2],
-            [2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-            [2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-            [2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-            [2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-            [2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 3, 1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1, 2, 1, 1, 4, 1, 1, 1, 3, 4, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1, 2, 2, 2, 4, 3, 3, 3, 1, 4, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1, 1, 2, 1, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 3, 2, 2, 4, 1, 1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
         ]
         custom_map = np.array(custom_map)
         self.custom_map = custom_map
@@ -57,13 +67,15 @@ class GridworldEnv(gym.Env):
         self.restart_once_done = True  # restart or not once done
         self.drop = False
         self.maps = [(265,308)]#[(400,35), (350,90), (430,110),(390,50), (230,70)] #[(86, 266)] (70,50) # For testing, 70,50 there is no where to drop in the whole map
+        self.mapw = 20
+        self.maph = 20
         self.dist_old = 1000
         self.drop_package_grid_size_by_alt = {1: 3, 2: 5, 3: 7}
         self.factor = 5
         self.reward = 0
         self.action_space = spaces.Discrete(16)
         self.actions = list(range(self.action_space.n))
-        self.obs_shape = [50,50,3]
+        self.obs_shape = [100,100,3]
         self.observation_space = spaces.Box(low=0, high=255, shape=self.obs_shape)
         self.real_actions = False
 
@@ -305,6 +317,20 @@ class GridworldEnv(gym.Env):
         return reward
 
     def drop_package(self):
+        # cannot drop at edge because next move could leave map
+        local_coordinates = np.where(
+            self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
+
+        if local_coordinates[1] == 0 or \
+            local_coordinates[2] == 0 or \
+            local_coordinates[1] == self.map_volume['vol'].shape[1] - 1 or \
+            local_coordinates[2] == self.map_volume['vol'].shape[1] - 1:
+            print("NOACTION")
+            self.reward = 0
+            #self.drop = True
+            return 0
+
+
         self.drop = True
         alt = self.altitude
         drone_position = np.where(self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
@@ -330,6 +356,7 @@ class GridworldEnv(gym.Env):
         #reward = reward*(1/(self.pack_dist+1e-7))*0.1
         self.reward = reward*is_hiker_in_neighbors # YOU CANNOT DO THAT EVEN IF IT WORKS FOR THAT MAP AS IT DOESNT GET PENALTY FOR DAMAGING THE PACK!
         #print(terrain, reward)
+        x = eval(self.actionvalue_heading_action[7][self.heading])
 
     def take_action(self, delta_alt=0, delta_x=0, delta_y=0, new_heading=1):
         # print("stop")
@@ -537,13 +564,13 @@ class GridworldEnv(gym.Env):
         self.altitude = 3
         self.reward = 0
         _map = random.choice(self.maps)
-        self.map_volume = CNP.create_custom_map(np.rot90(np.rot90(np.rot90(self.custom_map))))#CNP.map_to_volume_dict(_map[0], _map[1], 10, 10)
+        self.map_volume = CNP.map_to_volume_dict(_map[0],_map[1], 20, 20)#CNP.create_custom_map(np.rot90(np.rot90(np.rot90(self.custom_map))))#CNP.map_to_volume_dict(_map[0], _map[1], 10, 10)
         # Set hiker's and drone's location
         #hiker = (random.randint(2, self.map_volume['vol'].shape[1] - 1), random.randint(2, self.map_volume['vol'].shape[1] - 2)) #(8,8) #
         #(8, 1)  # (6,3)#
-        hiker = (5,5)#(random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))  # (7,8) #
+        hiker = (10,10)#(random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))  # (7,8) #
         #drone = random.choice([(hiker[0]-1, hiker[1]-1),(hiker[0]-1, hiker[1]),(hiker[0], hiker[1]-1)])## Package drop starts close to hiker!!! #(random.randint(2, self.map_volume['vol'].shape[1] - 1), random.randint(2, self.map_volume['vol'].shape[1] - 2)) # (8,8) #
-        drone = (6,5)#(2,6)#(random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2)) #(1,8)
+        drone = (random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))#(6,5)#(2,6)#(random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2)) #(1,8)
         # while drone == hiker:
         #     drone = (random.randint(2, self.map_volume['vol'].shape[1] - 1),
         #              random.randint(2, self.map_volume['vol'].shape[1] - 2))
@@ -651,7 +678,7 @@ class GridworldEnv(gym.Env):
         #         canvas[hiker_point[0] * self.factor + point[0], hiker_point[1] * self.factor + point[1], :] = \
         #             self.map_volume['feature_value_map']['hiker']['color']
 
-        return imresize(np.flip(canvas, 0), 200, interp='nearest')
+        return imresize(np.flip(canvas, 0), 20*self.map_volume['vol'].shape[2], interp='nearest')
 
     def generate_observation(self):
         obs = {}
