@@ -66,7 +66,9 @@ class GridworldEnv(gym.Env):
         self.verbose = True # to show the environment or not
         self.restart_once_done = True  # restart or not once done
         self.drop = False
-        self.maps = [(265,308)]#[(400,35), (350,90), (430,110),(390,50), (230,70)] #[(86, 266)] (70,50) # For testing, 70,50 there is no where to drop in the whole map
+        self.maps = [(265,308),(20,94),(146,456),(149,341),(164,90),(167,174),
+                     (224,153),(241,163),(260,241),(265,311),(291,231),
+                     (308,110),(321,337),(330,352),(334,203),(360,112),(385,291)]#[(400,35), (350,90), (430,110),(390,50), (230,70)] #[(86, 266)] (70,50) # For testing, 70,50 there is no where to drop in the whole map
         self.mapw = 20
         self.maph = 20
         self.dist_old = 1000
@@ -498,6 +500,32 @@ class GridworldEnv(gym.Env):
             reward = -0.01 # If you put -0.1 then it prefers to go down and crash all the time for (n-step=32)!!!
             return (observation, reward, done, info)
 
+    def add_blob(self, map_array, n_cycles, value):
+        points = []
+        random_point = np.random.randint(0, map_array.shape[0], (1, 2))#assumes a square
+        points.append(random_point)
+        for i in range(n_cycles):
+            a_point = random.choice(points)
+            pertubation = np.random.randint(-1, 1, (1, 2))
+            added_point = a_point + pertubation
+            if not self.arreq_in_list(added_point,points):
+                points.append(a_point + pertubation)
+        return_array = np.copy(map_array)
+        for point in points:
+            return_array[point[0][0], point[0][1]] = value
+        return (return_array,points)
+
+    def arreq_in_list(self,myarr, list_arrays):
+        '''https://stackoverflow.com/questions/23979146/check-if-numpy-array-is-in-list-of-numpy-arrays/23979256'''
+        return next((True for elem in list_arrays if np.array_equal(elem, myarr)), False)
+
+    def hiker_in_no_go_list(self,hiker,no_go_list):
+        for no_go_sublist in no_go_list:
+            for no_go in no_go_sublist:
+                if hiker[0] == no_go[0][0] and hiker[1] == no_go[0][1]:
+                    return 1
+        return 0
+
     def step_drop(self, action):
         ''' return next observation, reward, finished, success '''
 
@@ -561,25 +589,74 @@ class GridworldEnv(gym.Env):
         self.dist_old = 1000
         self.drop = False
         self.heading = random.randint(1, 8)
-        self.altitude = 3
+        self.altitude = random.randint(1,3)
         self.reward = 0
+        # _map = random.choice(self.maps)
+        # self.map_volume = CNP.map_to_volume_dict(_map[0],_map[1], 20, 20)#CNP.create_custom_map(np.rot90(np.rot90(np.rot90(self.custom_map))))#CNP.map_to_volume_dict(_map[0], _map[1], 10, 10)
+        # # Set hiker's and drone's location
+        # #hiker = (random.randint(2, self.map_volume['vol'].shape[1] - 1), random.randint(2, self.map_volume['vol'].shape[1] - 2)) #(8,8) #
+        # #(8, 1)  # (6,3)#
+        # hiker = (10,10)#(random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))  # (7,8) #
+        # #drone = random.choice([(hiker[0]-1, hiker[1]-1),(hiker[0]-1, hiker[1]),(hiker[0], hiker[1]-1)])## Package drop starts close to hiker!!! #(random.randint(2, self.map_volume['vol'].shape[1] - 1), random.randint(2, self.map_volume['vol'].shape[1] - 2)) # (8,8) #
+        ######BLOBS#######
+        # all_no_goes = []
+        # # better random map
+        # just_grass = np.full((20, 20), 2)
+        # # add some trail, trees
+        # updated_map = self.add_blob(just_grass, 15, 5)[0]
+        # for i in range(random.randint(1, 10)):
+        #     updated_map = self.add_blob(updated_map, 50, random.choice([1, 3]))[0]
+        #
+        # # add some water (maybe)
+        # if random.randint(0, 1):
+        #     updated_map, no_go_points = self.add_blob(updated_map, 100, 15)
+        #     all_no_goes.append(no_go_points)
+        # # add some mountain ridges
+        # updated_map, no_go_points = self.add_blob(updated_map, 75, 26)
+        # all_no_goes.append(no_go_points)
+        # # a few small mountain ridges
+        # for i in range(random.randint(1, 5)):
+        #     updated_map, no_go_points = self.add_blob(updated_map, random.randint(1, 10), 25)
+        #     all_no_goes.append(no_go_points)
+        # # add some bushes
+        # # small clusters, 5 times
+        # for i in range(random.randint(1, 8)):
+        #     updated_map = self.add_blob(updated_map, random.randint(1, 5), 4)[0]
+        # # add one campfire
+        # updated_map, no_go_points = self.add_blob(updated_map, 0, 33)
+        # all_no_goes.append(no_go_points)
+        #
+        # self.map_volume = CNP.create_custom_map(updated_map)
+        #
+        # # self.map_volume = CNP.create_custom_map(np.random.random_integers(start, stop, (20, 20)))#CNP.create_custom_map(np.random.random_integers(start, stop, (20, 20)))#CNP.map_to_volume_dict(_map[0],_map[1], self.mapw, self.maph)#CNP.create_custom_map(self.custom_map)#CNP.create_custom_map(np.random.random_integers(start, stop, (20, 20)))#CNP.map_to_volume_dict(_map[0],_map[1], self.mapw, self.maph)#CNP.create_custom_map(np.random.random_integers(start, stop, (10, 10)))#CNP.create_custom_map(self.custom_map)#CNP.create_custom_map(np.random.random_integers(start, stop, (10, 10)))
+        #
+        # # Set hiker's and drone's location
+        # # hiker = (random.randint(2, self.map_volume['vol'].shape[1] - 1), random.randint(2, self.map_volume['vol'].shape[1] - 2)) #(8,8) #
+        # # (8, 1)  # (6,3)#
+        # hiker = (
+        #     random.randint(3, self.map_volume['vol'].shape[1] - 3),
+        #     random.randint(3, self.map_volume['vol'].shape[1] - 3))
+        # while self.hiker_in_no_go_list(hiker, all_no_goes):
+        #     hiker = (random.randint(3, self.map_volume['vol'].shape[1] - 3),
+        #              random.randint(3, self.map_volume['vol'].shape[1] - 3))
+        ##################
+
+        ####actual maps###
         _map = random.choice(self.maps)
-        self.map_volume = CNP.map_to_volume_dict(_map[0],_map[1], 20, 20)#CNP.create_custom_map(np.rot90(np.rot90(np.rot90(self.custom_map))))#CNP.map_to_volume_dict(_map[0], _map[1], 10, 10)
-        # Set hiker's and drone's location
-        #hiker = (random.randint(2, self.map_volume['vol'].shape[1] - 1), random.randint(2, self.map_volume['vol'].shape[1] - 2)) #(8,8) #
-        #(8, 1)  # (6,3)#
-        hiker = (10,10)#(random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))  # (7,8) #
-        #drone = random.choice([(hiker[0]-1, hiker[1]-1),(hiker[0]-1, hiker[1]),(hiker[0], hiker[1]-1)])## Package drop starts close to hiker!!! #(random.randint(2, self.map_volume['vol'].shape[1] - 1), random.randint(2, self.map_volume['vol'].shape[1] - 2)) # (8,8) #
+        self.map_volume = CNP.map_to_volume_dict(_map[0],_map[1], self.mapw, self.maph)
         drone = (random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))#(6,5)#(2,6)#(random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2)) #(1,8)
-        # while drone == hiker:
-        #     drone = (random.randint(2, self.map_volume['vol'].shape[1] - 1),
-        #              random.randint(2, self.map_volume['vol'].shape[1] - 2))
+        hiker = (10,10)#(random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))
+        ##################
+
+        while drone == hiker:
+            drone = (random.randint(2, self.map_volume['vol'].shape[1] - 1),
+                     random.randint(2, self.map_volume['vol'].shape[1] - 2))
 
         self.original_map_volume = copy.deepcopy(self.map_volume)
 
         # self.local_coordinates = [local_x,local_y]
         # self.world_coordinates = [70,50]
-        self.reference_coordinates = [_map[0], _map[1]]
+        #self.reference_coordinates = [_map[0], _map[1]]
 
 
         self.real_actions = False
