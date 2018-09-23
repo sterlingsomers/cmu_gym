@@ -43,7 +43,7 @@ flags.DEFINE_integer("all_summary_freq", 50, "Record all summaries every n batch
 flags.DEFINE_integer("scalar_summary_freq", 5, "Record scalar summaries every n batch")
 flags.DEFINE_string("checkpoint_path", "_files/models", "Path for agent checkpoints")
 flags.DEFINE_string("summary_path", "_files/summaries", "Path for tensorboard summaries")
-flags.DEFINE_string("model_name", "Drop_tree_grass", "Name for checkpoints and tensorboard summaries")
+flags.DEFINE_string("model_name", "Drop_2020", "Name for checkpoints and tensorboard summaries")
 flags.DEFINE_integer("K_batches", 10000, # Batch is like a training epoch!
     "Number of training batches to run in thousands, use -1 to run forever") #(MINE) not for now
 flags.DEFINE_string("map_name", "DefeatRoaches", "Name of a map to use.")
@@ -280,8 +280,8 @@ def main():
     nav_sess = tf.Session(graph=nav_graph)
     nav_agent.sess = nav_sess
     with nav_graph.as_default():
-        if os.path.exists('_files/models/Navigate_correct_repr'):
-            nav_agent.load('_files/models/Navigate_correct_repr')
+        if os.path.exists('_files/models/navi_2020'):
+            nav_agent.load('_files/models/navi_2020')
 
     nav_runner = Runner(
         envs=envs,
