@@ -99,7 +99,7 @@ class GridworldEnv(gym.Env):
         # self.hiker_image[:,:,:] = self.map_volume['feature_value_map']['hiker']['color']
 
         self.drop_probabilities = {"damage_probability": {0: 0.00, 1: 0.01, 2: 0.40, 3: 0.80},
-                                   "stuck_probability": {"pine trees": 0.50, "pine tree": 0.25, "cabin": 0.50,
+                                   "stuck_probability": {"pine trees": 0.30, "pine tree": 0.20, "cabin": 0.50,
                                                          "flight tower": 0.15, "firewatch tower": 0.20},
                                    "sunk_probability": {"water": 0.50}
                                    }
@@ -107,8 +107,8 @@ class GridworldEnv(gym.Env):
                              "OK_STUCK": 0.5,
                              "OK_SUNK": 0.5,
                              "DAMAGED": 0,#-10,
-                             "DAMAGED_STUCK": 0,
-                             "DAMAGED_SUNK": 0,
+                             "DAMAGED_STUCK": 0.1,
+                             "DAMAGED_SUNK": 0.1,
                              # "CRASHED": -30
                              }
         self.alt_rewards = {0:0, 1:1, 2:0.2, 3:0}
@@ -324,6 +324,7 @@ class GridworldEnv(gym.Env):
             local_coordinates[2] == self.map_volume['vol'].shape[1] - 1:
             print("NOACTION")
             self.reward = 0
+            self.no_action_penalty = -0.10
             self.drop = True
             return 0
 
@@ -537,13 +538,13 @@ class GridworldEnv(gym.Env):
             if self.check_for_hiker():
                 reward = 0.25 + self.reward + self.alt_rewards[self.altitude]
             else:
-                reward = self.reward + self.alt_rewards[self.altitude] + (1 / (self.dist * 2)) #scale the inverse by 4, so it's small# (try to multiply them and see if it makes a difference!!! Here tho u reward for dropping low alt
+                reward = 0.25 + self.reward + self.alt_rewards[self.altitude] - (self.dist/25)# (1 / (self.dist * 2)) #scale the inverse by 4, so it's small# (try to multiply them and see if it makes a difference!!! Here tho u reward for dropping low alt
             print('DROP!!!', 'self.reward=', self.reward, 'alt_reward=', self.alt_rewards[self.altitude], "distance=", (self.dist /20))
             if self.restart_once_done: # HAVE IT ALWAYS TRUE!!!
                 return (observation, reward, done, info)
         # print("state", [ self.observation[self.altitude]['drone'].nonzero()[0][0],self.observation[self.altitude]['drone'].nonzero()[1][0]] )
         self.dist_old = self.dist
-        reward = -0.00005
+        reward = -0.00005 + self.no_action_penalty
         # HERE YOU SHOULD HAVE THE REWARD IN CASE IT CRASHES AT ALT=0 OR IN GENERAL AFTER ALL CASES HAVE BEEN CHECKED!!!
         # if self.check_for_hiker(): # On top of the hiker
         #     #print("hiker found:", self.check_for_hiker())
@@ -591,6 +592,7 @@ class GridworldEnv(gym.Env):
         self.heading = random.randint(1, 8)
         self.altitude = 3
         self.reward = 0
+        self.no_action_penalty = 0.0
         _map = random.choice(self.maps)
         #self.map_volume = CNP.map_to_volume_dict(_map[0], _map[1], 10, 10)
         # #Random generated map
@@ -616,7 +618,7 @@ class GridworldEnv(gym.Env):
         drone_no_goes = []  # where the drone cannot be
         # chose a base terrain, by defined probability
         # 1 = pine tree, 2 = grass, 3 = pine trees - can be expanded
-        base_terrain = {1: 0.0, 2: 0.9, 3: 0.00}
+        base_terrain = {1: 0.15, 2: 0.80, 3: 0.05}
         weightedArray = []
         for k in base_terrain:
             weightedArray += [k] * int(base_terrain[k] * 100)
