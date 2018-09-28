@@ -538,7 +538,7 @@ class GridworldEnv(gym.Env):
             if self.check_for_hiker():
                 reward = 0.35 + self.reward + self.alt_rewards[self.altitude]
             else:
-                reward = 0.35 + self.reward + self.alt_rewards[self.altitude] - (self.dist/15)# (1 / (self.dist * 2)) #scale the inverse by 4, so it's small# (try to multiply them and see if it makes a difference!!! Here tho u reward for dropping low alt
+                reward = 0.35 + self.reward + self.alt_rewards[self.altitude] - (self.dist/12)# (1 / (self.dist * 2)) #scale the inverse by 4, so it's small# (try to multiply them and see if it makes a difference!!! Here tho u reward for dropping low alt
             print('DROP!!!', 'self.reward=', self.reward, 'alt_reward=', self.alt_rewards[self.altitude], "distance=", (self.dist /20))
             if self.restart_once_done: # HAVE IT ALWAYS TRUE!!!
                 return (observation, reward, done, info)
@@ -618,7 +618,7 @@ class GridworldEnv(gym.Env):
         drone_no_goes = []  # where the drone cannot be
         # chose a base terrain, by defined probability
         # 1 = pine tree, 2 = grass, 3 = pine trees - can be expanded
-        base_terrain = {1: 0.33, 2: 0.33, 3: 0.33}
+        base_terrain = {1: 0.99, 2: 0.01, 3: 0.01}
         weightedArray = []
         for k in base_terrain:
             weightedArray += [k] * int(base_terrain[k] * 100)
@@ -640,7 +640,7 @@ class GridworldEnv(gym.Env):
 
         features = [1, 2, 3, 4, 5, 25, 26, 15, 33]  # ,4,5,13,26,31,33,15]
         # random.shuffle(features)
-        for n in range(random.randint(1, len(features))):
+        for n in range(random.randint(1, 1)):#len(features))):
             feature = features.pop(0)
             for x in range(feature_settings[feature][2][0],
                            random.randint(feature_settings[feature][2][0],
