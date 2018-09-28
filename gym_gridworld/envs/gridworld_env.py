@@ -104,11 +104,11 @@ class GridworldEnv(gym.Env):
                                    "sunk_probability": {"water": 0.50}
                                    }
         self.drop_rewards = {"OK": 1,#10,
-                             "OK_STUCK": 0.5,
-                             "OK_SUNK": 0.5,
+                             "OK_STUCK": 0.65,
+                             "OK_SUNK": 0.65,
                              "DAMAGED": 0,#-10,
-                             "DAMAGED_STUCK": 0.1,
-                             "DAMAGED_SUNK": 0.1,
+                             "DAMAGED_STUCK": 0.25,
+                             "DAMAGED_SUNK": 0.25,
                              # "CRASHED": -30
                              }
         self.alt_rewards = {0:0, 1:1, 2:0.2, 3:0}
@@ -538,7 +538,7 @@ class GridworldEnv(gym.Env):
             if self.check_for_hiker():
                 reward = 0.25 + self.reward + self.alt_rewards[self.altitude]
             else:
-                reward = 0.25 + self.reward + self.alt_rewards[self.altitude] - (self.dist/25)# (1 / (self.dist * 2)) #scale the inverse by 4, so it's small# (try to multiply them and see if it makes a difference!!! Here tho u reward for dropping low alt
+                reward = 0.25 + self.reward + self.alt_rewards[self.altitude] - (self.dist/20)# (1 / (self.dist * 2)) #scale the inverse by 4, so it's small# (try to multiply them and see if it makes a difference!!! Here tho u reward for dropping low alt
             print('DROP!!!', 'self.reward=', self.reward, 'alt_reward=', self.alt_rewards[self.altitude], "distance=", (self.dist /20))
             if self.restart_once_done: # HAVE IT ALWAYS TRUE!!!
                 return (observation, reward, done, info)
