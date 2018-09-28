@@ -175,7 +175,7 @@ class FullyConvPolicy:
             scope="action_id",
             trainable=self.trainable
         )
-        value_estimate = tf.squeeze(layers.fully_connected(
+        value_estimate = tf.squeeze(layers.fully_connected( # squeeze removes a dimension of 1 elements. e.g.: [n_batches,1,value_est_dim]--->[n_batches,value_est_dim]
             fc1,
             num_outputs=1,
             activation_fn=None,
