@@ -640,7 +640,7 @@ class GridworldEnv(gym.Env):
 
         features = [1, 2, 3, 4, 5, 25, 26, 15, 33]  # ,4,5,13,26,31,33,15]
         # random.shuffle(features)
-        for n in range(random.randint(1, 2)):#len(features))):
+        for n in range(random.randint(1, len(features))):
             feature = features.pop(0)
             for x in range(feature_settings[feature][2][0],
                            random.randint(feature_settings[feature][2][0],
