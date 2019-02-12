@@ -6,7 +6,8 @@ from pathlib import Path
 import itertools
 
 dirname, filename = os.path.split(os.path.abspath(__file__))
-path=dirname
+#path=dirname
+path='./gym_gridworld/'
 # map = pickle.load(open('050070.dict','rb'))
 # top_left = (50,70)
 # #make the volume

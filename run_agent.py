@@ -49,8 +49,7 @@ flags.DEFINE_integer("K_batches", 10000, # Batch is like a training epoch!
 flags.DEFINE_string("map_name", "DefeatRoaches", "Name of a map to use.")
 flags.DEFINE_float("discount", 0.95, "Reward-discount for the agent")
 flags.DEFINE_boolean("training", False,
-    "if should train the model, if false then save only episode score summaries"
-)
+    "if should train the model, if false then save only episode score summaries")
 flags.DEFINE_enum("if_output_exists", "overwrite", ["fail", "overwrite", "continue"],
     "What to do if summary and model output exists, only for training, is ignored if notraining")
 flags.DEFINE_float("max_gradient_norm", 500.0, "good value might depend on the environment")
