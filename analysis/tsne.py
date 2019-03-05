@@ -6,7 +6,8 @@ import pickle
 
 
 '''Get the data'''
-pickle_in = open('/Users/paulsomers/COGLE/gym-gridworld/data/tree_grass_trees_100.tj','rb')
+#pickle_in = open('/Users/paulsomers/COGLE/gym-gridworld/data/tree_grass_trees_100.tj','rb')
+pickle_in = open('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/All_maps_random_500.tj','rb')
 obs = pickle.load(pickle_in)
 dict = {}
 
@@ -19,7 +20,7 @@ for epis in range(len(obs)):
     print('indx=',indx)
     traj_length = obs[epis]['flag'].__len__()-1 # We take out the last obs as the drone has dropped
     print('traj=',traj_length)
-    if (traj_length - indx >= 5): # collect trajectories that have multiple steps before dropping
+    if (traj_length - indx >= 5): # collect trajectories that have multiple steps (5 or more) before dropping
         for i in range(traj_length-indx):
             sub_dict = {}
             print('iter:',i,'indx+i=', indx+i)

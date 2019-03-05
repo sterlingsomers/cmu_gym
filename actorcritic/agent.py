@@ -8,7 +8,8 @@ from tensorflow.contrib.layers.python.layers.optimizers import OPTIMIZER_SUMMARI
 from actorcritic.policy import FullyConvPolicy
 from common.preprocess import ObsProcesser, FEATURE_KEYS, AgentInputTuple
 from common.util import weighted_random_sample, select_from_each_row, ravel_index_pairs
-#import tensorboard.plugins.beholder as beholder_lib
+import tensorboard.plugins.beholder as beholder_lib
+import saliency
 
 #LOG_DIRECTORY = '/tmp/beholder-demo/SCII'
 LOG_DIRECTORY = '_files/summaries/Test'
@@ -57,6 +58,7 @@ class ActorCriticAgent:
 
     def __init__(self,
             sess: tf.Session,
+            graph: tf.Graph,
             summary_path: str,
             all_summary_freq: int,
             scalar_summary_freq: int,
@@ -102,6 +104,7 @@ class ActorCriticAgent:
         assert mode in [ACMode.A2C, ACMode.PPO]
         self.mode = mode
         self.sess = sess
+        self.graph = graph
         self.spatial_dim = spatial_dim
         self.loss_value_weight = loss_value_weight
         self.entropy_weight_spatial = entropy_weight_spatial
@@ -155,112 +158,121 @@ class ActorCriticAgent:
             collections=[tf.GraphKeys.SUMMARIES, self._scalar_summary_key])
 
     def build_model(self):
-        self.placeholders = _get_placeholders(self.spatial_dim)
-        # Wtihin theta you build the policy net. Check the graph in tensoflow and expand theta to see the nets
-        with tf.variable_scope("theta"):
-            self.theta = self.policy(self, trainable=True).build() # (MINE) from policy.py you build the net. Theta is
-            # actually the policy and contains the actions ids and spatial action dstrs
+        with self.graph.as_default():
+            self.placeholders = _get_placeholders(self.spatial_dim)
+            # Wtihin theta you build the policy net. Check the graph in tensoflow and expand theta to see the nets
+            with tf.variable_scope("theta"):
+                self.theta = self.policy(self, trainable=True).build() # (MINE) from policy.py you build the net. Theta is
+                # actually the policy and contains the actions ids and spatial action dstrs
 
-        # selected_spatial_action_flat = ravel_index_pairs(
-        #     self.placeholders.selected_spatial_action, self.spatial_dim
-        # )
+            # selected_spatial_action_flat = ravel_index_pairs(
+            #     self.placeholders.selected_spatial_action, self.spatial_dim
+            # )
 
-        selected_log_probs = self._get_select_action_probs(self.theta)
+            selected_log_probs = self._get_select_action_probs(self.theta)
 
-        # maximum is to avoid 0 / 0 because this is used to calculate some means
-        # sum_spatial_action_available = tf.maximum(
-        #     1e-10, tf.reduce_sum(self.placeholders.is_spatial_action_available)
-        # )
+            # maximum is to avoid 0 / 0 because this is used to calculate some means
+            # sum_spatial_action_available = tf.maximum(
+            #     1e-10, tf.reduce_sum(self.placeholders.is_spatial_action_available)
+            # )
 
-        # neg_entropy_spatial = tf.reduce_sum(
-        #     self.theta.spatial_action_probs * self.theta.spatial_action_log_probs
-        # ) / sum_spatial_action_available
-        neg_entropy_action_id = tf.reduce_mean(tf.reduce_sum(self.theta.action_id_probs * self.theta.action_id_log_probs, axis=1))
-        # neg_entropy_action_id = tf.reduce_sum(self.theta.action_id_probs * self.theta.action_id_log_probs, axis=1)
-        # (MINE) Sample now actions from the corresponding dstrs defined by the policy network theta
-        if self.mode == ACMode.PPO:
-            # could also use stop_gradient and forget about the trainable
-            with tf.variable_scope("theta_old"):
-                theta_old = self.policy(self, trainable=False).build()
+            # neg_entropy_spatial = tf.reduce_sum(
+            #     self.theta.spatial_action_probs * self.theta.spatial_action_log_probs
+            # ) / sum_spatial_action_available
+            neg_entropy_action_id = tf.reduce_mean(tf.reduce_sum(self.theta.action_id_probs * self.theta.action_id_log_probs, axis=1))
+            # neg_entropy_action_id = tf.reduce_sum(self.theta.action_id_probs * self.theta.action_id_log_probs, axis=1)
+            # (MINE) Sample now actions from the corresponding dstrs defined by the policy network theta
+            if self.mode == ACMode.PPO:
+                # could also use stop_gradient and forget about the trainable
+                with tf.variable_scope("theta_old"):
+                    theta_old = self.policy(self, trainable=False).build()
 
-            new_theta_var = tf.global_variables("theta/")
-            old_theta_var = tf.global_variables("theta_old/")
+                new_theta_var = tf.global_variables("theta/")
+                old_theta_var = tf.global_variables("theta_old/")
 
-            assert len(tf.trainable_variables("theta/")) == len(new_theta_var)
-            assert not tf.trainable_variables("theta_old/")
-            assert len(old_theta_var) == len(new_theta_var)
+                assert len(tf.trainable_variables("theta/")) == len(new_theta_var)
+                assert not tf.trainable_variables("theta_old/")
+                assert len(old_theta_var) == len(new_theta_var)
 
-            self.update_theta_op = [
-                tf.assign(t_old, t_new) for t_new, t_old in zip(new_theta_var, old_theta_var)
-            ]
+                self.update_theta_op = [
+                    tf.assign(t_old, t_new) for t_new, t_old in zip(new_theta_var, old_theta_var)
+                ]
 
-            selected_log_probs_old = self._get_select_action_probs(theta_old)
-            ratio = tf.exp(selected_log_probs.total - selected_log_probs_old.total)
-            clipped_ratio = tf.clip_by_value(
-                ratio, 1.0 - self.clip_epsilon, 1.0 + self.clip_epsilon
+                selected_log_probs_old = self._get_select_action_probs(theta_old)
+                ratio = tf.exp(selected_log_probs.total - selected_log_probs_old.total)
+                clipped_ratio = tf.clip_by_value(
+                    ratio, 1.0 - self.clip_epsilon, 1.0 + self.clip_epsilon
+                )
+                l_clip = tf.minimum(
+                    ratio * self.placeholders.advantage,
+                    clipped_ratio * self.placeholders.advantage
+                )
+                self.sampled_action_id = weighted_random_sample(theta_old.action_id_probs)
+                self.sampled_spatial_action = weighted_random_sample(theta_old.spatial_action_probs)
+                self.value_estimate = theta_old.value_estimate
+                self._scalar_summary("action/ratio", tf.reduce_mean(clipped_ratio))
+                self._scalar_summary("action/ratio_is_clipped",
+                    tf.reduce_mean(tf.to_float(tf.equal(ratio, clipped_ratio))))
+                policy_loss = -tf.reduce_mean(l_clip)
+            else:
+                self.sampled_action_id = weighted_random_sample(self.theta.action_id_probs)
+                # self.sampled_spatial_action = weighted_random_sample(self.theta.spatial_action_probs)
+                self.value_estimate = self.theta.value_estimate
+                policy_loss = -tf.reduce_mean(selected_log_probs.total * self.placeholders.advantage)
+                #policy_loss = -tf.reduce_sum(selected_log_probs.total * self.placeholders.advantage)
+
+            value_loss = tf.losses.mean_squared_error(self.placeholders.value_target, self.theta.value_estimate) # Target comes from runner/run_batch when you specify the full input
+            # value_loss = tf.reduce_sum(tf.square(tf.reshape(self.placeholders.value_target,[-1]) - tf.reshape(self.value_estimate, [-1])))
+
+            loss = (
+                policy_loss
+                + value_loss * self.loss_value_weight
+                + neg_entropy_action_id * self.entropy_weight_action_id
             )
-            l_clip = tf.minimum(
-                ratio * self.placeholders.advantage,
-                clipped_ratio * self.placeholders.advantage
+
+            self.train_op = layers.optimize_loss(
+                loss=loss,
+                global_step=tf.train.get_global_step(),
+                optimizer=self.optimiser,
+                clip_gradients=self.max_gradient_norm, # Caps the gradients at the value self.max_gradient_norm
+                summaries=OPTIMIZER_SUMMARIES,
+                learning_rate=None,
+                name="train_op"
             )
-            self.sampled_action_id = weighted_random_sample(theta_old.action_id_probs)
-            self.sampled_spatial_action = weighted_random_sample(theta_old.spatial_action_probs)
-            self.value_estimate = theta_old.value_estimate
-            self._scalar_summary("action/ratio", tf.reduce_mean(clipped_ratio))
-            self._scalar_summary("action/ratio_is_clipped",
-                tf.reduce_mean(tf.to_float(tf.equal(ratio, clipped_ratio))))
-            policy_loss = -tf.reduce_mean(l_clip)
-        else:
-            self.sampled_action_id = weighted_random_sample(self.theta.action_id_probs)
-            # self.sampled_spatial_action = weighted_random_sample(self.theta.spatial_action_probs)
-            self.value_estimate = self.theta.value_estimate
-            policy_loss = -tf.reduce_mean(selected_log_probs.total * self.placeholders.advantage)
-            #policy_loss = -tf.reduce_sum(selected_log_probs.total * self.placeholders.advantage)
 
-        value_loss = tf.losses.mean_squared_error(self.placeholders.value_target, self.theta.value_estimate) # Target comes from runner/run_batch when you specify the full input
-        # value_loss = tf.reduce_sum(tf.square(tf.reshape(self.placeholders.value_target,[-1]) - tf.reshape(self.value_estimate, [-1])))
+            self._scalar_summary("value/estimate", tf.reduce_mean(self.value_estimate))
+            self._scalar_summary("value/target", tf.reduce_mean(self.placeholders.value_target))
+            # self._scalar_summary("action/is_spatial_action_available",
+            #     tf.reduce_mean(self.placeholders.is_spatial_action_available))
+            self._scalar_summary("action/selected_id_log_prob",
+                tf.reduce_mean(selected_log_probs.action_id))
+            self._scalar_summary("loss/policy", policy_loss)
+            self._scalar_summary("loss/value", value_loss)
+            #self._scalar_summary("loss/neg_entropy_spatial", neg_entropy_spatial)
+            self._scalar_summary("loss/neg_entropy_action_id", neg_entropy_action_id)
+            self._scalar_summary("loss/total", loss)
+            self._scalar_summary("value/advantage", tf.reduce_mean(self.placeholders.advantage))
+            self._scalar_summary("action/selected_total_log_prob",
+                tf.reduce_mean(selected_log_probs.total))
+            # self._scalar_summary("action/selected_spatial_log_prob",
+            #     tf.reduce_sum(selected_log_probs.spatial) / sum_spatial_action_available)
 
-        loss = (
-            policy_loss
-            + value_loss * self.loss_value_weight
-            + neg_entropy_action_id * self.entropy_weight_action_id
-        )
+            #tf.summary.image('convs output', tf.reshape(self.theta.map_output,[-1,25,25,64]))
 
-        self.train_op = layers.optimize_loss(
-            loss=loss,
-            global_step=tf.train.get_global_step(),
-            optimizer=self.optimiser,
-            clip_gradients=self.max_gradient_norm, # Caps the gradients at the value self.max_gradient_norm
-            summaries=OPTIMIZER_SUMMARIES,
-            learning_rate=None,
-            name="train_op"
-        )
+            self.init_op = tf.global_variables_initializer()
+            self.saver = tf.train.Saver(max_to_keep=2)
+            self.all_summary_op = tf.summary.merge_all(tf.GraphKeys.SUMMARIES)
+            self.scalar_summary_op = tf.summary.merge(tf.get_collection(self._scalar_summary_key))
+            #self.beholder = beholder_lib.Beholder(logdir=LOG_DIRECTORY)
+            #tf.summary.image('spatial policy', tf.reshape(self.theta.spatial_action_logits, [-1, 32, 32, 1]))
 
-        self._scalar_summary("value/estimate", tf.reduce_mean(self.value_estimate))
-        self._scalar_summary("value/target", tf.reduce_mean(self.placeholders.value_target))
-        # self._scalar_summary("action/is_spatial_action_available",
-        #     tf.reduce_mean(self.placeholders.is_spatial_action_available))
-        self._scalar_summary("action/selected_id_log_prob",
-            tf.reduce_mean(selected_log_probs.action_id))
-        self._scalar_summary("loss/policy", policy_loss)
-        self._scalar_summary("loss/value", value_loss)
-        #self._scalar_summary("loss/neg_entropy_spatial", neg_entropy_spatial)
-        self._scalar_summary("loss/neg_entropy_action_id", neg_entropy_action_id)
-        self._scalar_summary("loss/total", loss)
-        self._scalar_summary("value/advantage", tf.reduce_mean(self.placeholders.advantage))
-        self._scalar_summary("action/selected_total_log_prob",
-            tf.reduce_mean(selected_log_probs.total))
-        # self._scalar_summary("action/selected_spatial_log_prob",
-        #     tf.reduce_sum(selected_log_probs.spatial) / sum_spatial_action_available)
+            # Below: Get the pi(at|st)
+            logits = self.graph.get_tensor_by_name('theta/action_id/Softmax:0')  # form of tensors <op name>:<out indx>
+            self.neuron_selector = tf.placeholder(tf.int64)
+            pi_at = logits[0][
+                self.neuron_selector]  # logits is (?,5), logits[0 or 1] is (5,) dims and logits[0][smth] will return 1 of the 5
+            self.pi_at = tf.reshape(pi_at, [1])
 
-        #tf.summary.image('convs output', tf.reshape(self.theta.map_output,[-1,25,25,64]))
-
-        self.init_op = tf.global_variables_initializer()
-        self.saver = tf.train.Saver(max_to_keep=2)
-        self.all_summary_op = tf.summary.merge_all(tf.GraphKeys.SUMMARIES)
-        self.scalar_summary_op = tf.summary.merge(tf.get_collection(self._scalar_summary_key))
-        #self.beholder = beholder_lib.Beholder(logdir=LOG_DIRECTORY)
-        #tf.summary.image('spatial policy', tf.reshape(self.theta.spatial_action_logits, [-1, 32, 32, 1]))
 
     def _input_to_feed_dict(self, input_dict):
         return {k + ":0": v for k, v in input_dict.items()} # Add the :0 after the name of each feature
@@ -310,7 +322,59 @@ class ActorCriticAgent:
             feed_dict=feed_dict
         )
 
-        return action_id, value_estimate, representation, fc
+        obs_b = np.squeeze(ob.astype(float)) # remove the 1 batch dimension by squeezing
+        # Baseline is a black image (for integrated gradients)
+        baseline = np.zeros(obs_b.shape)
+        baseline.fill(-1)
+        images = self.placeholders.rgb_screen # Inputs placeholder to differentiate with respect to it.
+        # ============ VALUE GRADIENT ======================
+        values = self.graph.get_tensor_by_name('theta/Squeeze:0')
+        V = tf.reshape(values, [1])
+        # Vanilla
+        # Allocentric #############
+        gradient_saliency = saliency.GradientSaliency(self.graph, self.sess, V, images)
+        # Below you have to put the other image as input in order to compute deriv w.r.t. the other one
+        smoothgrad_V = gradient_saliency.GetSmoothedMask(obs_b, feed_dict={self.value_estimate: value_estimate, 'alt_view:0': obsb})
+        # # Integrated
+        # # gradient_saliency = saliency.IntegratedGradients(self.graph, self.sess, V, images)
+        # # smoothgrad_V = gradient_saliency.GetSmoothedMask(obs_b, feed_dict={self.value_estimate: value_estimate}, x_steps=25, x_baseline=baseline)
+        smoothgrad_V_gray_allo = saliency.VisualizeImageGrayscale(smoothgrad_V)
+        # # Instead of smoothgrad_V_gray use RGB
+        # smoothgrad_V_gray = (smoothgrad_V - smoothgrad_V.min()) / (
+        #         smoothgrad_V.max() - smoothgrad_V.min())
+        #
+        # Egocentric ############
+        obs_b = np.squeeze(obsb.astype(float))  # remove the 1 batch dimension by squeezing
+        # Baseline is a black image (for integrated gradients)
+        baseline = np.zeros(obs_b.shape)
+        baseline.fill(-1)
+        images = self.placeholders.alt_view  # Inputs placeholder to differentiate with respect to it.
+        # Value
+        values = self.graph.get_tensor_by_name('theta/Squeeze:0')
+        V = tf.reshape(values, [1])
+        # Vanilla
+        gradient_saliency = saliency.GradientSaliency(self.graph, self.sess, V, images)
+        smoothgrad_V = gradient_saliency.GetSmoothedMask(obs_b,
+                                                         feed_dict={self.value_estimate: value_estimate,
+                                                                    self.placeholders.rgb_screen: ob})
+        smoothgrad_V_gray_ego = saliency.VisualizeImageGrayscale(smoothgrad_V)
+
+
+        # ============ POLICY GRADIENT ======================
+        # Vanilla
+        # gradient_act_saliency = saliency.GradientSaliency(self.graph, self.sess, self.pi_at, images)
+        # smoothgrad_pi = gradient_act_saliency.GetSmoothedMask(obs_b, feed_dict={self.neuron_selector: action_id[0]})
+        # gradient_act_saliency = saliency.IntegratedGradients(self.graph, self.sess, self.pi_at, images)
+        # # smoothgrad_pi = gradient_act_saliency.GetSmoothedMask(obs_b, feed_dict={self.neuron_selector: action_id[0]}, x_steps=25, x_baseline=baseline)
+        # # Integrated
+        # #smoothgrad_pi_gray = saliency.VisualizeImageGrayscale(smoothgrad_pi)
+        # # Instead of smoothgrad_V_gray use RGB
+        # smoothgrad_pi_gray = (smoothgrad_pi - smoothgrad_pi.min()) / (
+        #         smoothgrad_pi.max() - smoothgrad_pi.min())
+
+
+
+        return action_id, value_estimate, representation, fc, smoothgrad_V_gray_allo, smoothgrad_V_gray_ego#,smoothgrad_pi#smoothgrad_V_gray, smoothgrad_pi_gray
 
     def train(self, input_dict):
         feed_dict = self._input_to_feed_dict(input_dict)

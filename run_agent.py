@@ -1,4 +1,3 @@
-# Fully Convolutional Network (the 2nd in DeepMind's paper)
 import logging
 import os
 import shutil
@@ -7,7 +6,7 @@ from datetime import datetime
 from time import sleep
 import numpy as np
 import pickle
-#from functools import partial
+import matplotlib.pyplot as plt
 
 from absl import flags
 from actorcritic.agent import ActorCriticAgent, ACMode
@@ -199,6 +198,7 @@ def main():
     drop_agent = ActorCriticAgent(
         mode=FLAGS.agent_mode,
         sess=[],
+        graph=[],
         spatial_dim=FLAGS.resolution,
         # Here you pass the resolution which is used in the step for the output probabilities map
         unit_type_emb_dim=5,
@@ -213,11 +213,13 @@ def main():
     )
 
     drop_graph = tf.Graph()
+    drop_agent.graph = drop_graph
     with drop_graph.as_default():
         drop_agent.build_model()
 
     drop_sess = tf.Session(graph=drop_graph)
     drop_agent.sess = drop_sess
+
 
 
 
@@ -260,6 +262,7 @@ def main():
     nav_agent = ActorCriticAgent(
         mode=FLAGS.agent_mode,
         sess=[],
+        graph=[],
         spatial_dim=FLAGS.resolution,
         # Here you pass the resolution which is used in the step for the output probabilities map
         unit_type_emb_dim=5,
@@ -273,11 +276,14 @@ def main():
         num_actions=15
     )
     nav_graph = tf.Graph()
+    nav_agent.graph = nav_graph
     with nav_graph.as_default():
         nav_agent.build_model()
 
     nav_sess = tf.Session(graph=nav_graph)
     nav_agent.sess = nav_sess
+
+
     with nav_graph.as_default():
         if os.path.exists('_files/models/navi_2020'):
             nav_agent.load('_files/models/navi_2020')
@@ -352,7 +358,7 @@ def main():
                 gameDisplay.blit(txt, area)
 
             def process_img(img, x,y):
-                # swap the axes else the image will come not the same as the matplotlib one
+                # swap the axes else the image will not be the same as the matplotlib one
                 img = img.transpose(1,0,2)
                 surf = pygame.surfarray.make_surface(img)
                 surf = pygame.transform.scale(surf, (300, 300))
@@ -412,7 +418,8 @@ def main():
                     # dictionary[nav_runner.episode_counter]['flag'].append(drop_flag)
 
                     # RUN THE MAIN LOOP
-                    obs, action, value, reward, done, representation, fc = nav_runner.run_trained_batch(drop_flag) # Just one step. There is no monitor here so no info section
+                    #obs, action, value, reward, done, representation, fc, grad_V, grad_pi = nav_runner.run_trained_batch(drop_flag) # Just one step. There is no monitor here so no info section
+                    obs, action, value, reward, done, representation, fc, grad_V_allo, grad_V_ego = nav_runner.run_trained_batch(drop_flag) # Just one step. There is no monitor here so no info section
 
                     # dictionary[nav_runner.episode_counter]['actions'].append(action)
                     mb_actions.append(action)
@@ -421,19 +428,36 @@ def main():
                     mb_fc.append(fc)
                     mb_values.append(value)
 
+                    cmap = plt.get_cmap('viridis')
+                    grad_V_allo = cmap(grad_V_allo) # (100,100,4)
+                    grad_V_allo = np.delete(grad_V_allo, 3, 2) # (100,100,3)
+                    # grad_V = np.stack((grad_V,) * 3, -1)
+                    grad_V_allo = grad_V_allo * 255
+                    grad_V_allo = grad_V_allo.astype(np.uint8)
+                    process_img(grad_V_allo, 400, 20)
+
+                    grad_V_ego = cmap(grad_V_ego)  # (100,100,4)
+                    grad_V_ego = np.delete(grad_V_ego, 3, 2)  # (100,100,3)
+                    # grad_pi = np.stack((grad_pi,) * 3, -1)
+                    grad_V_ego = grad_V_ego * 255
+                    grad_V_ego = grad_V_ego.astype(np.uint8)
+                    process_img(grad_V_ego, 400, 400)
+
                     screen_mssg_variable("Value    : ", np.round(value,3), (168, 350))
                     screen_mssg_variable("Reward: ", np.round(reward,3), (168, 372))
                     pygame.display.update()
                     pygame.event.get()
-                    # sleep(1.5)
+                    sleep(1.5)
 
                     # BLIT!!!
-                    # First Background covering everyything from previous session
+                    # First Background covering everything from previous session
                     gameDisplay.fill(DARK_BLUE)
                     map_xy = obs[0]['img']
                     map_alt = obs[0]['nextstepimage']
                     process_img(map_xy, 20, 20)
                     process_img(map_alt, 20, 400)
+
+
                     # Update finally the screen with all the images you blitted in the run_trained_batch
                     pygame.display.update() # Updates only the blitted parts of the screen, pygame.display.flip() updates the whole screen
                     pygame.event.get() # Show the last state and then reset
@@ -457,7 +481,7 @@ def main():
                         while done2==0:
 
                             # Step
-                            obs, action, value, reward, done2, representation, fc = drop_runner.run_trained_batch(drop_flag)
+                            obs, action, value, reward, done2, representation, fc, grad_V_allo, grad_V_ego = drop_runner.run_trained_batch(drop_flag)
                             mb_rewards.append(reward)
 
                             # Store
@@ -473,9 +497,24 @@ def main():
                                                      drop_runner.envs.altitude]['val'])
                             mb_drone_pos.append(drone_pos) # The last location will be doubled as if it is a drop action the drone doesn't change location so obs will be the same!!!
 
+                            grad_V_allo = cmap(grad_V_allo)  # (100,100,4)
+                            grad_V_allo = np.delete(grad_V_allo, 3, 2)  # (100,100,3)
+                            # grad_V = np.stack((grad_V,) * 3, -1)
+                            grad_V_allo = grad_V_allo * 255
+                            grad_V_allo = grad_V_allo.astype(np.uint8)
+                            process_img(grad_V_allo, 400, 20)
+
+                            grad_V_ego = cmap(grad_V_ego)  # (100,100,4)
+                            grad_V_ego = np.delete(grad_V_ego, 3, 2)  # (100,100,3)
+                            # grad_pi = np.stack((grad_pi,) * 3, -1)
+                            grad_V_ego = grad_V_ego * 255
+                            grad_V_ego = grad_V_ego.astype(np.uint8)
+                            process_img(grad_V_ego, 400, 400)
+
 
                             screen_mssg_variable("Value    : ", np.round(value, 3), (168, 350))
                             screen_mssg_variable("Reward: ", np.round(reward, 3), (168, 372))
+
                             pygame.display.update()
                             pygame.event.get()
                             sleep(1.5)
@@ -493,6 +532,7 @@ def main():
                             map_alt = obs[0]['nextstepimage']
                             process_img(map_xy, 20, 20)
                             process_img(map_alt, 20, 400)
+
                             # Update finally the screen with all the images you blitted in the run_trained_batch
                             pygame.display.update()  # Updates only the blitted parts of the screen, pygame.display.flip() updates the whole screen
                             pygame.event.get()  # Show the last state and then reset
