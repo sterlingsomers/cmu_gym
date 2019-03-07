@@ -20,7 +20,7 @@ possible_actions_map = {
     7: [[1, 0], [1, -1], [0, -1], [-1, -1], [-1, 0]],
     8: [[1, -1], [0, -1], [-1, -1], [-1, 0], [-1, 1]]
 }
-
+# PLOT REPRESENTATIONS FOR DROPING!!!
 def create_nextstep_image(map_volume, altitude,heading):
     factor = 5
     canvas = np.zeros((5, 5, 3), dtype=np.uint8)

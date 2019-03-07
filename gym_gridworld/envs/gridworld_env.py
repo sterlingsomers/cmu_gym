@@ -591,14 +591,50 @@ class GridworldEnv(gym.Env):
         self.heading = random.randint(1, 8)
         self.altitude = random.randint(1,3)
         self.reward = 0
-        # _map = random.choice(self.maps)
-        # self.map_volume = CNP.map_to_volume_dict(_map[0],_map[1], 20, 20)#CNP.create_custom_map(np.rot90(np.rot90(np.rot90(self.custom_map))))#CNP.map_to_volume_dict(_map[0], _map[1], 10, 10)
-        # # Set hiker's and drone's location
-        # #hiker = (random.randint(2, self.map_volume['vol'].shape[1] - 1), random.randint(2, self.map_volume['vol'].shape[1] - 2)) #(8,8) #
-        # #(8, 1)  # (6,3)#
-        # hiker = (10,10)#(random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))  # (7,8) #
-        # #drone = random.choice([(hiker[0]-1, hiker[1]-1),(hiker[0]-1, hiker[1]),(hiker[0], hiker[1]-1)])## Package drop starts close to hiker!!! #(random.randint(2, self.map_volume['vol'].shape[1] - 1), random.randint(2, self.map_volume['vol'].shape[1] - 2)) # (8,8) #
-        ######BLOBS#######
+        _map = random.choice(self.maps)
+        # start DRAWN world (Un)comment BELOW this part if you want a custom map
+        # drawn_map = [[2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        #              [2, 2, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        #              [2, 2, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        #              [2, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        #              [2, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        #              [2, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        #              [2, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        #              [2, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2], ]
+        # drawn_map = np.array(drawn_map)
+        # self.map_volume = CNP.create_custom_map(drawn_map)
+        # hiker = (8, 5)
+        # drone = (17, 17)
+        # self.altitude = 1
+        # end DRAWN world
+
+        #####START COMMMENT OUT
+        # #self.map_volume = CNP.map_to_volume_dict(_map[0], _map[1], 10, 10)
+        # #Random generated map
+        # # start = random.choice([1,1,1,1,1,1,1,1,1,1])
+        # # stop = random.choice([13,13,13,13,13,13,13,13,13,13])
+        # # random_integers = np.random.random_integers(start,stop,(20,20))
+        # # flag = bn.rvs(p=0.99, size=(20,20))
+        # # #add 10% (1-p) of any value
+        # # other_features = np.full((20,20),33)
+        # # random_integers[flag==0] = other_features[flag==0]
+        # # self.map_volume = CNP.create_custom_map(random_integers)#CNP.create_custom_map(np.random.random_integers(start,stop,(self.mapw,self.maph)))#CNP.map_to_volume_dict(_map[0],_map[1], self.mapw, self.maph)#CNP.create_custom_map(np.random.random_integers(start,stop,(self.mapw,self.maph))) #CNP.create_custom_map(random.choice(self.custom_maps))
+        # # # Set hiker's and drone's locations
+        # # #hiker = (random.randint(2, self.map_volume['vol'].shape[1] - 1), random.randint(2, self.map_volume['vol'].shape[1] - 2)) #(8,8) #
+        # # #if self.dropping:
+        # # hiker = (random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))#(10,10)#(random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))  #random.choice([(4,5),(5,5),(5,4),(4,4)]) (7,8) #
         # all_no_goes = []
         # # better random map
         # just_grass = np.full((20, 20), 2)
@@ -641,16 +677,16 @@ class GridworldEnv(gym.Env):
         #              random.randint(3, self.map_volume['vol'].shape[1] - 3))
         ##################
 
-        ####actual maps###
+        ####actual maps### (Un)comment below if you DONT want to use custom maps
         _map = random.choice(self.maps)
         self.map_volume = CNP.map_to_volume_dict(_map[0],_map[1], self.mapw, self.maph)
         drone = (random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))#(6,5)#(2,6)#(random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2)) #(1,8)
         hiker = (10,10)#(random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))
         ##################
 
-        while drone == hiker:
-            drone = (random.randint(2, self.map_volume['vol'].shape[1] - 1),
-                     random.randint(2, self.map_volume['vol'].shape[1] - 2))
+        # while drone == hiker:
+        #     drone = (random.randint(2, self.map_volume['vol'].shape[1] - 1),
+        #              random.randint(2, self.map_volume['vol'].shape[1] - 2))
 
         self.original_map_volume = copy.deepcopy(self.map_volume)
 

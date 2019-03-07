@@ -138,7 +138,7 @@ class FullyConvPolicy:
         #self.map_output = tf.concat([self.alt0_output, self.alt1_output, self.alt2_output, self.alt3_output], axis=2)
         #self.map_output = tf.concat([self.alt0_output, self.alt1_output], axis=2)
         
-        self.map_output = tf.concat([self.screen_output, self.alt_output], axis=2)
+        self.map_output = tf.concat([self.screen_output, self.alt_output], axis=2) # AXIS SHOULD BE 3 (nbatches,x,y,channel)
 
         #self.map_output = self.screen_output
         # The output layer (conv) of the spatial action policy with one ouput. So this means that there is a 1-1 mapping
