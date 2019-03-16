@@ -421,7 +421,7 @@ def main():
 
                     # RUN THE MAIN LOOP
                     #obs, action, value, reward, done, representation, fc, grad_V, grad_pi = nav_runner.run_trained_batch(drop_flag) # Just one step. There is no monitor here so no info section
-                    obs, action, value, reward, done, representation, fc, grad_V_allo, grad_V_ego = nav_runner.run_trained_batch(drop_flag) # Just one step. There is no monitor here so no info section
+                    obs, action, value, reward, done, representation, fc, action_probs, grad_V_allo, grad_V_ego = nav_runner.run_trained_batch(drop_flag) # Just one step. There is no monitor here so no info section
 
                     # dictionary[nav_runner.episode_counter]['actions'].append(action)
                     mb_actions.append(action)
@@ -482,7 +482,7 @@ def main():
                         while done2==0:
 
                             # Step
-                            obs, action, value, reward, done2, representation, fc, grad_V_allo, grad_V_ego = drop_runner.run_trained_batch(drop_flag)
+                            obs, action, value, reward, done2, representation, fc, action_probs, grad_V_allo, grad_V_ego = drop_runner.run_trained_batch(drop_flag)
                             mb_rewards.append(reward)
 
                             # Store
@@ -515,6 +515,7 @@ def main():
 
                             screen_mssg_variable("Value    : ", np.round(value, 3), (168, 350))
                             screen_mssg_variable("Reward: ", np.round(reward, 3), (168, 372))
+                            screen_mssg_variable("P(drop|s): ", np.round(action_probs[0][-1], 3), (168, 700))
 
                             pygame.display.update()
                             pygame.event.get()
