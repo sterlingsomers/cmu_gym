@@ -43,7 +43,7 @@ class GridworldEnv(gym.Env):
         self.dropping = True # This is for the reset to select the proper starting locations for hiker and drone
         self.restart_once_done = True  # restart or not once done
         self.drop = False
-        self.maps = [(260,241)]#(321,337)#[(171,333)]#[ (65,466),(260,241),(291,231),(241,163),(265,311),(224,153),(265,308),(321,337),(167,174),(149,341),(146,456),(385,291),(334,203),(360,112),(20,94),(308,110),(164,90),(171,333)] #[(86, 266)] (70,50) # (330,352) For testing, 70,50 there is no where to drop in the whole map
+        self.maps = [(230,70)]#[(260,241)]#(321,337)#[(171,333)]#[ (65,466),(260,241),(291,231),(241,163),(265,311),(224,153),(265,308),(321,337),(167,174),(149,341),(146,456),(385,291),(334,203),(360,112),(20,94),(308,110),(164,90),(171,333)] #[(86, 266)] (70,50) # (330,352) For testing, 70,50 there is no where to drop in the whole map
         self.dist_old = 1000
         self.drop_package_grid_size_by_alt = {1: 3, 2: 5, 3: 7}
         self.factor = 5
