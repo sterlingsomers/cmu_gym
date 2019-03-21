@@ -1,6 +1,7 @@
 import collections
 import os
 import numpy as np
+import copy
 import tensorflow as tf
 from pysc2.lib import actions
 from tensorflow.contrib import layers
@@ -343,6 +344,8 @@ class ActorCriticAgent:
         # smoothgrad_V_gray = (smoothgrad_V - smoothgrad_V.min()) / (
         #         smoothgrad_V.max() - smoothgrad_V.min())
         #
+        mask_allo = copy.deepcopy(smoothgrad_V_gray_allo)
+        mask_allo[mask_allo<0.7] = 0
         # Egocentric ############
         obs_b = np.squeeze(obsb.astype(float))  # remove the 1 batch dimension by squeezing
         # Baseline is a black image (for integrated gradients)
@@ -358,7 +361,8 @@ class ActorCriticAgent:
                                                          feed_dict={self.value_estimate: value_estimate,
                                                                     self.placeholders.rgb_screen: ob})
         smoothgrad_V_gray_ego = saliency.VisualizeImageGrayscale(smoothgrad_V)
-
+        mask_ego = copy.deepcopy(smoothgrad_V_gray_ego)
+        mask_ego[mask_ego<0.7] = 0
 
         # ============ POLICY GRADIENT ======================
         # Vanilla
@@ -374,7 +378,7 @@ class ActorCriticAgent:
 
 
 
-        return action_id, value_estimate, representation, fc, action_probs, smoothgrad_V_gray_allo, smoothgrad_V_gray_ego#,smoothgrad_pi#smoothgrad_V_gray, smoothgrad_pi_gray
+        return action_id, value_estimate, representation, fc, action_probs, smoothgrad_V_gray_allo, smoothgrad_V_gray_ego, mask_allo, mask_ego#,smoothgrad_pi#smoothgrad_V_gray, smoothgrad_pi_gray
 
     def train(self, input_dict):
         feed_dict = self._input_to_feed_dict(input_dict)
