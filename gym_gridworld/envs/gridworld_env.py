@@ -110,7 +110,7 @@ class GridworldEnv(gym.Env):
                                                          "flight tower": 0.15, "firewatch tower": 0.20},
                                    "sunk_probability": {"water": 0.50}
                                    }
-        self.drop_rewards = {"OK": 1,#10,
+        self.drop_rewards = {"OK": 1,#10, # try all positive rewards
                              # "OK_STUCK": 5,
                              # "OK_SUNK": 5,
                              "DAMAGED": -1,#-10,
