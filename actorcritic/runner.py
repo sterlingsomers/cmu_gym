@@ -170,9 +170,9 @@ class Runner(object):
         latest_obs = self.latest_obs # (MINE) =state(t)
 
         # action = agent(state)
-        #action_ids, value_estimate, representation, fc, grad_V, grad_pi = self.agent.step_eval(latest_obs) # (MINE) AGENT STEP = INPUT TO NN THE CURRENT STATE AND OUTPUT ACTION
-        action_ids, value_estimate, representation, fc, action_probs, grad_V_allo, grad_V_ego, mask_allo, mask_ego = self.agent.step_eval(latest_obs)
-        # action_ids, value_estimate, representation, fc, action_probs, grad_V_allo, grad_V_ego = self.agent.step_eval(latest_obs)
+        action_ids, value_estimate, representation, fc, action_probs = self.agent.step_eval(latest_obs)
+        # BELOW IS THE CORRECT ONE
+        # action_ids, value_estimate, representation, fc, action_probs, grad_V_allo, grad_V_ego, mask_allo, mask_ego = self.agent.step_eval(latest_obs)
 
         print('|actions:', action_ids)
         if drop_on:
@@ -190,4 +190,5 @@ class Runner(object):
         self.batch_counter += 1
         #print('Batch %d finished' % self.batch_counter)
         sys.stdout.flush()
-        return obs_raw[0:-3], action_ids[0], value_estimate[0], obs_raw[1], obs_raw[2], representation, fc, action_probs, grad_V_allo,grad_V_ego, mask_allo, mask_ego#, grad_pi
+        # return obs_raw[0:-3], action_ids[0], value_estimate[0], obs_raw[1], obs_raw[2], representation, fc, action_probs, grad_V_allo,grad_V_ego, mask_allo, mask_ego#, grad_pi
+        return obs_raw[0:-3], action_ids[0], value_estimate[0], obs_raw[1], obs_raw[2], representation, fc, action_probs

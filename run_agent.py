@@ -35,7 +35,7 @@ flags.DEFINE_bool("visualize", False, "Whether to render with pygame.")
 flags.DEFINE_integer("resolution", 32, "Resolution for screen and minimap feature layers.")
 flags.DEFINE_integer("step_mul", 100, "Game steps per agent step.")
 flags.DEFINE_integer("n_envs", 20, "Number of environments to run in parallel")
-flags.DEFINE_integer("episodes", 100, "Number of complete episodes")
+flags.DEFINE_integer("episodes", 500, "Number of complete episodes")
 flags.DEFINE_integer("n_steps_per_batch", 32,
     "Number of steps per batch, if None use 8 for a2c and 128 for ppo")  # (MINE) TIMESTEPS HERE!!! You need them cauz you dont want to run till it finds the beacon especially at first episodes - will take forever
 flags.DEFINE_integer("all_summary_freq", 50, "Record all summaries every n batch")
@@ -346,7 +346,7 @@ def main():
             BLACK = (0, 0, 0)
             WHITE = (255, 255, 255)
 
-            sleep_time = 1.5
+            sleep_time = 0.0
 
             pygame.init()
             gameDisplay = pygame.display.set_mode((display_w, display_h))
@@ -421,8 +421,8 @@ def main():
 
                     # RUN THE MAIN LOOP
                     #obs, action, value, reward, done, representation, fc, grad_V, grad_pi = nav_runner.run_trained_batch(drop_flag) # Just one step. There is no monitor here so no info section
-                    obs, action, value, reward, done, representation, fc, action_probs, grad_V_allo, grad_V_ego, mask_allo, mask_ego = nav_runner.run_trained_batch(drop_flag) # Just one step. There is no monitor here so no info section
-                    # obs, action, value, reward, done, representation, fc, action_probs, grad_V_allo, grad_V_ego = nav_runner.run_trained_batch(drop_flag) # Just one step. There is no monitor here so no info section
+                    # obs, action, value, reward, done, representation, fc, action_probs, grad_V_allo, grad_V_ego, mask_allo, mask_ego = nav_runner.run_trained_batch(drop_flag) # Just one step. There is no monitor here so no info section
+                    obs, action, value, reward, done, representation, fc, action_probs = nav_runner.run_trained_batch(drop_flag) # Just one step. There is no monitor here so no info section
 
                     # dictionary[nav_runner.episode_counter]['actions'].append(action)
                     mb_actions.append(action)
@@ -432,28 +432,28 @@ def main():
                     mb_values.append(value)
 
                     # Saliencies
-                    cmap = plt.get_cmap('viridis')
-                    grad_V_allo = cmap(grad_V_allo) # (100,100,4)
-                    grad_V_allo = np.delete(grad_V_allo, 3, 2) # (100,100,3)
-                    # grad_V = np.stack((grad_V,) * 3, -1)
-                    grad_V_allo = grad_V_allo * 255
-                    grad_V_allo = grad_V_allo.astype(np.uint8)
-                    process_img(grad_V_allo, 400, 20)
-
-                    grad_V_ego = cmap(grad_V_ego)  # (100,100,4)
-                    grad_V_ego = np.delete(grad_V_ego, 3, 2)  # (100,100,3)
-                    # grad_pi = np.stack((grad_pi,) * 3, -1)
-                    grad_V_ego = grad_V_ego * 255
-                    grad_V_ego = grad_V_ego.astype(np.uint8)
-                    process_img(grad_V_ego, 400, 400)
-
-                    # Masks
-                    masked_map_xy = map_xy
-                    masked_map_xy[mask_allo == 0] = 0
-                    process_img(masked_map_xy, 800, 20)
-                    masked_map_alt = map_alt
-                    masked_map_alt[mask_ego == 0] = 0
-                    process_img(masked_map_alt, 800, 400)
+                    # cmap = plt.get_cmap('viridis')
+                    # grad_V_allo = cmap(grad_V_allo) # (100,100,4)
+                    # grad_V_allo = np.delete(grad_V_allo, 3, 2) # (100,100,3)
+                    # # grad_V = np.stack((grad_V,) * 3, -1)
+                    # grad_V_allo = grad_V_allo * 255
+                    # grad_V_allo = grad_V_allo.astype(np.uint8)
+                    # process_img(grad_V_allo, 400, 20)
+                    #
+                    # grad_V_ego = cmap(grad_V_ego)  # (100,100,4)
+                    # grad_V_ego = np.delete(grad_V_ego, 3, 2)  # (100,100,3)
+                    # # grad_pi = np.stack((grad_pi,) * 3, -1)
+                    # grad_V_ego = grad_V_ego * 255
+                    # grad_V_ego = grad_V_ego.astype(np.uint8)
+                    # process_img(grad_V_ego, 400, 400)
+                    #
+                    # # Masks
+                    # masked_map_xy = map_xy
+                    # masked_map_xy[mask_allo == 0] = 0
+                    # process_img(masked_map_xy, 800, 20)
+                    # masked_map_alt = map_alt
+                    # masked_map_alt[mask_ego == 0] = 0
+                    # process_img(masked_map_alt, 800, 400)
 
                     screen_mssg_variable("Value    : ", np.round(value,3), (168, 350))
                     screen_mssg_variable("Reward: ", np.round(reward,3), (168, 372))
@@ -492,8 +492,8 @@ def main():
                         while done2==0:
 
                             # Step
-                            obs, action, value, reward, done2, representation, fc, action_probs, grad_V_allo, grad_V_ego, mask_allo, mask_ego = drop_runner.run_trained_batch(drop_flag)
-                            # obs, action, value, reward, done2, representation, fc, action_probs, grad_V_allo, grad_V_ego = drop_runner.run_trained_batch(drop_flag)
+                            # obs, action, value, reward, done2, representation, fc, action_probs, grad_V_allo, grad_V_ego, mask_allo, mask_ego = drop_runner.run_trained_batch(drop_flag)
+                            obs, action, value, reward, done2, representation, fc, action_probs = drop_runner.run_trained_batch(drop_flag)
 
                             mb_rewards.append(reward)
 
@@ -511,27 +511,27 @@ def main():
                             mb_drone_pos.append(drone_pos) # The last location will be doubled as if it is a drop action the drone doesn't change location so obs will be the same!!!
 
                             # Saliencies
-                            grad_V_allo = cmap(grad_V_allo)  # (100,100,4)
-                            grad_V_allo = np.delete(grad_V_allo, 3, 2)  # (100,100,3)
-                            # grad_V = np.stack((grad_V,) * 3, -1)
-                            grad_V_allo = grad_V_allo * 255
-                            grad_V_allo = grad_V_allo.astype(np.uint8)
-                            process_img(grad_V_allo, 400, 20)
-
-                            grad_V_ego = cmap(grad_V_ego)  # (100,100,4)
-                            grad_V_ego = np.delete(grad_V_ego, 3, 2)  # (100,100,3)
-                            # grad_pi = np.stack((grad_pi,) * 3, -1)
-                            grad_V_ego = grad_V_ego * 255
-                            grad_V_ego = grad_V_ego.astype(np.uint8)
-                            process_img(grad_V_ego, 400, 400)
-
-                            # Masks
-                            masked_map_xy = map_xy
-                            masked_map_xy[mask_allo == 0] = 0
-                            process_img(masked_map_xy, 800, 20)
-                            masked_map_alt = map_alt
-                            masked_map_alt[mask_ego == 0] = 0
-                            process_img(masked_map_alt, 800, 400)
+                            # grad_V_allo = cmap(grad_V_allo)  # (100,100,4)
+                            # grad_V_allo = np.delete(grad_V_allo, 3, 2)  # (100,100,3)
+                            # # grad_V = np.stack((grad_V,) * 3, -1)
+                            # grad_V_allo = grad_V_allo * 255
+                            # grad_V_allo = grad_V_allo.astype(np.uint8)
+                            # process_img(grad_V_allo, 400, 20)
+                            #
+                            # grad_V_ego = cmap(grad_V_ego)  # (100,100,4)
+                            # grad_V_ego = np.delete(grad_V_ego, 3, 2)  # (100,100,3)
+                            # # grad_pi = np.stack((grad_pi,) * 3, -1)
+                            # grad_V_ego = grad_V_ego * 255
+                            # grad_V_ego = grad_V_ego.astype(np.uint8)
+                            # process_img(grad_V_ego, 400, 400)
+                            #
+                            # # Masks
+                            # masked_map_xy = map_xy
+                            # masked_map_xy[mask_allo == 0] = 0
+                            # process_img(masked_map_xy, 800, 20)
+                            # masked_map_alt = map_alt
+                            # masked_map_alt[mask_ego == 0] = 0
+                            # process_img(masked_map_alt, 800, 400)
 
                             screen_mssg_variable("Value    : ", np.round(value, 3), (168, 350))
                             screen_mssg_variable("Reward: ", np.round(reward, 3), (168, 372))
@@ -561,11 +561,11 @@ def main():
                             sleep(sleep_time)
                             t = t +1
 
-                        dictionary[nav_runner.episode_counter]['observations'] = mb_obs
+                        # dictionary[nav_runner.episode_counter]['observations'] = mb_obs
                         dictionary[nav_runner.episode_counter]['flag'] = mb_flag
                         dictionary[nav_runner.episode_counter]['actions'] = mb_actions
                         dictionary[nav_runner.episode_counter]['rewards'] = mb_rewards
-                        dictionary[nav_runner.episode_counter]['representation'] = mb_representation
+                        # dictionary[nav_runner.episode_counter]['representation'] = mb_representation
                         dictionary[nav_runner.episode_counter]['fc'] = mb_fc
                         dictionary[nav_runner.episode_counter]['values'] = mb_values
                         dictionary[nav_runner.episode_counter]['drone_pos'] = mb_drone_pos
@@ -579,8 +579,10 @@ def main():
                 clock.tick(15)
 
             print("...saving dictionary.")
-            with open('./data/test.tj', 'wb') as handle:
-                pickle.dump(dictionary, handle)
+            pickle_in = open('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/All_maps_20x20_500_b.tj','wb')
+            pickle.dump(dictionary, pickle_in)
+            # with open('./data/All_maps_20x20_500.tj', 'wb') as handle:
+            #     pickle.dump(dictionary, handle)
 
         except KeyboardInterrupt:
             pass
