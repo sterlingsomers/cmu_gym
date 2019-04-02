@@ -211,3 +211,6 @@ venv.bak/
 # mypy
 .mypy_cache/
 
+# Development environment: PyCharm, emacs, etc.
+.idea/
+*~
