@@ -431,29 +431,29 @@ def main():
                     mb_fc.append(fc)
                     mb_values.append(value)
 
-                    # Saliencies
-                    cmap = plt.get_cmap('viridis')
-                    grad_V_allo = cmap(grad_V_allo) # (100,100,4)
-                    grad_V_allo = np.delete(grad_V_allo, 3, 2) # (100,100,3)
-                    # grad_V = np.stack((grad_V,) * 3, -1)
-                    grad_V_allo = grad_V_allo * 255
-                    grad_V_allo = grad_V_allo.astype(np.uint8)
-                    process_img(grad_V_allo, 400, 20)
-
-                    grad_V_ego = cmap(grad_V_ego)  # (100,100,4)
-                    grad_V_ego = np.delete(grad_V_ego, 3, 2)  # (100,100,3)
-                    # grad_pi = np.stack((grad_pi,) * 3, -1)
-                    grad_V_ego = grad_V_ego * 255
-                    grad_V_ego = grad_V_ego.astype(np.uint8)
-                    process_img(grad_V_ego, 400, 400)
-
-                    # Masks
-                    masked_map_xy = map_xy
-                    masked_map_xy[mask_allo == 0] = 0
-                    process_img(masked_map_xy, 800, 20)
-                    masked_map_alt = map_alt
-                    masked_map_alt[mask_ego == 0] = 0
-                    process_img(masked_map_alt, 800, 400)
+                    # # Saliencies
+                    # cmap = plt.get_cmap('viridis')
+                    # grad_V_allo = cmap(grad_V_allo) # (100,100,4)
+                    # grad_V_allo = np.delete(grad_V_allo, 3, 2) # (100,100,3)
+                    # # grad_V = np.stack((grad_V,) * 3, -1)
+                    # grad_V_allo = grad_V_allo * 255
+                    # grad_V_allo = grad_V_allo.astype(np.uint8)
+                    # process_img(grad_V_allo, 400, 20)
+                    #
+                    # grad_V_ego = cmap(grad_V_ego)  # (100,100,4)
+                    # grad_V_ego = np.delete(grad_V_ego, 3, 2)  # (100,100,3)
+                    # # grad_pi = np.stack((grad_pi,) * 3, -1)
+                    # grad_V_ego = grad_V_ego * 255
+                    # grad_V_ego = grad_V_ego.astype(np.uint8)
+                    # process_img(grad_V_ego, 400, 400)
+                    #
+                    # # Masks
+                    # masked_map_xy = map_xy
+                    # masked_map_xy[mask_allo == 0] = 0
+                    # process_img(masked_map_xy, 800, 20)
+                    # masked_map_alt = map_alt
+                    # masked_map_alt[mask_ego == 0] = 0
+                    # process_img(masked_map_alt, 800, 400)
 
                     screen_mssg_variable("Value    : ", np.round(value,3), (168, 350))
                     screen_mssg_variable("Reward: ", np.round(reward,3), (168, 372))
@@ -511,27 +511,27 @@ def main():
                             mb_drone_pos.append(drone_pos) # The last location will be doubled as if it is a drop action the drone doesn't change location so obs will be the same!!!
 
                             # Saliencies
-                            grad_V_allo = cmap(grad_V_allo)  # (100,100,4)
-                            grad_V_allo = np.delete(grad_V_allo, 3, 2)  # (100,100,3)
-                            # grad_V = np.stack((grad_V,) * 3, -1)
-                            grad_V_allo = grad_V_allo * 255
-                            grad_V_allo = grad_V_allo.astype(np.uint8)
-                            process_img(grad_V_allo, 400, 20)
-
-                            grad_V_ego = cmap(grad_V_ego)  # (100,100,4)
-                            grad_V_ego = np.delete(grad_V_ego, 3, 2)  # (100,100,3)
-                            # grad_pi = np.stack((grad_pi,) * 3, -1)
-                            grad_V_ego = grad_V_ego * 255
-                            grad_V_ego = grad_V_ego.astype(np.uint8)
-                            process_img(grad_V_ego, 400, 400)
-
-                            # Masks
-                            masked_map_xy = map_xy
-                            masked_map_xy[mask_allo == 0] = 0
-                            process_img(masked_map_xy, 800, 20)
-                            masked_map_alt = map_alt
-                            masked_map_alt[mask_ego == 0] = 0
-                            process_img(masked_map_alt, 800, 400)
+                            # grad_V_allo = cmap(grad_V_allo)  # (100,100,4)
+                            # grad_V_allo = np.delete(grad_V_allo, 3, 2)  # (100,100,3)
+                            # # grad_V = np.stack((grad_V,) * 3, -1)
+                            # grad_V_allo = grad_V_allo * 255
+                            # grad_V_allo = grad_V_allo.astype(np.uint8)
+                            # process_img(grad_V_allo, 400, 20)
+                            #
+                            # grad_V_ego = cmap(grad_V_ego)  # (100,100,4)
+                            # grad_V_ego = np.delete(grad_V_ego, 3, 2)  # (100,100,3)
+                            # # grad_pi = np.stack((grad_pi,) * 3, -1)
+                            # grad_V_ego = grad_V_ego * 255
+                            # grad_V_ego = grad_V_ego.astype(np.uint8)
+                            # process_img(grad_V_ego, 400, 400)
+                            #
+                            # # Masks
+                            # masked_map_xy = map_xy
+                            # masked_map_xy[mask_allo == 0] = 0
+                            # process_img(masked_map_xy, 800, 20)
+                            # masked_map_alt = map_alt
+                            # masked_map_alt[mask_ego == 0] = 0
+                            # process_img(masked_map_alt, 800, 400)
 
                             screen_mssg_variable("Value    : ", np.round(value, 3), (168, 350))
                             screen_mssg_variable("Reward: ", np.round(reward, 3), (168, 372))
