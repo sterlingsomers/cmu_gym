@@ -3,10 +3,12 @@ import os
 import shutil
 import sys
 from datetime import datetime
-from time import sleep
+from time import sleep, strftime
 import numpy as np
 import pickle
 import matplotlib.pyplot as plt
+
+from ppt import Presentation
 
 from absl import flags
 from actorcritic.agent import ActorCriticAgent, ACMode
@@ -30,12 +32,14 @@ import gym
 #from gym_grid.envs import GridEnv
 import gym_gridworld
 
+import studyconfiguration
+
 FLAGS = flags.FLAGS
 flags.DEFINE_bool("visualize", False, "Whether to render with pygame.")
 flags.DEFINE_integer("resolution", 32, "Resolution for screen and minimap feature layers.")
 flags.DEFINE_integer("step_mul", 100, "Game steps per agent step.")
 flags.DEFINE_integer("n_envs", 20, "Number of environments to run in parallel")
-flags.DEFINE_integer("episodes", 100, "Number of complete episodes")
+flags.DEFINE_integer("episodes", 1, "Number of complete episodes")
 flags.DEFINE_integer("n_steps_per_batch", 32,
     "Number of steps per batch, if None use 8 for a2c and 128 for ppo")  # (MINE) TIMESTEPS HERE!!! You need them cauz you dont want to run till it finds the beacon especially at first episodes - will take forever
 flags.DEFINE_integer("all_summary_freq", 50, "Record all summaries every n batch")
@@ -100,8 +104,15 @@ flags.DEFINE_bool("trace", False, "Whether to trace the code execution.")
 
 flags.DEFINE_bool("save_replay", False, "Whether to save a replay at the end.")
 
-#flags.DEFINE_string("map", None, "Name of a map to use.")
-
+# User Study configurations
+flags.DEFINE_string("map", 'original_drawn_map', "name of a map to use.")
+flags.DEFINE_integer("hikerx", 4, "x coordinate for hiker (integer 3-17)")
+flags.DEFINE_integer("hikery", 4, "y coordinate for hiker (integer 3-17)")
+flags.DEFINE_integer("dronex", 17, "x coordinate for drone (integer 3-17)")
+flags.DEFINE_integer("droney", 17, "y coordinate for drone (integer 3-17)")
+flags.DEFINE_boolean("getnames", False, "get names of available maps")
+flags.DEFINE_string("getmap", "", "get map by name")
+flags.DEFINE_boolean("studyhelp", False, "show help for study configuation (False | True)")
 
 FLAGS(sys.argv)
 
@@ -174,26 +185,6 @@ def main():
     print("Requested environments created successfully")
     #env = gym.make('gridworld-v0')
     tf.reset_default_graph()
-    # The following lines fix the problem with using more than 2 envs!!!
-    # config = tf.ConfigProto()
-    # config.gpu_options.allow_growth = True
-    # sess = tf.Session(config=config)
-    # #sess = tf.Session()
-    #
-    # agent = ActorCriticAgent(
-    #     mode=FLAGS.agent_mode,
-    #     sess=sess,
-    #     spatial_dim=FLAGS.resolution, # Here you pass the resolution which is used in the step for the output probabilities map
-    #     unit_type_emb_dim=5,
-    #     loss_value_weight=FLAGS.loss_value_weight,
-    #     entropy_weight_action_id=FLAGS.entropy_weight_action,
-    #     entropy_weight_spatial=FLAGS.entropy_weight_spatial,
-    #     scalar_summary_freq=FLAGS.scalar_summary_freq,
-    #     all_summary_freq=FLAGS.all_summary_freq,
-    #     summary_path=full_summary_path,
-    #     max_gradient_norm=FLAGS.max_gradient_norm,
-    #     num_actions=envs.action_space.n
-    # )
     # Make drop agent
     drop_agent = ActorCriticAgent(
         mode=FLAGS.agent_mode,
@@ -219,9 +210,6 @@ def main():
 
     drop_sess = tf.Session(graph=drop_graph)
     drop_agent.sess = drop_sess
-
-
-
 
     with drop_graph.as_default():
         if os.path.exists(full_chekcpoint_path):
@@ -309,14 +297,14 @@ def main():
         i = 0
 
         try:
-            runner.reset()
+            nav_runner.reset()
             while True:
                 #runner.reset()
                 if i % 500 == 0:
                     _print(i)
                 if i % 4000 == 0:
-                    _save_if_training(agent)
-                runner.run_batch()  # (MINE) HERE WE RUN MAIN LOOP for while true
+                    _save_if_training(nav_agent)
+                nav_runner.run_batch()  # (MINE) HERE WE RUN MAIN LOOP for while true
                 #runner.run_batch_solo_env()
                 i += 1
                 if 0 <= n_batches <= i: #when you reach the certain amount of batches break
@@ -345,6 +333,7 @@ def main():
             RED = (255, 192, 192)
             BLACK = (0, 0, 0)
             WHITE = (255, 255, 255)
+            LIGHT_YELLOW = (255, 255, 153)
 
             sleep_time = 1.5
 
@@ -368,8 +357,13 @@ def main():
 
             dictionary = {}
             running = True
+            rootname = os.path.abspath(os.path.dirname(__file__))
+            dirname = os.path.join(rootname,'images')
+            run_name = strftime("run_%Y%m%d_%H%M%S_")
             while nav_runner.episode_counter <= (FLAGS.episodes - 1) and running==True:
                 print('Episode: ', nav_runner.episode_counter)
+                episode_name = run_name + str(nav_runner.episode_counter) + ".pptx"
+                ppt = Presentation(dirname, episode_name)
                 # Init storage structures
                 dictionary[nav_runner.episode_counter] = {}
                 mb_obs = []
@@ -421,7 +415,7 @@ def main():
 
                     # RUN THE MAIN LOOP
                     #obs, action, value, reward, done, representation, fc, grad_V, grad_pi = nav_runner.run_trained_batch(drop_flag) # Just one step. There is no monitor here so no info section
-                    obs, action, value, reward, done, representation, fc, action_probs, grad_V_allo, grad_V_ego, mask_allo, mask_ego = nav_runner.run_trained_batch(drop_flag) # Just one step. There is no monitor here so no info section
+                    obs, action, value, reward, done, success, representation, fc, action_probs, grad_V_allo, grad_V_ego, mask_allo, mask_ego = nav_runner.run_trained_batch(drop_flag) # Just one step. There is no monitor here so no info section
                     # obs, action, value, reward, done, representation, fc, action_probs, grad_V_allo, grad_V_ego = nav_runner.run_trained_batch(drop_flag) # Just one step. There is no monitor here so no info section
 
                     # dictionary[nav_runner.episode_counter]['actions'].append(action)
@@ -492,7 +486,7 @@ def main():
                         while done2==0:
 
                             # Step
-                            obs, action, value, reward, done2, representation, fc, action_probs, grad_V_allo, grad_V_ego, mask_allo, mask_ego = drop_runner.run_trained_batch(drop_flag)
+                            obs, action, value, reward, done2, success, representation, fc, action_probs, grad_V_allo, grad_V_ego, mask_allo, mask_ego = drop_runner.run_trained_batch(drop_flag)
                             # obs, action, value, reward, done2, representation, fc, action_probs, grad_V_allo, grad_V_ego = drop_runner.run_trained_batch(drop_flag)
 
                             mb_rewards.append(reward)
@@ -558,6 +552,18 @@ def main():
                             # Update finally the screen with all the images you blitted in the run_trained_batch
                             pygame.display.update()  # Updates only the blitted parts of the screen, pygame.display.flip() updates the whole screen
                             pygame.event.get()  # Show the last state and then reset
+                            image_file_name = dirname + '/Image_' + str(t) + '.bmp'
+                            print(str(t), end=",")
+                            pygame.image.save(gameDisplay, image_file_name)
+                            title = 'Step ' + str(t)
+                            if done:
+                                if success:
+                                    title += ': Success'
+                                else:
+                                    title += ': Crash'
+
+                            ppt.add_image_slide(image_file_name, title)
+
                             sleep(sleep_time)
                             t = t +1
 
@@ -577,6 +583,8 @@ def main():
                         nav_runner.episode_counter += 1
 
                 clock.tick(15)
+                ppt.save()
+
 
             print("...saving dictionary.")
             with open('./data/test.tj', 'wb') as handle:
@@ -597,4 +605,11 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    if FLAGS.studyhelp:
+        print(studyconfiguration.studyhelp())
+    elif FLAGS.getnames:
+        print(studyconfiguration.get_map_names())
+    elif FLAGS.getmap:
+        print(studyconfiguration.get_map_by_name(FLAGS.getmap))
+    else:
+        main()

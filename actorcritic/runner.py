@@ -190,4 +190,8 @@ class Runner(object):
         self.batch_counter += 1
         #print('Batch %d finished' % self.batch_counter)
         sys.stdout.flush()
-        return obs_raw[0:-3], action_ids[0], value_estimate[0], obs_raw[1], obs_raw[2], representation, fc, action_probs, grad_V_allo,grad_V_ego, mask_allo, mask_ego#, grad_pi
+        try:
+            success = obs_raw[3]['success']
+        except Exception as e:
+            success = False
+        return obs_raw[0:-3], action_ids[0], value_estimate[0], obs_raw[1], obs_raw[2], success, representation, fc, action_probs, grad_V_allo,grad_V_ego, mask_allo, mask_ego#, grad_pi

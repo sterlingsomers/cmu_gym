@@ -19,6 +19,7 @@ from scipy.misc import imresize
 
 from gym_gridworld.envs import create_np_map as CNP
 
+from studyconfiguration import get_map, get_drone, get_hiker
 #from mavsim_server import MavsimHandler
 
 # define colors
@@ -593,7 +594,7 @@ class GridworldEnv(gym.Env):
         self.reward = 0
         _map = random.choice(self.maps)
         # start DRAWN world (Un)comment BELOW this part if you want a custom map
-        drawn_map = [[2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        odrawn_map = [[2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
                      [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
                      [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
                      [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
@@ -613,10 +614,13 @@ class GridworldEnv(gym.Env):
                      [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
                      [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
                      [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2], ]
+        drawn_map = get_map()
         drawn_map = np.array(drawn_map)
         self.map_volume = CNP.create_custom_map(drawn_map)
-        hiker = (8, 5)
-        drone = (17, 17)
+        #hiker = (8, 5)
+        #drone = (17, 17)
+        hiker = get_hiker()
+        drone = get_drone()
         self.altitude = 1
         # end DRAWN world
 

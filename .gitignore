@@ -214,3 +214,7 @@ venv.bak/
 # Development environment: PyCharm, emacs, etc.
 .idea/
 *~
+images/*
+.DS_Store
+_files/models/
+_files/*
