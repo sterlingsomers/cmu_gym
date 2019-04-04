@@ -2,8 +2,8 @@ from pptx import Presentation as ppt
 from pptx.util import Inches
 import os
 
-DEFAULT_LEFT = Inches(2)
-DEFAULT_TOP = Inches(1.5)
+DEFAULT_LEFT = Inches(0.5)
+DEFAULT_TOP = Inches(1.75)
 DEFAULT_HEIGHT = Inches(5.5)
 
 
@@ -26,6 +26,16 @@ class Presentation:
         slide.shapes.add_picture(image_path, left=left, top=top, height=height)
         slide_title = slide.shapes.title
         slide_title.text = title
+
+    def image_title(self, t, info):
+        title = 'Step ' + str(t)
+        if 'competency' in info:
+            title += ': ' + info['competency']
+        if 'status' in info:
+            title += ': ' + info['status']
+        if 'package_state' in info:
+            title += ': ' + info['package_state']
+        return title
 
     def save(self):
         self.presentation.save(self.savename)

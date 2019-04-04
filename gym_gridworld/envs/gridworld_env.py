@@ -458,6 +458,7 @@ class GridworldEnv(gym.Env):
             action = int(action)
             info = {}
             info['success'] = False
+            info['competency'] = "Provisioning: Moving to Hiker"
 
             done = False
             drone = np.where(
@@ -473,12 +474,15 @@ class GridworldEnv(gym.Env):
 
             crash = self.check_for_crash()
             info['success'] = not crash
+            info['status'] = 'Know hiker position'
+
             #self.render()
 
             if crash:
                 reward = -1
                 done = True
                 print("CRASH")
+                info['status'] = 'Crash'
                 if self.restart_once_done:  # HAVE IT ALWAYS TRUE!!! It learned the first time WITHOUT RESETING FROM CRASH
                     #observation = self.reset()
                     return (observation, reward, done, info)
@@ -492,6 +496,7 @@ class GridworldEnv(gym.Env):
                 reward = 1# + self.alt_rewards[self.altitude]
                 # reward = 1 + 1 / self.dist
                 print('SUCCESS!!!')
+                info['status'] = 'At Hiker position'
                 if self.restart_once_done:  # HAVE IT ALWAYS TRUE!!!
                     #observation = self.reset()
                     return (observation, reward, done, info)
@@ -533,6 +538,7 @@ class GridworldEnv(gym.Env):
         action = int(action)
         info = {}
         info['success'] = False
+        info['competency'] = "Provisioning: Dropping package"
 
         done = False
         drone_old = np.where(
@@ -548,6 +554,7 @@ class GridworldEnv(gym.Env):
 
         crash = self.check_for_crash()
         info['success'] = not crash
+        info['status'] = 'Moving to drop'
 
         # BELOW WAS WORKING FINE FOR FINDING HIKER
         # reward = (self.alt_rewards[self.altitude]*0.1)*(1/self.dist**2+1e-7)# + self.drop*self.reward (and comment out the reward when you drop and terminate episode
@@ -556,6 +563,7 @@ class GridworldEnv(gym.Env):
             reward = -1
             done = True
             print("CRASH")
+            info['status'] = 'Crash'
             if self.restart_once_done: # HAVE IT ALWAYS TRUE!!! It learned the first time WITHOUT RESETING FROM CRASH
                 return (observation, reward, done, info)
             #return (self.generate_observation(), reward, done, info)
@@ -571,6 +579,7 @@ class GridworldEnv(gym.Env):
             else:
                 reward = self.reward + self.alt_rewards[self.altitude] # (try to multiply them and see if it makes a difference!!! Here tho u reward for dropping low alt
             print('DROP!!!', 'self.reward=', self.reward, 'alt_reward=', self.alt_rewards[self.altitude])
+            info['status'] = 'Drop package'
             if self.restart_once_done: # HAVE IT ALWAYS TRUE!!!
                 return (observation, reward, done, info)
         # print("state", [ self.observation[self.altitude]['drone'].nonzero()[0][0],self.observation[self.altitude]['drone'].nonzero()[1][0]] )
@@ -621,6 +630,10 @@ class GridworldEnv(gym.Env):
         #drone = (17, 17)
         hiker = get_hiker()
         drone = get_drone()
+        print ("Drone at", end=" ")
+        print (drone)
+        print ("Hiker at", end=" ")
+        print (hiker)
         self.altitude = 1
         # end DRAWN world
 

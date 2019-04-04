@@ -104,17 +104,23 @@ flags.DEFINE_bool("trace", False, "Whether to trace the code execution.")
 
 flags.DEFINE_bool("save_replay", False, "Whether to save a replay at the end.")
 
+###############################################################################################
 # User Study configurations
 flags.DEFINE_string("map", 'original_drawn_map', "name of a map to use.")
-flags.DEFINE_integer("hikerx", 4, "x coordinate for hiker (integer 3-17)")
-flags.DEFINE_integer("hikery", 4, "y coordinate for hiker (integer 3-17)")
-flags.DEFINE_integer("dronex", 17, "x coordinate for drone (integer 3-17)")
-flags.DEFINE_integer("droney", 17, "y coordinate for drone (integer 3-17)")
+flags.DEFINE_integer("hikerx", 3, "x coordinate for hiker (integer 3-17)")
+flags.DEFINE_integer("hikery", 3, "y coordinate for hiker (integer 3-17)")
+flags.DEFINE_integer("dronex", 7, "x coordinate for drone (integer 3-17)")
+flags.DEFINE_integer("droney", 7, "y coordinate for drone (integer 3-17)")
 flags.DEFINE_boolean("getnames", False, "get names of available maps")
 flags.DEFINE_string("getmap", "", "get map by name")
 flags.DEFINE_boolean("studyhelp", False, "show help for study configuation (False | True)")
+###############################################################################################
 
 FLAGS(sys.argv)
+
+print("sys.argv", end="=")
+print(sys.argv)
+print("From arguments: dronex=" + str(FLAGS.dronex) + " droney=" + str(FLAGS.droney))
 
 #TODO this runner is maybe too long and too messy..
 full_chekcpoint_path = os.path.join(FLAGS.checkpoint_path, FLAGS.model_name)
@@ -415,7 +421,7 @@ def main():
 
                     # RUN THE MAIN LOOP
                     #obs, action, value, reward, done, representation, fc, grad_V, grad_pi = nav_runner.run_trained_batch(drop_flag) # Just one step. There is no monitor here so no info section
-                    obs, action, value, reward, done, success, representation, fc, action_probs, grad_V_allo, grad_V_ego, mask_allo, mask_ego = nav_runner.run_trained_batch(drop_flag) # Just one step. There is no monitor here so no info section
+                    obs, action, value, reward, done, info, representation, fc, action_probs, grad_V_allo, grad_V_ego, mask_allo, mask_ego = nav_runner.run_trained_batch(drop_flag) # Just one step. There is no monitor here so no info section
                     # obs, action, value, reward, done, representation, fc, action_probs, grad_V_allo, grad_V_ego = nav_runner.run_trained_batch(drop_flag) # Just one step. There is no monitor here so no info section
 
                     # dictionary[nav_runner.episode_counter]['actions'].append(action)
@@ -466,6 +472,10 @@ def main():
                     # Update finally the screen with all the images you blitted in the run_trained_batch
                     pygame.display.update() # Updates only the blitted parts of the screen, pygame.display.flip() updates the whole screen
                     pygame.event.get() # Show the last state and then reset
+                    image_file_name = dirname + '/Image_' + str(t) + '.bmp'
+                    print(str(t), end=",")
+                    pygame.image.save(gameDisplay, image_file_name)
+                    ppt.add_image_slide(image_file_name, ppt.image_title(t, info))
                     sleep(sleep_time)
                     t += 1
 
@@ -475,6 +485,7 @@ def main():
                         drop_runner.latest_obs = nav_runner.latest_obs
                         done2 = 0
                         drop_flag = 1
+                        start_drop = t
                         # Store
                         drone_pos = np.where(nav_runner.envs.map_volume['vol'] ==
                                              nav_runner.envs.map_volume['feature_value_map']['drone'][
@@ -486,7 +497,7 @@ def main():
                         while done2==0:
 
                             # Step
-                            obs, action, value, reward, done2, success, representation, fc, action_probs, grad_V_allo, grad_V_ego, mask_allo, mask_ego = drop_runner.run_trained_batch(drop_flag)
+                            obs, action, value, reward, done2, info, representation, fc, action_probs, grad_V_allo, grad_V_ego, mask_allo, mask_ego = drop_runner.run_trained_batch(drop_flag)
                             # obs, action, value, reward, done2, representation, fc, action_probs, grad_V_allo, grad_V_ego = drop_runner.run_trained_batch(drop_flag)
 
                             mb_rewards.append(reward)
@@ -542,6 +553,7 @@ def main():
                                 pygame.event.get()  # Update the screen
                                 dictionary[nav_runner.episode_counter]['pack_hiker_dist'] = drop_runner.envs.pack_dist
                                 sleep(sleep_time)
+                                info['package_state'] = drop_runner.envs.package_state
 
                             gameDisplay.fill(DARK_BLUE)
                             map_xy = obs[0]['img']
@@ -555,14 +567,7 @@ def main():
                             image_file_name = dirname + '/Image_' + str(t) + '.bmp'
                             print(str(t), end=",")
                             pygame.image.save(gameDisplay, image_file_name)
-                            title = 'Step ' + str(t)
-                            if done:
-                                if success:
-                                    title += ': Success'
-                                else:
-                                    title += ': Crash'
-
-                            ppt.add_image_slide(image_file_name, title)
+                            ppt.add_image_slide(image_file_name, ppt.image_title(t, info))
 
                             sleep(sleep_time)
                             t = t +1
