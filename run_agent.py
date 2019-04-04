@@ -381,6 +381,8 @@ def main():
                 mb_values = []
                 mb_drone_pos = []
                 mb_heading = []
+                mb_crash = []
+                mb_map_volume = [] # obs[0]['volume']==envs.map_volume
                 # dictionary[nav_runner.episode_counter]['observations'] = {}
                 # dictionary[nav_runner.episode_counter]['actions'] = []
                 # dictionary[nav_runner.episode_counter]['flag'] = []
@@ -393,7 +395,7 @@ def main():
                 pygame.display.update()
 
                 dictionary[nav_runner.episode_counter]['hiker_pos'] = nav_runner.envs.hiker_position
-                dictionary[nav_runner.episode_counter]['map_volume'] = map_xy
+                # dictionary[nav_runner.episode_counter]['map_volume'] = map_xy
 
                 # Quit pygame if the (X) button is pressed on the top left of the window
                 # Seems that without this for event quit doesnt show anything!!!
@@ -430,6 +432,7 @@ def main():
                     mb_representation.append(representation)
                     mb_fc.append(fc)
                     mb_values.append(value)
+                    mb_crash.append(nav_runner.envs.crash)
 
                     # Saliencies
                     # cmap = plt.get_cmap('viridis')
@@ -504,6 +507,7 @@ def main():
                             mb_representation.append(representation)
                             mb_fc.append(fc)
                             mb_values.append(value)
+                            mb_crash.append(drop_runner.envs.crash)
                             mb_heading.append(drop_runner.envs.heading)
                             drone_pos = np.where(drop_runner.envs.map_volume['vol'] ==
                                                  drop_runner.envs.map_volume['feature_value_map']['drone'][
@@ -561,7 +565,7 @@ def main():
                             sleep(sleep_time)
                             t = t +1
 
-                        # dictionary[nav_runner.episode_counter]['observations'] = mb_obs
+                        dictionary[nav_runner.episode_counter]['observations'] = mb_obs
                         dictionary[nav_runner.episode_counter]['flag'] = mb_flag
                         dictionary[nav_runner.episode_counter]['actions'] = mb_actions
                         dictionary[nav_runner.episode_counter]['rewards'] = mb_rewards
@@ -579,7 +583,7 @@ def main():
                 clock.tick(15)
 
             print("...saving dictionary.")
-            pickle_in = open('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/All_maps_20x20_500_b.tj','wb')
+            pickle_in = open('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/All_maps_20x20_500_images.tj','wb')
             pickle.dump(dictionary, pickle_in)
             # with open('./data/All_maps_20x20_500.tj', 'wb') as handle:
             #     pickle.dump(dictionary, handle)

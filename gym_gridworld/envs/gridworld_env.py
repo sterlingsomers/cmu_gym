@@ -80,6 +80,7 @@ class GridworldEnv(gym.Env):
         self.obs_shape = [100,100,3]
         self.observation_space = spaces.Box(low=0, high=255, shape=self.obs_shape)
         self.real_actions = False
+        self.crash = 0
 
         if self.real_actions:
             self.mavsimhandler = MavsimHandler()
@@ -473,7 +474,7 @@ class GridworldEnv(gym.Env):
             crash = self.check_for_crash()
             info['success'] = not crash
             #self.render()
-
+            self.crash = crash
             if crash:
                 reward = -1
                 done = True
@@ -547,7 +548,7 @@ class GridworldEnv(gym.Env):
 
         crash = self.check_for_crash()
         info['success'] = not crash
-
+        self.crash = crash
         # BELOW WAS WORKING FINE FOR FINDING HIKER
         # reward = (self.alt_rewards[self.altitude]*0.1)*(1/self.dist**2+1e-7)# + self.drop*self.reward (and comment out the reward when you drop and terminate episode
         #reward = (self.alt_rewards[self.altitude]*0.1)*((1/(self.dist**2)+1e-7)) # -0.01 + # The closer we are to the hiker the more important is to be close to its altitude
@@ -591,6 +592,7 @@ class GridworldEnv(gym.Env):
         self.heading = random.randint(1, 8)
         self.altitude = random.randint(1,3)
         self.reward = 0
+        self.crash = 0
         _map = random.choice(self.maps)
         # start DRAWN world (Un)comment BELOW this part if you want a custom map
         # drawn_map = [[2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],

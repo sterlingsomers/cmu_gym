@@ -7,7 +7,7 @@ import pickle
 
 '''Get the data'''
 # pickle_in = open('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/All_maps_random_500.tj','rb')
-pickle_in = open('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/All_maps_20x20_500_b.tj','rb')
+pickle_in = open('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/All_maps_20x20_500_images.tj','rb')
 obs = pickle.load(pickle_in)
 dict = {}
 
@@ -90,57 +90,97 @@ for epis in range(len(obs)):
             sub_dict = {}
             print('iter:',i,'indx+i=', indx+i)
             # sub_dict['obs'] = obs[epis]['observations'][indx+i] # first i=0
-            sub_dict['fc'] = obs[epis]['fc'][indx + i] # You have to append here!!!! maybe not cauz you have indices!!!no need cauz u save the dict per timestep
+            sub_dict['fc'] = obs[epis]['fc'][indx + i]
+            sub_dict['images'] = obs[epis]['observations'][indx + i]
             sub_dict['actions'] = obs[epis]['actions'][indx + i] # actions are from 0 to 15
             sub_dict['values'] = obs[epis]['values'][indx + i]
+            sub_dict['episode'] = epis
+            sub_dict['timestep'] = i
 
-            if epis==0:
-                sub_dict['colorc'] = 'green'
-            else:
-                sub_dict['colorc'] = 'blue'
+            if sub_dict['actions'] == 15:
+                sub_dict['action_label'] = 'drop'
+            elif sub_dict['actions'] == 14:
+                sub_dict['action_label'] = 'up-right'
+            elif sub_dict['actions'] == 13:
+                sub_dict['action_label'] = 'up-diag-right'
+            elif sub_dict['actions'] == 12:
+                sub_dict['action_label'] = 'up-forward'
+            elif sub_dict['actions'] == 11:
+                sub_dict['action_label'] = 'up-diag-left'
+            elif sub_dict['actions'] == 10:
+                sub_dict['action_label'] = 'up-left'
+            elif sub_dict['actions'] == 9:
+                sub_dict['action_label'] = 'right'
+            elif sub_dict['actions'] == 8:
+                sub_dict['action_label'] = 'diag-right'
+            elif sub_dict['actions'] == 7:
+                sub_dict['action_label'] = 'forward'
+            elif sub_dict['actions'] == 6:
+                sub_dict['action_label'] = 'diag-left'
+            elif sub_dict['actions'] == 5:
+                sub_dict['action_label'] = 'left'
+            elif sub_dict['actions'] == 4:
+                sub_dict['action_label'] = 'down-right'
+            elif sub_dict['actions'] == 3:
+                sub_dict['action_label'] = 'down-diag-right'
+            elif sub_dict['actions'] == 2:
+                sub_dict['action_label'] = 'down-forward'
+            elif sub_dict['actions'] == 1:
+                sub_dict['action_label'] = 'down-diag-left'
+            elif sub_dict['actions'] == 0:
+                sub_dict['action_label'] = 'down-left'
+            
+            # if epis==0:
+            #     sub_dict['colorc'] = 'green'
+            # else:
+            #     sub_dict['colorc'] = 'blue'
 
             if (indx+i)== (traj_length-1): # if obs at current timestep is a drop (YOU CAN DO THAT WITH THE ACTION=15)
-                sub_dict['color'] = 'green'
-                sub_dict['colorb'] = 'green'
+                sub_dict['color_drop'] = 'green'
+                sub_dict['color_action'] = 'green'
                 sub_dict['target'] = 1
             else:
-                sub_dict['color'] = 'blue'
+                sub_dict['color_drop'] = 'blue'
                 sub_dict['target'] = 0
                 if sub_dict['actions'] == 0:
-                    sub_dict['colorb'] = 'red'
+                    sub_dict['color_action'] = 'red'
                 elif sub_dict['actions'] == 14:
-                    sub_dict['colorb'] = 'cyan'
+                    sub_dict['color_action'] = 'cyan'
                 elif sub_dict['actions'] == 13:
-                    sub_dict['colorb'] = 'magenta'
+                    sub_dict['color_action'] = 'magenta'
                 elif sub_dict['actions'] == 12:
-                    sub_dict['colorb'] = 'yellow'
+                    sub_dict['color_action'] = 'yellow'
                 elif sub_dict['actions'] == 11:
-                    sub_dict['colorb'] = 'black'
+                    sub_dict['color_action'] = 'black'
                 elif sub_dict['actions'] == 10:
-                    sub_dict['colorb'] = '#eeefff'
+                    sub_dict['color_action'] = '#eeefff'
                 elif sub_dict['actions'] == 9:
-                    sub_dict['colorb'] = '#7db731'
+                    sub_dict['color_action'] = '#7db731'
                 elif sub_dict['actions'] == 8:
-                    sub_dict['colorb'] = '#ba7332'
+                    sub_dict['color_action'] = '#ba7332'
                 elif sub_dict['actions'] == 7:
-                    sub_dict['colorb'] = '#91278b'
+                    sub_dict['color_action'] = '#91278b'
                 elif sub_dict['actions'] == 6:
-                    sub_dict['colorb'] = '#264789'
+                    sub_dict['color_action'] = '#264789'
                 elif sub_dict['actions'] == 5:
-                    sub_dict['colorb'] = '#247e87'
+                    sub_dict['color_action'] = '#247e87'
                 elif sub_dict['actions'] == 4:
-                    sub_dict['colorb'] = '#c3e2e5'
+                    sub_dict['color_action'] = '#c3e2e5'
                 elif sub_dict['actions'] == 3:
-                    sub_dict['colorb'] = '#f94736'
+                    sub_dict['color_action'] = '#f94736'
                 elif sub_dict['actions'] == 2:
-                    sub_dict['colorb'] = '#3a0500'
+                    sub_dict['color_action'] = '#3a0500'
                 elif sub_dict['actions'] == 1:
-                    sub_dict['colorb'] = '#c4b942'
+                    sub_dict['color_action'] = '#c4b942'
             dict[t] = sub_dict # So actually here you store all drop agent timesteps from all episodes
             t = t + 1
     else:
         print("DROPPING TRAJECTORY OMITTED AS TOO SHORT")
 
+print("Saving....")
+pickle_in = open('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/selected_drop_traj_images.tj','wb')
+pickle.dump(dict,pickle_in)
+print("...saved")
 
 dims = (len(dict),256)
 fc = np.zeros(dims)
