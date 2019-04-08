@@ -383,9 +383,8 @@ def main():
                 mb_heading = []
                 mb_crash = []
                 mb_map_volume = [] # obs[0]['volume']==envs.map_volume
-                # dictionary[nav_runner.episode_counter]['observations'] = {}
-                # dictionary[nav_runner.episode_counter]['actions'] = []
-                # dictionary[nav_runner.episode_counter]['flag'] = []
+                mb_ego = []
+
 
                 nav_runner.reset_demo()  # Cauz of differences in the arrangement of the dictionaries
                 map_xy = nav_runner.envs.map_image
@@ -417,6 +416,9 @@ def main():
 
                     drone_pos = np.where(nav_runner.envs.map_volume['vol'] == nav_runner.envs.map_volume['feature_value_map']['drone'][nav_runner.envs.altitude]['val'])
                     mb_drone_pos.append(drone_pos)
+                    mb_map_volume.append(nav_runner.envs.map_volume)
+                    mb_ego.append(nav_runner.envs.ego)
+
 
                     # dictionary[nav_runner.episode_counter]['observations'].append(nav_runner.latest_obs)
                     # dictionary[nav_runner.episode_counter]['flag'].append(drop_flag)
@@ -477,6 +479,8 @@ def main():
                     pygame.event.get() # Show the last state and then reset
                     sleep(sleep_time)
                     t += 1
+                    if t == 70:
+                        break
 
                     # Dropping Agent
                     if done==1:
@@ -487,11 +491,13 @@ def main():
                         # Store
                         drone_pos = np.where(nav_runner.envs.map_volume['vol'] ==
                                              nav_runner.envs.map_volume['feature_value_map']['drone'][
-                                                 nav_runner.envs.altitude]['val'])
+                                                 nav_runner.envs.altitude]['val']) # the 2nd part is a num between 35-39
                         mb_drone_pos.append(drone_pos)
                         mb_obs.append(nav_runner.latest_obs)
                         mb_flag.append(drop_flag)
                         mb_heading.append(nav_runner.envs.heading)
+                        mb_map_volume.append(nav_runner.envs.map_volume)
+                        mb_ego.append(nav_runner.envs.ego)
                         while done2==0:
 
                             # Step
@@ -502,6 +508,7 @@ def main():
 
                             # Store
                             mb_obs.append(drop_runner.latest_obs)
+                            mb_map_volume.append(drop_runner.envs.map_volume)
                             mb_flag.append(0) # We need to put zero only once
                             mb_actions.append(action)
                             mb_representation.append(representation)
@@ -513,6 +520,7 @@ def main():
                                                  drop_runner.envs.map_volume['feature_value_map']['drone'][
                                                      drop_runner.envs.altitude]['val'])
                             mb_drone_pos.append(drone_pos) # The last location will be doubled as if it is a drop action the drone doesn't change location so obs will be the same!!!
+                            mb_ego.append(drop_runner.envs.ego)
 
                             # Saliencies
                             # grad_V_allo = cmap(grad_V_allo)  # (100,100,4)
@@ -564,8 +572,12 @@ def main():
                             pygame.event.get()  # Show the last state and then reset
                             sleep(sleep_time)
                             t = t +1
+                            if t==70:
+                                break
 
+                        dictionary[nav_runner.episode_counter]['map_volume'] = mb_map_volume
                         dictionary[nav_runner.episode_counter]['observations'] = mb_obs
+                        dictionary[nav_runner.episode_counter]['ego'] = mb_ego
                         dictionary[nav_runner.episode_counter]['flag'] = mb_flag
                         dictionary[nav_runner.episode_counter]['actions'] = mb_actions
                         dictionary[nav_runner.episode_counter]['rewards'] = mb_rewards
@@ -574,7 +586,8 @@ def main():
                         dictionary[nav_runner.episode_counter]['values'] = mb_values
                         dictionary[nav_runner.episode_counter]['drone_pos'] = mb_drone_pos
                         dictionary[nav_runner.episode_counter]['headings'] = mb_heading
-
+                        dictionary[nav_runner.episode_counter]['crash'] = mb_crash
+                        #STORE THE NUMBER OF THE MAP!!!
 
                         score = sum(mb_rewards)
                         print(">>>>>>>>>>>>>>>>>>>>>>>>>>> episode %d ended in %d steps. Score %f" % (nav_runner.episode_counter, t, score))
@@ -583,7 +596,7 @@ def main():
                 clock.tick(15)
 
             print("...saving dictionary.")
-            pickle_in = open('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/All_maps_20x20_500_images.tj','wb')
+            pickle_in = open('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/All_maps_20x20_500_images_volume_ego.tj','wb')
             pickle.dump(dictionary, pickle_in)
             # with open('./data/All_maps_20x20_500.tj', 'wb') as handle:
             #     pickle.dump(dictionary, handle)

@@ -21,8 +21,8 @@ dict = pickle.load(pickle_in)
 
 
 ''' CHECK WHAT KIND OF DATA STRUCTURE EACH OF THOSE IS '''
-feature_labels = ["#Pregnant", "Glucose concentration test", "Blood pressure(mmHg)", "Triceps skin fold thickness(mm)",
-                  "2-Hour serum insulin (mu U/ml)", "Body mass index", "Diabetes pedigree function", "Age (years)"]
+feature_labels = ["#Pregnant", "FL object's alt", "L object's alt", "C object's alt",
+                  "R object's alt", "FR object's alt", "Drone's alt", "hiker pos"]
 
 data = fetch_mldata("diabetes")  # get dataset
 y = -(data.target - 1) / 2  # target labels (0: healthy, or 1: diabetes) - the original dataset contains -1 for diabetes and +1 for healthy

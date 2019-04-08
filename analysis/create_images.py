@@ -5,47 +5,53 @@ import pickle
 
 factor = 5
 
-pickle_in = open('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/obs_test.tj','rb')
+pickle_in = open('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/All_maps_20x20_500_images_volume_ego.tj','rb')
 obs = pickle.load(pickle_in)
 
-# def create_nextstep_image():
-#     canvas = np.zeros((5, 5, 3), dtype=np.uint8)
-#     slice = np.zeros((5, 5))
-#     drone_position = np.where(
-#         map_volume['vol'] == map_volume['feature_value_map']['drone'][altitude]['val'])
-#     drone_position_flat = [int(drone_position[1]), int(drone_position[2])]
-#     # hiker_found = False
-#     # hiker_point = [0, 0]
-#     # hiker_background_color = None
-#     column_number = 0
-#     for xy in possible_actions_map[heading]:
-#         try:
-#             # no hiker if using original
-#             column = map_volume['vol'][:, drone_position_flat[0] + xy[0], drone_position_flat[1] + xy[1]]
-#
-#         except IndexError:
-#             column = [1., 1., 1., 1., 1.]
-#         slice[:, column_number] = column
-#         column_number += 1
-#
-#     # put the drone in
-#     # cheat
-#     slice[self.altitude, 2] = int(map_volume['vol'][drone_position])
-#     combinations = list(itertools.product(range(0, canvas.shape[0]), range(0, canvas.shape[0])))
-#     for x, y in combinations:
-#         if slice[x, y] == 0.0:
-#             canvas[x, y, :] = [255, 255, 255]
-#         # elif slice[x, y] == 50.0:
-#         #     canvas[x, y, :] = hiker_background_color
-#         #     hiker_point = [x, y]
-#         else:
-#             canvas[x, y, :] = map_volume['value_feature_map'][slice[x, y]]['color']
-#
-#     # increase the image size, then put the hiker in
-#     canvas = imresize(canvas, factor * 100, interp='nearest')
-#
-#
-#     return imresize(np.flip(canvas, 0), 2 0 *map_volume['vol'].shape[2], interp='nearest')
+possible_actions_map = {
+    1: [[0, -1], [-1, -1], [-1, 0], [-1, 1], [0, 1]],
+    2: [[-1, -1], [-1, 0], [-1, 1], [0, 1], [1, 1]],
+    3: [[-1, 0], [-1, 1], [0, 1], [1, 1], [1, 0]],
+    4: [[-1, 1], [0, 1], [1, 1], [1, 0], [1, -1]],
+    5: [[0, 1], [1, 1], [1, 0], [1, -1], [0, -1]],
+    6: [[1, 1], [1, 0], [1, -1], [0, -1], [-1, -1]],
+    7: [[1, 0], [1, -1], [0, -1], [-1, -1], [-1, 0]],
+    8: [[1, -1], [0, -1], [-1, -1], [-1, 0], [-1, 1]]
+}
+
+def create_nextstep_image(map_volume, altitude, heading):
+    canvas = np.zeros((5, 5, 3), dtype=np.uint8)
+    slice = np.zeros((5, 5))
+    drone_position = np.where(
+        map_volume['vol'] == map_volume['feature_value_map']['drone'][altitude]['val'])
+    drone_position_flat = [int(drone_position[1]), int(drone_position[2])]
+
+    column_number = 0
+    for xy in possible_actions_map[heading]:
+        try:
+            # no hiker if using original
+            column = map_volume['vol'][:, drone_position_flat[0] + xy[0], drone_position_flat[1] + xy[1]]
+
+        except IndexError:
+            column = [1., 1., 1., 1., 1.]
+        slice[:, column_number] = column
+        column_number += 1
+
+    # put the drone in
+    # cheat
+    slice[altitude, 2] = int(map_volume['vol'][drone_position])
+    combinations = list(itertools.product(range(0, canvas.shape[0]), range(0, canvas.shape[0])))
+    for x, y in combinations:
+        if slice[x, y] == 0.0:
+            canvas[x, y, :] = [255, 255, 255]
+        else:
+            canvas[x, y, :] = map_volume['value_feature_map'][slice[x, y]]['color']
+
+    # increase the image size, then put the hiker in
+    canvas = imresize(canvas, factor * 100, interp='nearest')
+
+    return imresize(np.flip(canvas, 0), 20 * map_volume['vol'].shape[2], interp='nearest'), np.flip(slice,0)
+
 #
 # def generate_observation(self):
 #     obs = {}
@@ -96,17 +102,21 @@ obs = pickle.load(pickle_in)
 #     obs['img'] = map
 #     return obs
 
-def create_image_from_volume(map_volume, altitude):
-    canvas = np.zeros((map_volume['vol'].shape[1], map_volume['vol'].shape[1], 3), dtype=np.uint8)
-    og_vol = map_volume #original_map_volume
-    combinations = list(itertools.product(range(0, canvas.shape[0]), range(0, canvas.shape[0])))
-    for x, y in combinations:
-        if og_vol['vol'][altitude][x, y] == 0.0:
-            canvas[x, y, :] = [255, 255, 255]
-        else:
-            canvas[x, y, :] = og_vol['value_feature_map'][og_vol['vol'][altitude][x, y]]['color']
-
-    return imresize(canvas, factor * 100, interp='nearest')
+# def create_image_from_volume(map_volume, altitude):
+#     canvas = np.zeros((map_volume['vol'].shape[1], map_volume['vol'].shape[1], 3), dtype=np.uint8)
+#     og_vol = map_volume #original_map_volume
+#     combinations = list(itertools.product(range(0, canvas.shape[0]), range(0, canvas.shape[0])))
+#     for x, y in combinations:
+#         if og_vol['vol'][altitude][x, y] == 0.0:
+#             canvas[x, y, :] = [255, 255, 255]
+#         else:
+#             canvas[x, y, :] = og_vol['value_feature_map'][og_vol['vol'][altitude][x, y]]['color']
+#
+#     return imresize(canvas, factor * 100, interp='nearest')
 # obs['altitude'][epis]
-altitude = obs['drone_pos'][0][0][0]
-im = create_image_from_volume(obs['map_volume'],altitude)
+obs = obs[0]
+epis = 0
+timestep = 0
+altitude = obs[epis]['drone_pos'][0][0][0]
+heading = obs[epis]['headings'][timestep]
+im, slice = create_nextstep_image(obs[epis]['map_volume'][timestep],altitude, heading)
