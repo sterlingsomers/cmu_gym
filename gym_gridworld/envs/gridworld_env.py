@@ -43,16 +43,21 @@ class GridworldEnv(gym.Env):
         self.dropping = True # This is for the reset to select the proper starting locations for hiker and drone
         self.restart_once_done = True  # restart or not once done
         self.drop = False
-        self.maps = [(230,70)]#[(260,241)]#(321,337)#[(171,333)]#[ (65,466),(260,241),(291,231),(241,163),(265,311),(224,153),(265,308),(321,337),(167,174),(149,341),(146,456),(385,291),(334,203),(360,112),(20,94),(308,110),(164,90),(171,333)] #[(86, 266)] (70,50) # (330,352) For testing, 70,50 there is no where to drop in the whole map
+        self.maps = [(265,308),(20,94),(146,456),(149,341),(164,90),(167,174),
+                     (224,153),(241,163),(260,241),(265,311),(291,231),
+                     (308,110),(334,203),(360,112),(385,291)]#,(330,352),(321,337)[(400,35), (350,90), (430,110),(390,50), (230,70)] #[(86, 266)] (70,50) # For testing, 70,50 there is no where to drop in the whole map
+        self.mapw = 20
+        self.maph = 20
         self.dist_old = 1000
         self.drop_package_grid_size_by_alt = {1: 3, 2: 5, 3: 7}
         self.factor = 5
         self.reward = 0
-        self.action_space = spaces.Discrete(15)
+        self.action_space = spaces.Discrete(16)
         self.actions = list(range(self.action_space.n))
-        self.obs_shape = [50,50,3]
+        self.obs_shape = [100,100,3]
         self.observation_space = spaces.Box(low=0, high=255, shape=self.obs_shape)
         self.real_actions = False
+        self.crash = 0
 
         if self.real_actions:
             self.mavsimhandler = MavsimHandler()
@@ -83,7 +88,7 @@ class GridworldEnv(gym.Env):
                                                          "flight tower": 0.15, "firewatch tower": 0.20},
                                    "sunk_probability": {"water": 0.50}
                                    }
-        self.drop_rewards = {"OK": 1,#10,
+        self.drop_rewards = {"OK": 1,#10, # try all positive rewards
                              # "OK_STUCK": 5,
                              # "OK_SUNK": 5,
                              "DAMAGED": -1,#-10,
@@ -294,6 +299,20 @@ class GridworldEnv(gym.Env):
         return reward
 
     def drop_package(self):
+        # cannot drop at edge because next move could leave map
+        local_coordinates = np.where(
+            self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
+
+        if local_coordinates[1] == 0 or \
+            local_coordinates[2] == 0 or \
+            local_coordinates[1] == self.map_volume['vol'].shape[1] - 1 or \
+            local_coordinates[2] == self.map_volume['vol'].shape[1] - 1:
+            print("NOACTION")
+            self.reward = 0
+            #self.drop = True
+            return 0
+
+
         self.drop = True
         alt = self.altitude
         drone_position = np.where(self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
@@ -319,6 +338,7 @@ class GridworldEnv(gym.Env):
         #reward = reward*(1/(self.pack_dist+1e-7))*0.1
         self.reward = reward*is_hiker_in_neighbors # YOU CANNOT DO THAT EVEN IF IT WORKS FOR THAT MAP AS IT DOESNT GET PENALTY FOR DAMAGING THE PACK!
         #print(terrain, reward)
+        x = eval(self.actionvalue_heading_action[7][self.heading])
 
     def take_action(self, delta_alt=0, delta_x=0, delta_y=0, new_heading=1):
         # print("stop")
@@ -411,130 +431,131 @@ class GridworldEnv(gym.Env):
 
     #PREVIOUS WORKING STEP
 
-    def step(self, action):
-            ''' return next observation, reward, finished, success '''
-
-            action = int(action)
-            info = {}
-            info['success'] = False
-
-            done = False
-            drone = np.where(
-                self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
-            hiker = self.hiker_position
-            # You should never reach as this is the state(t-1) distane. After eval you get the new distance
-            self.dist = np.linalg.norm(np.array(drone[-2:]) - np.array(hiker[-2:]))  # we remove height from the equation so we avoid going diagonally down
-
-            # Here the action takes place
-            x = eval(self.actionvalue_heading_action[action][self.heading])
-            # Here you should have the distance, after the drone has moved and the map has been updated
-            # A new observation is generated which we do not see cauz we reset() and render in the step function
-            observation = self.generate_observation()
-
-            crash = self.check_for_crash()
-            info['success'] = not crash
-            #self.render()
-
-            if crash:
-                reward = -1
-                done = True
-                print("CRASH")
-                if self.restart_once_done:  # HAVE IT ALWAYS TRUE!!! It learned the first time WITHOUT RESETING FROM CRASH
-                    #observation = self.reset()
-                    return (observation, reward, done, info)
-                # return (self.generate_observation(), reward, done, info)
-            # if self.dist < self.dist_old:
-            #     reward = 1 / self.dist  # Put it here to avoid dividing by zero when you crash on the hiker
-            # else:
-            #     reward = -1 / self.dist
-            if self.check_for_hiker():
-                done = True
-                reward = 1# + self.alt_rewards[self.altitude]
-                # reward = 1 + 1 / self.dist
-                print('SUCCESS!!!')
-                if self.restart_once_done:  # HAVE IT ALWAYS TRUE!!!
-                    #observation = self.reset()
-                    return (observation, reward, done, info)
-            # print("state", [ self.observation[self.altitude]['drone'].nonzero()[0][0],self.observation[self.altitude]['drone'].nonzero()[1][0]] )
-            self.dist_old = self.dist
-            #reward = (self.alt_rewards[self.altitude] * 0.1) * ( 1/((self.dist** 2) + 1e-7) )  # -0.01 + # previous reward = (self.alt_rewards[self.altitude] * 0.1) * ( 1 / self.dist** 2 + 1e-7 )  # -0.01 + #
-            reward = -0.01 # If you put -0.1 then it prefers to go down and crash all the time for (n-step=32)!!!
-            return (observation, reward, done, info)
-
     # def step(self, action):
-    #     ''' return next observation, reward, finished, success '''
+    #         ''' return next observation, reward, finished, success '''
     #
-    #     action = int(action)
-    #     info = {}
-    #     info['success'] = False
+    #         action = int(action)
+    #         info = {}
+    #         info['success'] = False
     #
-    #     done = False
-    #     drone_old = np.where(
-    #         self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
-    #     hiker = self.hiker_position
-    #     # Do the action (drone is moving)
-    #     x = eval(self.actionvalue_heading_action[action][self.heading])
+    #         done = False
+    #         drone = np.where(
+    #             self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
+    #         hiker = self.hiker_position
+    #         # You should never reach as this is the state(t-1) distane. After eval you get the new distance
+    #         self.dist = np.linalg.norm(np.array(drone[-2:]) - np.array(hiker[-2:]))  # we remove height from the equation so we avoid going diagonally down
     #
-    #     observation = self.generate_observation()
-    #     drone = np.where(
-    #         self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
-    #     self.dist = np.linalg.norm(np.array(drone[-2:]) - np.array(hiker[-2:])) # we remove height from the equation so we avoid going diagonally down
+    #         # Here the action takes place
+    #         x = eval(self.actionvalue_heading_action[action][self.heading])
+    #         # Here you should have the distance, after the drone has moved and the map has been updated
+    #         # A new observation is generated which we do not see cauz we reset() and render in the step function
+    #         observation = self.generate_observation()
     #
-    #     crash = self.check_for_crash()
-    #     info['success'] = not crash
-    #
-    #     # BELOW WAS WORKING FINE FOR FINDING HIKER
-    #     # reward = (self.alt_rewards[self.altitude]*0.1)*(1/self.dist**2+1e-7)# + self.drop*self.reward (and comment out the reward when you drop and terminate episode
-    #     #reward = (self.alt_rewards[self.altitude]*0.1)*((1/(self.dist**2)+1e-7)) # -0.01 + # The closer we are to the hiker the more important is to be close to its altitude
-    #     if crash:
-    #         reward = -1
-    #         done = True
-    #         print("CRASH")
-    #         if self.restart_once_done: # HAVE IT ALWAYS TRUE!!! It learned the first time WITHOUT RESETING FROM CRASH
-    #             return (observation, reward, done, info)
-    #         #return (self.generate_observation(), reward, done, info)
-    #     # if self.dist < self.dist_old:
-    #     #     reward = 1 / self.dist  # Put it here to avoid dividing by zero when you crash on the hiker
-    #     # else:
-    #     #     reward = -1 / self.dist
-    #     if self.drop:#self.check_for_hiker():
-    #         done = True
-    #         #reward = 1 + self.alt_rewards[self.altitude] # THIS WORKS FOR FINDING THE HIKER
+    #         crash = self.check_for_crash()
+    #         info['success'] = not crash
+    #         #self.render()
+    #         self.crash = crash
+    #         if crash:
+    #             reward = -1
+    #             done = True
+    #             print("CRASH")
+    #             if self.restart_once_done:  # HAVE IT ALWAYS TRUE!!! It learned the first time WITHOUT RESETING FROM CRASH
+    #                 #observation = self.reset()
+    #                 return (observation, reward, done, info)
+    #             # return (self.generate_observation(), reward, done, info)
+    #         # if self.dist < self.dist_old:
+    #         #     reward = 1 / self.dist  # Put it here to avoid dividing by zero when you crash on the hiker
+    #         # else:
+    #         #     reward = -1 / self.dist
     #         if self.check_for_hiker():
-    #             reward = 1 + self.reward + self.alt_rewards[self.altitude]
-    #         else:
-    #             reward = self.reward + self.alt_rewards[self.altitude] # (try to multiply them and see if it makes a difference!!! Here tho u reward for dropping low alt
-    #         print('DROP!!!', 'self.reward=', self.reward, 'alt_reward=', self.alt_rewards[self.altitude])
-    #         if self.restart_once_done: # HAVE IT ALWAYS TRUE!!!
-    #             return (observation, reward, done, info)
-    #     # print("state", [ self.observation[self.altitude]['drone'].nonzero()[0][0],self.observation[self.altitude]['drone'].nonzero()[1][0]] )
-    #     self.dist_old = self.dist
-    #     # HERE YOU SHOULD HAVE THE REWARD IN CASE IT CRASHES AT ALT=0 OR IN GENERAL AFTER ALL CASES HAVE BEEN CHECKED!!!
-    #     if self.check_for_hiker(): # On top of the hiker
-    #         #print("hiker found:", self.check_for_hiker())
-    #         # reward = (self.alt_rewards[self.altitude]*0.1)*(1/self.dist**2+1e-7) + self.drop*self.reward (and comment out the reward when you drop and terminate episode
-    #         reward = 0 #1 + self.alt_rewards[self.altitude]
-    #     else:
-    #         # We don't want the drone to wonder around away from the hiker so we keep it close
-    #         # The reward below though with PPO will make the drone just going close and around the hiker forever as it gather reward all the time
-    #         reward = (self.alt_rewards[self.altitude]*0.1)*((1/((self.dist**2)+1e-7))) # -0.01 + # The closer we are to the hiker the more important is to be close to its altitude
-    #         #print("scale:",(1/((self.dist**2+1e-7))), "dist=",self.dist+1e-7, "alt=", self.altitude, "drone:",drone, "hiker:", hiker,"found:", self.check_for_hiker())
-    #     return (self.generate_observation(), reward, done, info)
+    #             done = True
+    #             reward = 1# + self.alt_rewards[self.altitude]
+    #             # reward = 1 + 1 / self.dist
+    #             print('SUCCESS!!!')
+    #             if self.restart_once_done:  # HAVE IT ALWAYS TRUE!!!
+    #                 #observation = self.reset()
+    #                 return (observation, reward, done, info)
+    #         # print("state", [ self.observation[self.altitude]['drone'].nonzero()[0][0],self.observation[self.altitude]['drone'].nonzero()[1][0]] )
+    #         self.dist_old = self.dist
+    #         #reward = (self.alt_rewards[self.altitude] * 0.1) * ( 1/((self.dist** 2) + 1e-7) )  # -0.01 + # previous reward = (self.alt_rewards[self.altitude] * 0.1) * ( 1 / self.dist** 2 + 1e-7 )  # -0.01 + #
+    #         reward = -0.01 # If you put -0.1 then it prefers to go down and crash all the time for (n-step=32)!!!
+    #         return (observation, reward, done, info)
+
+    def step(self, action):
+        ''' return next observation, reward, finished, success '''
+
+        action = int(action)
+        info = {}
+        info['success'] = False
+
+        done = False
+        drone_old = np.where(
+            self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
+        hiker = self.hiker_position
+        # Do the action (drone is moving)
+        x = eval(self.actionvalue_heading_action[action][self.heading])
+
+        observation = self.generate_observation()
+        drone = np.where(
+            self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
+        self.dist = np.linalg.norm(np.array(drone[-2:]) - np.array(hiker[-2:])) # we remove height from the equation so we avoid going diagonally down
+
+        crash = self.check_for_crash()
+        info['success'] = not crash
+
+        # BELOW WAS WORKING FINE FOR FINDING HIKER
+        # reward = (self.alt_rewards[self.altitude]*0.1)*(1/self.dist**2+1e-7)# + self.drop*self.reward (and comment out the reward when you drop and terminate episode
+        #reward = (self.alt_rewards[self.altitude]*0.1)*((1/(self.dist**2)+1e-7)) # -0.01 + # The closer we are to the hiker the more important is to be close to its altitude
+        if crash:
+            reward = -1
+            done = True
+            print("CRASH")
+            if self.restart_once_done: # HAVE IT ALWAYS TRUE!!! It learned the first time WITHOUT RESETING FROM CRASH
+                return (observation, reward, done, info)
+            #return (self.generate_observation(), reward, done, info)
+        # if self.dist < self.dist_old:
+        #     reward = 1 / self.dist  # Put it here to avoid dividing by zero when you crash on the hiker
+        # else:
+        #     reward = -1 / self.dist
+        if self.drop:#self.check_for_hiker():
+            done = True
+            #reward = 1 + self.alt_rewards[self.altitude] # THIS WORKS FOR FINDING THE HIKER
+            if self.check_for_hiker():
+                reward = 1 + self.reward + self.alt_rewards[self.altitude]
+            else:
+                reward = self.reward + self.alt_rewards[self.altitude] # (try to multiply them and see if it makes a difference!!! Here tho u reward for dropping low alt
+            print('DROP!!!', 'self.reward=', self.reward, 'alt_reward=', self.alt_rewards[self.altitude])
+            if self.restart_once_done: # HAVE IT ALWAYS TRUE!!!
+                return (observation, reward, done, info)
+        # print("state", [ self.observation[self.altitude]['drone'].nonzero()[0][0],self.observation[self.altitude]['drone'].nonzero()[1][0]] )
+        self.dist_old = self.dist
+        # HERE YOU SHOULD HAVE THE REWARD IN CASE IT CRASHES AT ALT=0 OR IN GENERAL AFTER ALL CASES HAVE BEEN CHECKED!!!
+        if self.check_for_hiker(): # On top of the hiker
+            #print("hiker found:", self.check_for_hiker())
+            # reward = (self.alt_rewards[self.altitude]*0.1)*(1/self.dist**2+1e-7) + self.drop*self.reward (and comment out the reward when you drop and terminate episode
+            reward = 0 #1 + self.alt_rewards[self.altitude]
+        else:
+            # We don't want the drone to wonder around away from the hiker so we keep it close
+            # The reward below though with PPO will make the drone just going close and around the hiker forever as it gather reward all the time
+            reward = (self.alt_rewards[self.altitude]*0.1)*((1/((self.dist**2)+1e-7))) # -0.01 + # The closer we are to the hiker the more important is to be close to its altitude
+            #print("scale:",(1/((self.dist**2+1e-7))), "dist=",self.dist+1e-7, "alt=", self.altitude, "drone:",drone, "hiker:", hiker,"found:", self.check_for_hiker())
+        return (self.generate_observation(), reward, done, info)
 
     def reset(self):
         self.dist_old = 1000
         self.drop = False
         self.heading = random.randint(1, 8)
-        self.altitude = 3
+        self.altitude = random.randint(1,3)
         self.reward = 0
+        self.crash = 0
         _map = random.choice(self.maps)
         self.map_volume = CNP.map_to_volume_dict(_map[0], _map[1], 10, 10)
         # Set hiker's and drone's locations
         #hiker = (random.randint(2, self.map_volume['vol'].shape[1] - 1), random.randint(2, self.map_volume['vol'].shape[1] - 2)) #(8,8) #
         #if self.dropping:
-        hiker = (random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))  # (7,8) #
-        drone = (random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 1))
-        # drone = random.choice([(hiker[0]-1, hiker[1]-1),(hiker[0]-1, hiker[1]),(hiker[0], hiker[1]-1)])## Package drop starts close to hiker!!! #(random.randint(2, self.map_volume['vol'].shape[1] - 1), random.randint(2, self.map_volume['vol'].shape[1] - 2)) # (8,8) #
+        hiker = (10,10)#(random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))  # (7,8) #
+        # drone = (random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 1))
+        drone = random.choice([(hiker[0]-1, hiker[1]-1),(hiker[0]-1, hiker[1]),(hiker[0], hiker[1]-1)])## Package drop starts close to hiker!!! #(random.randint(2, self.map_volume['vol'].shape[1] - 1), random.randint(2, self.map_volume['vol'].shape[1] - 2)) # (8,8) #
         #else:
             # hiker = (random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))  # (7,8) #
             # drone = (random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))
@@ -627,8 +648,7 @@ class GridworldEnv(gym.Env):
 
         # increase the image size, then put the hiker in
         canvas = imresize(canvas, self.factor * 100, interp='nearest')
-
-
+        self.ego = np.flip(slice,0)
         return imresize(np.flip(canvas, 0), 20*self.map_volume['vol'].shape[2], interp='nearest')
 
     def generate_observation(self):
