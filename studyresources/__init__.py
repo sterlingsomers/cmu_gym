@@ -199,9 +199,9 @@ def action_probability_matrix(action_probs):
                drop_value = ' '
           matrix = [
                ['Direction','\u2190','\u2196', '\u2191', '\u2197', '\u2192'],
-               ['Up',svalue(action_array[2]), svalue(action_array[5]), svalue(action_array[8]), svalue(action_array[11]), svalue(action_array[14])],
-               ['Level',svalue(action_array[1]), svalue(action_array[4]), svalue(action_array[7]), svalue(action_array[10]), svalue(action_array[13])],
-               ['Down',svalue(action_array[0]), svalue(action_array[3]), svalue(action_array[6]), svalue(action_array[9]),  svalue(action_array[12])],
+               ['Up',svalue(action_array[10]), svalue(action_array[11]), svalue(action_array[12]), svalue(action_array[13]), svalue(action_array[14])],
+               ['Level',svalue(action_array[5]), svalue(action_array[6]), svalue(action_array[7]), svalue(action_array[8]), svalue(action_array[9])],
+               ['Down',svalue(action_array[0]), svalue(action_array[1]), svalue(action_array[2]), svalue(action_array[3]),  svalue(action_array[4])],
                ['Drop',' ',' ',drop_value,' ',' ']
           ]
           return matrix

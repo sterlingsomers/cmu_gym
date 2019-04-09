@@ -473,12 +473,16 @@ def main():
                     # Update finally the screen with all the images you blitted in the run_trained_batch
                     pygame.display.update() # Updates only the blitted parts of the screen, pygame.display.flip() updates the whole screen
                     pygame.event.get() # Show the last state and then reset
+
+                    ####################  SAVE SIMULATION OUTPUT FOR NAV STEP  ####################
                     image_file_name = dirname + '/Image_' + str(t) + '.bmp'
                     print(str(t), end=",")
                     pygame.image.save(gameDisplay, image_file_name)
                     slide = ppt.add_image_slide(image_file_name, ppt.image_title(t, info))
                     this_action_probability_matrix = studyresources.action_probability_matrix(action_probs)
                     add_table_to_slide(slide, this_action_probability_matrix)
+                    ####################  /SAVE SIMULATION OUTPUT FOR NAV STEP  ###################
+
                     sleep(sleep_time)
                     t += 1
 
@@ -566,12 +570,15 @@ def main():
                             # Update finally the screen with all the images you blitted in the run_trained_batch
                             pygame.display.update()  # Updates only the blitted parts of the screen, pygame.display.flip() updates the whole screen
                             pygame.event.get()  # Show the last state and then reset
+
+                            ####################  SAVE SIMULATION OUTPUT FOR DROP STEP  ####################
                             image_file_name = dirname + '/Image_' + str(t) + '.bmp'
                             print(str(t), end=",")
                             pygame.image.save(gameDisplay, image_file_name)
                             slide = ppt.add_image_slide(image_file_name, ppt.image_title(t, info))
                             this_action_probability_matrix = studyresources.action_probability_matrix(action_probs)
                             add_table_to_slide(slide, this_action_probability_matrix)
+                            ####################  /SAVE SIMULATION OUTPUT FOR DROP STEP  ###################
 
                             sleep(sleep_time)
                             t = t +1
