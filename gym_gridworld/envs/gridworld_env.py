@@ -19,7 +19,7 @@ from scipy.misc import imresize
 
 from gym_gridworld.envs import create_np_map as CNP
 
-from studyconfiguration import get_map, get_drone, get_hiker
+from studyresources import get_map, get_drone, get_hiker
 #from mavsim_server import MavsimHandler
 
 # define colors

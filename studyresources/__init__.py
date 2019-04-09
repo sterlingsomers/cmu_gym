@@ -182,3 +182,28 @@ def studyhelp():
           padkey = key + ":"
           pprintstring += padkey.ljust(9) +  (FLAGS[key].help) + '\n'
      return pprintstring
+
+def svalue(number):
+     try:
+          return str('%.6f'%number)
+     except Exception as e:
+          return str(e)
+
+
+def action_probability_matrix(action_probs):
+     try:
+          action_array = action_probs[0]
+          try:
+               drop_value = svalue(action_array[15])
+          except:
+               drop_value = ' '
+          matrix = [
+               ['Direction','\u2190','\u2196', '\u2191', '\u2197', '\u2192'],
+               ['Up',svalue(action_array[2]), svalue(action_array[5]), svalue(action_array[8]), svalue(action_array[11]), svalue(action_array[14])],
+               ['Level',svalue(action_array[1]), svalue(action_array[4]), svalue(action_array[7]), svalue(action_array[10]), svalue(action_array[13])],
+               ['Down',svalue(action_array[0]), svalue(action_array[3]), svalue(action_array[6]), svalue(action_array[9]),  svalue(action_array[12])],
+               ['Drop',' ',' ',drop_value,' ',' ']
+          ]
+          return matrix
+     except Exception as e:
+          return [[str(e)]]

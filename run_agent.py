@@ -8,7 +8,7 @@ import numpy as np
 import pickle
 import matplotlib.pyplot as plt
 
-from ppt import Presentation
+from ppt import Presentation, add_table_to_slide
 
 from absl import flags
 from actorcritic.agent import ActorCriticAgent, ACMode
@@ -32,7 +32,7 @@ import gym
 #from gym_grid.envs import GridEnv
 import gym_gridworld
 
-import studyconfiguration
+import studyresources
 
 FLAGS = flags.FLAGS
 flags.DEFINE_bool("visualize", False, "Whether to render with pygame.")
@@ -407,6 +407,7 @@ def main():
 
                 drop_flag = 0
                 done = 0
+                this_action_probability_matrix = None
                 while done==0:
 
                     mb_obs.append(nav_runner.latest_obs)
@@ -475,7 +476,9 @@ def main():
                     image_file_name = dirname + '/Image_' + str(t) + '.bmp'
                     print(str(t), end=",")
                     pygame.image.save(gameDisplay, image_file_name)
-                    ppt.add_image_slide(image_file_name, ppt.image_title(t, info))
+                    slide = ppt.add_image_slide(image_file_name, ppt.image_title(t, info))
+                    this_action_probability_matrix = studyresources.action_probability_matrix(action_probs)
+                    add_table_to_slide(slide, this_action_probability_matrix)
                     sleep(sleep_time)
                     t += 1
 
@@ -499,7 +502,6 @@ def main():
                             # Step
                             obs, action, value, reward, done2, info, representation, fc, action_probs, grad_V_allo, grad_V_ego, mask_allo, mask_ego = drop_runner.run_trained_batch(drop_flag)
                             # obs, action, value, reward, done2, representation, fc, action_probs, grad_V_allo, grad_V_ego = drop_runner.run_trained_batch(drop_flag)
-
                             mb_rewards.append(reward)
 
                             # Store
@@ -567,7 +569,9 @@ def main():
                             image_file_name = dirname + '/Image_' + str(t) + '.bmp'
                             print(str(t), end=",")
                             pygame.image.save(gameDisplay, image_file_name)
-                            ppt.add_image_slide(image_file_name, ppt.image_title(t, info))
+                            slide = ppt.add_image_slide(image_file_name, ppt.image_title(t, info))
+                            this_action_probability_matrix = studyresources.action_probability_matrix(action_probs)
+                            add_table_to_slide(slide, this_action_probability_matrix)
 
                             sleep(sleep_time)
                             t = t +1
@@ -611,10 +615,10 @@ def main():
 
 if __name__ == "__main__":
     if FLAGS.studyhelp:
-        print(studyconfiguration.studyhelp())
+        print(studyresources.studyhelp())
     elif FLAGS.getnames:
-        print(studyconfiguration.get_map_names())
+        print(studyresources.get_map_names())
     elif FLAGS.getmap:
-        print(studyconfiguration.get_map_by_name(FLAGS.getmap))
+        print(studyresources.get_map_by_name(FLAGS.getmap))
     else:
         main()
