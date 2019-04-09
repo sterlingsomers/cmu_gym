@@ -8,7 +8,7 @@ import numpy as np
 import pickle
 import matplotlib.pyplot as plt
 
-from ppt import Presentation, add_table_to_slide
+from ppt import Presentation, add_table_to_slide, DEFAULT_TABLE_TOP_LAST, DEFAULT_TABLE_TOP_NEXT, DEFAULT_TABLE_TOP_TITLE_LAST, DEFAULT_TABLE_TOP_TITLE_NEXT
 
 from absl import flags
 from actorcritic.agent import ActorCriticAgent, ACMode
@@ -33,6 +33,7 @@ import gym
 import gym_gridworld
 
 import studyresources
+from copy import copy
 
 FLAGS = flags.FLAGS
 flags.DEFINE_bool("visualize", False, "Whether to render with pygame.")
@@ -408,6 +409,8 @@ def main():
                 drop_flag = 0
                 done = 0
                 this_action_probability_matrix = None
+                last_action_probability_matrix = None
+                last_action_probs = None
                 while done==0:
 
                     mb_obs.append(nav_runner.latest_obs)
@@ -480,7 +483,30 @@ def main():
                     pygame.image.save(gameDisplay, image_file_name)
                     slide = ppt.add_image_slide(image_file_name, ppt.image_title(t, info))
                     this_action_probability_matrix = studyresources.action_probability_matrix(action_probs)
-                    add_table_to_slide(slide, this_action_probability_matrix)
+                    last_action_probability_matrix = studyresources.action_probability_matrix(last_action_probs)
+                    if t==0:
+                        add_table_to_slide(
+                            DEFAULT_TABLE_TOP_TITLE_LAST,
+                            DEFAULT_TABLE_TOP_LAST,
+                            slide,
+                            "Starting Position",
+                            None)
+                    else:
+                        add_table_to_slide(
+                            DEFAULT_TABLE_TOP_TITLE_LAST,
+                            DEFAULT_TABLE_TOP_LAST,
+                            slide,
+                            "Action Choice %",
+                            this_action_probability_matrix)
+                    '''
+                    add_table_to_slide(
+                        DEFAULT_TABLE_TOP_TITLE_NEXT,
+                        DEFAULT_TABLE_TOP_NEXT,
+                        slide,
+                        "Last Action %",
+                        last_action_probability_matrix)
+                    '''
+                    last_action_probs = copy(action_probs)
                     ####################  /SAVE SIMULATION OUTPUT FOR NAV STEP  ###################
 
                     sleep(sleep_time)
@@ -577,7 +603,30 @@ def main():
                             pygame.image.save(gameDisplay, image_file_name)
                             slide = ppt.add_image_slide(image_file_name, ppt.image_title(t, info))
                             this_action_probability_matrix = studyresources.action_probability_matrix(action_probs)
-                            add_table_to_slide(slide, this_action_probability_matrix)
+                            last_action_probability_matrix = studyresources.action_probability_matrix(last_action_probs)
+                            if t == 0:
+                                add_table_to_slide(
+                                    DEFAULT_TABLE_TOP_TITLE_LAST,
+                                    DEFAULT_TABLE_TOP_LAST,
+                                    slide,
+                                    "Starting Position",
+                                    None)
+                            else:
+                                add_table_to_slide(
+                                    DEFAULT_TABLE_TOP_TITLE_LAST,
+                                    DEFAULT_TABLE_TOP_LAST,
+                                    slide,
+                                    "Action Choice %",
+                                    this_action_probability_matrix)
+                            '''
+                            add_table_to_slide(
+                                DEFAULT_TABLE_TOP_TITLE_NEXT,
+                                DEFAULT_TABLE_TOP_NEXT,
+                                slide,
+                                "Last Action %",
+                                last_action_probability_matrix)
+                            '''
+                            last_action_probs = copy(action_probs)
                             ####################  /SAVE SIMULATION OUTPUT FOR DROP STEP  ###################
 
                             sleep(sleep_time)

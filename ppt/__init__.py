@@ -1,27 +1,41 @@
 from pptx import Presentation as ppt
 from pptx.util import Inches, Pt
 from pptx.enum.text import PP_ALIGN
+from pptx.dml.color import RGBColor
 import os
 
 DEFAULT_LEFT = Inches(0.5)
 DEFAULT_TOP = Inches(1.75)
 DEFAULT_HEIGHT = Inches(5.5)
 DEFAULT_TABLE_LEFT = Inches(3.0)
-DEFAULT_TABLE_TOP = Inches(4.75)
+DEFAULT_TABLE_TOP_TITLE_NEXT = Inches(1.75)
+DEFAULT_TABLE_TOP_NEXT = Inches(2.15)
+DEFAULT_TABLE_TOP_TITLE_LAST = Inches(4.4)
+DEFAULT_TABLE_TOP_LAST = Inches(4.8)
 DEFAULT_TABLE_HEIGHT = Inches(2.25)
 DEFAULT_TABLE_WIDTH = Inches(7.0)
 DEFAULT_FONT = Pt(14)
+DEFAULT_TITLE_COLOR = RGBColor(0xFF,0xFF,0xFF)
 
 
-def add_table_to_slide(slide, table_matrix):
-    if table_matrix is None:
-        return
+def add_table_to_slide(title_top, table_top, slide, title, table_matrix):
     try:
+        title_shape = slide.shapes.add_textbox(
+            left=DEFAULT_TABLE_LEFT,
+            top=title_top,
+            width=DEFAULT_TABLE_WIDTH,
+            height=DEFAULT_TABLE_HEIGHT
+        )
+        title_shape.text = title
+        title_paragraph = title_shape.text_frame.paragraphs[0]
+        title_paragraph.font.color.rgb = DEFAULT_TITLE_COLOR
+        if table_matrix is None:
+            return
         table_shape = slide.shapes.add_table(
             rows=5,
             cols=6,
             left=DEFAULT_TABLE_LEFT,
-            top=DEFAULT_TABLE_TOP,
+            top=table_top,
             width=DEFAULT_TABLE_WIDTH,
             height=DEFAULT_TABLE_HEIGHT
         )

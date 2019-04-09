@@ -185,12 +185,19 @@ def studyhelp():
 
 def svalue(number):
      try:
-          return str('%.6f'%number)
+          #return str('%.6f'%number)
+          if number < 0.000001:
+               return "0%"
+          if number < 0.01:
+               return "~0%"
+          return str('{:.2%}'.format(number))
      except Exception as e:
           return str(e)
 
 
 def action_probability_matrix(action_probs):
+     if action_probs is None:
+          return None
      try:
           action_array = action_probs[0]
           try:
