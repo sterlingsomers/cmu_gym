@@ -25,8 +25,8 @@ class FullyConvPolicy:
             inputs=inputs,
             data_format="NHWC",
             num_outputs=32,
-            kernel_size=8,
-            stride=4,
+            kernel_size=8, #8
+            stride=4,#4
             padding='SAME',
             activation_fn=tf.nn.relu,
             scope="%s/conv1" % name,
@@ -36,7 +36,7 @@ class FullyConvPolicy:
             inputs=conv1,
             data_format="NHWC",
             num_outputs=64,
-            kernel_size=4,
+            kernel_size=4, #4
             stride=1,#2,#
             padding='SAME',
             activation_fn=tf.nn.relu,
