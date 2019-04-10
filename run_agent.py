@@ -40,7 +40,7 @@ flags.DEFINE_bool("visualize", False, "Whether to render with pygame.")
 flags.DEFINE_integer("resolution", 32, "Resolution for screen and minimap feature layers.")
 flags.DEFINE_integer("step_mul", 100, "Game steps per agent step.")
 flags.DEFINE_integer("n_envs", 20, "Number of environments to run in parallel")
-flags.DEFINE_integer("episodes", 1, "Number of complete episodes")
+flags.DEFINE_integer("episodes", 5, "Number of complete episodes")
 flags.DEFINE_integer("n_steps_per_batch", 32,
     "Number of steps per batch, if None use 8 for a2c and 128 for ppo")  # (MINE) TIMESTEPS HERE!!! You need them cauz you dont want to run till it finds the beacon especially at first episodes - will take forever
 flags.DEFINE_integer("all_summary_freq", 50, "Record all summaries every n batch")
@@ -115,6 +115,7 @@ flags.DEFINE_integer("droney", 7, "y coordinate for drone (integer 3-17)")
 flags.DEFINE_boolean("getnames", False, "get names of available maps")
 flags.DEFINE_string("getmap", "", "get map by name")
 flags.DEFINE_boolean("studyhelp", False, "show help for study configuation (False | True)")
+flags.DEFINE_integer("maxsteps", 50, "Maximum number of steps for a run)")
 ###############################################################################################
 
 FLAGS(sys.argv)
@@ -411,6 +412,7 @@ def main():
                 this_action_probability_matrix = None
                 last_action_probability_matrix = None
                 last_action_probs = None
+                ok_to_save_run = True
                 while done==0:
 
                     mb_obs.append(nav_runner.latest_obs)
@@ -511,7 +513,9 @@ def main():
 
                     sleep(sleep_time)
                     t += 1
-
+                    if t>FLAGS.maxsteps:
+                        done=2
+                        ok_to_save_run = False
                     # Dropping Agent
                     if done==1:
                         print('=== DROPPING AGENT IN CHARGE ===')
@@ -631,6 +635,9 @@ def main():
 
                             sleep(sleep_time)
                             t = t +1
+                            if t > FLAGS.maxsteps:
+                                done2 = 2
+                                ok_to_save_run = False
 
                         dictionary[nav_runner.episode_counter]['observations'] = mb_obs
                         dictionary[nav_runner.episode_counter]['flag'] = mb_flag
@@ -648,7 +655,9 @@ def main():
                         nav_runner.episode_counter += 1
 
                 clock.tick(15)
-                ppt.save()
+                if ok_to_save_run:
+                    print ("Maximum run steps exceeded, not output saved")
+                    ppt.save()
 
 
             print("...saving dictionary.")
