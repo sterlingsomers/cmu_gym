@@ -297,8 +297,8 @@ class ActorCriticAgent:
 
     def step_eval(self, obs):
         # (MINE) Pass the observations through the net
-        ob = np.zeros((1, 50, 50, 3))
-        obsb =np.zeros((1, 50, 50, 3))
+        ob = np.zeros((1, 100, 100, 3))
+        obsb =np.zeros((1, 100, 100, 3))
         ob[0] = obs['rgb_screen']
         obsb[0] = obs['alt_view']
 

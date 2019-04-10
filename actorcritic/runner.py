@@ -85,6 +85,7 @@ class Runner(object):
 
     def run_batch(self):
         #(MINE) MAIN LOOP!!!
+        # The reset is happening through Monitor (except the first one of the first batch (is in hte run_agent)
         mb_actions = []
         mb_obs = []
         mb_values = np.zeros((self.envs.num_envs, self.n_steps + 1), dtype=np.float32)

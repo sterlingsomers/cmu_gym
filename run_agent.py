@@ -42,15 +42,15 @@ flags.DEFINE_integer("all_summary_freq", 50, "Record all summaries every n batch
 flags.DEFINE_integer("scalar_summary_freq", 5, "Record scalar summaries every n batch")
 flags.DEFINE_string("checkpoint_path", "_files/models", "Path for agent checkpoints")
 flags.DEFINE_string("summary_path", "_files/summaries", "Path for tensorboard summaries")
-flags.DEFINE_string("model_name", "Drop", "Name for checkpoints and tensorboard summaries")
-flags.DEFINE_integer("K_batches", 50000, # Batch is like a training epoch!
+flags.DEFINE_string("model_name", "Drop_2020", "Name for checkpoints and tensorboard summaries")
+flags.DEFINE_integer("K_batches", 2000, # Batch is like a training epoch!
     "Number of training batches to run in thousands, use -1 to run forever") #(MINE) not for now
 flags.DEFINE_string("map_name", "DefeatRoaches", "Name of a map to use.")
 flags.DEFINE_float("discount", 0.95, "Reward-discount for the agent")
-flags.DEFINE_boolean("training", True,
+flags.DEFINE_boolean("training", False,
     "if should train the model, if false then save only episode score summaries"
 )
-flags.DEFINE_enum("if_output_exists", "overwrite", ["fail", "overwrite", "continue"],
+flags.DEFINE_enum("if_output_exists", "continue", ["fail", "overwrite", "continue"],
     "What to do if summary and model output exists, only for training, is ignored if notraining")
 flags.DEFINE_float("max_gradient_norm", 1000.0, "good value might depend on the environment")
 flags.DEFINE_float("loss_value_weight", 0.5, "good value might depend on the environment") # orig:1.0
@@ -243,7 +243,7 @@ def main():
                 #runner.reset()
                 if i % 500 == 0:
                     _print(i)
-                if i % 4000 == 0:
+                if i % 1000 == 0:
                     _save_if_training(agent)
                 runner.run_batch()  # (MINE) HERE WE RUN MAIN LOOP for while true
                 #runner.run_batch_solo_env()
