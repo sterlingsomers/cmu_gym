@@ -8,15 +8,17 @@ import numpy as np
 import pickle
 import matplotlib.pyplot as plt
 
-from ppt import Presentation, add_table_to_slide, DEFAULT_TABLE_TOP_LAST, DEFAULT_TABLE_TOP_NEXT, DEFAULT_TABLE_TOP_TITLE_LAST, DEFAULT_TABLE_TOP_TITLE_NEXT
-
+from ppt import Presentation, add_table_to_slide, DEFAULT_TABLE_TOP_LAST, DEFAULT_TABLE_TOP_NEXT
+from ppt import DEFAULT_TABLE_TOP_TITLE_LAST, DEFAULT_TABLE_TOP_TITLE_NEXT
+from ppt import add_barchart_to_slide, add_image_to_slide
+import random
 from absl import flags
 from actorcritic.agent import ActorCriticAgent, ACMode
 from actorcritic.runner import Runner, PPORunParams
 # from common.multienv import SubprocVecEnv, make_sc2env, SingleEnv, make_env
 
 import tensorflow as tf
-# import tensorflow.contrib.eager as tfe
+# import tensorflow.contrib.eager ast tfe
 # tf.enable_eager_execution()
 
 #import argparse
@@ -40,7 +42,7 @@ flags.DEFINE_bool("visualize", False, "Whether to render with pygame.")
 flags.DEFINE_integer("resolution", 32, "Resolution for screen and minimap feature layers.")
 flags.DEFINE_integer("step_mul", 100, "Game steps per agent step.")
 flags.DEFINE_integer("n_envs", 20, "Number of environments to run in parallel")
-flags.DEFINE_integer("episodes", 5, "Number of complete episodes")
+flags.DEFINE_integer("episodes", 1, "Number of complete episodes")
 flags.DEFINE_integer("n_steps_per_batch", 32,
     "Number of steps per batch, if None use 8 for a2c and 128 for ppo")  # (MINE) TIMESTEPS HERE!!! You need them cauz you dont want to run till it finds the beacon especially at first episodes - will take forever
 flags.DEFINE_integer("all_summary_freq", 50, "Record all summaries every n batch")
@@ -108,10 +110,10 @@ flags.DEFINE_bool("save_replay", False, "Whether to save a replay at the end.")
 ###############################################################################################
 # User Study configurations
 flags.DEFINE_string("map", 'original_drawn_map', "name of a map to use.")
-flags.DEFINE_integer("hikerx", 3, "x coordinate for hiker (integer 3-17)")
-flags.DEFINE_integer("hikery", 3, "y coordinate for hiker (integer 3-17)")
-flags.DEFINE_integer("dronex", 7, "x coordinate for drone (integer 3-17)")
-flags.DEFINE_integer("droney", 7, "y coordinate for drone (integer 3-17)")
+flags.DEFINE_integer("hikerx", 4, "x coordinate for hiker (integer 3-17)")
+flags.DEFINE_integer("hikery", 4, "y coordinate for hiker (integer 3-17)")
+flags.DEFINE_integer("dronex", 9, "x coordinate for drone (integer 3-17)")
+flags.DEFINE_integer("droney", 9, "y coordinate for drone (integer 3-17)")
 flags.DEFINE_boolean("getnames", False, "get names of available maps")
 flags.DEFINE_string("getmap", "", "get map by name")
 flags.DEFINE_boolean("studyhelp", False, "show help for study configuation (False | True)")
@@ -372,6 +374,14 @@ def main():
                 print('Episode: ', nav_runner.episode_counter)
                 episode_name = run_name + str(nav_runner.episode_counter) + ".pptx"
                 ppt = Presentation(dirname, episode_name)
+                ppt.add_title_slide(
+                    'Provision a Hiker',
+                    FLAGS.hikerx,
+                    FLAGS.hikery,
+                    FLAGS.dronex,
+                    FLAGS.droney,
+                    FLAGS.map
+                )
                 # Init storage structures
                 dictionary[nav_runner.episode_counter] = {}
                 mb_obs = []
@@ -509,6 +519,34 @@ def main():
                         last_action_probability_matrix)
                     '''
                     last_action_probs = copy(action_probs)
+
+                    # Add a second slide for this step with salience visualization
+                    salience_slide = ppt.add_image_slide(image_file_name, ppt.image_title(t, info))
+                    step_salience = {
+                        'Left': random.uniform(0,1),
+                        'Diagonal_Left': random.uniform(0,1),
+                        'Ahead': random.uniform(0,1),
+                        'Diagonal_Right': random.uniform(0,1),
+                        'Right': random.uniform(0,1)
+                    }
+                    salience_order = ['Left', 'Diagonal_Left','Ahead', 'Diagonal_Right', 'Right']
+                    add_barchart_to_slide(DEFAULT_TABLE_TOP_TITLE_LAST,salience_slide,"Salience",step_salience, salience_order)
+
+                    # Add a third slide for this step with salience image visualization
+                    vsalience_slide = ppt.add_image_slide(image_file_name, ppt.image_title(t, info))
+                    add_image_to_slide(
+                        DEFAULT_TABLE_TOP_TITLE_LAST,
+                        DEFAULT_TABLE_TOP_LAST,
+                        vsalience_slide,
+                        "Egocentric Salience",
+                        dirname + '/' + 'ego_salience_test.bmp')
+                    add_image_to_slide(
+                        DEFAULT_TABLE_TOP_TITLE_NEXT,
+                        DEFAULT_TABLE_TOP_NEXT,
+                        vsalience_slide,
+                        "Pixel Salience",
+                        dirname + '/' + 'pixel_salience_test.bmp')
+
                     ####################  /SAVE SIMULATION OUTPUT FOR NAV STEP  ###################
 
                     sleep(sleep_time)
@@ -631,6 +669,20 @@ def main():
                                 last_action_probability_matrix)
                             '''
                             last_action_probs = copy(action_probs)
+
+                            # Add a second slide for this step with salience visualization
+                            salience_slide = ppt.add_image_slide(image_file_name, ppt.image_title(t, info))
+                            step_salience = {
+                                'Left': random.uniform(0, 1),
+                                'Diagonal_Left': random.uniform(0, 1),
+                                'Ahead': random.uniform(0, 1),
+                                'Diagonal_Right': random.uniform(0, 1),
+                                'Right': random.uniform(0, 1)
+                            }
+                            salience_order = ['Left', 'Diagonal_Left', 'Ahead', 'Diagonal_Right', 'Right']
+                            add_barchart_to_slide(DEFAULT_TABLE_TOP_TITLE_LAST, salience_slide, "Salience",
+                                                  step_salience, salience_order)
+
                             ####################  /SAVE SIMULATION OUTPUT FOR DROP STEP  ###################
 
                             sleep(sleep_time)
