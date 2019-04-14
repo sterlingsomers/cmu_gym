@@ -21,7 +21,7 @@ dict = pickle.load(pickle_in)
 
 
 ''' CHECK WHAT KIND OF DATA STRUCTURE EACH OF THOSE IS '''
-feature_labels = ["#Pregnant", "FL object's alt", "L object's alt", "C object's alt",
+feature_labels = ["FL object's alt", "L object's alt", "C object's alt",
                   "R object's alt", "FR object's alt", "Drone's alt", "hiker pos"]
 
 data = fetch_mldata("diabetes")  # get dataset

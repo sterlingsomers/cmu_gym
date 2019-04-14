@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-
 import os, cv2
 import numpy as np
 import matplotlib.pyplot as plt
@@ -9,17 +8,19 @@ from tensorflow.contrib.tensorboard.plugins import projector
 
 tf.__version__
 
+''' CREATE ALL NECESSARY FILES FOR TENSORBOARD TSNE'''
+
 PATH = os.getcwd() #+ '/analysis/Tensorboard'
-FOLDER = '/embedding-images'
+FOLDER = '/embedding-images' # CHANGE HERE!!!
 LOG_DIR = PATH + FOLDER
 # metadata = os.path.join(LOG_DIR, 'metadata2.tsv')
-filename = 'selected_traj'
+filename = 'selected_traj' # CHANGE HERE!!! This is a file you WILL create!
 # %%
 # data_path = PATH + '/data'
 # data_dir_list = os.listdir(data_path)
 
 # Load and create the data
-pickle_in = open('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/selected_drop_traj_images.tj','rb')
+pickle_in = open('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/selected_drop_traj_images.tj','rb') # CHANGE HERE!!!
 obs = pickle.load(pickle_in)
 dims = (len(obs),256)
 fc = np.zeros(dims)

@@ -7,7 +7,7 @@ import pickle
 
 '''Get the data'''
 # pickle_in = open('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/All_maps_random_500.tj','rb')
-pickle_in = open('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/All_maps_20x20_500_images_volume.tj','rb')
+pickle_in = open('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/All_maps_20x20_500_images_volume_ego.tj','rb')
 obs = pickle.load(pickle_in)
 dict = {}
 
@@ -96,6 +96,10 @@ for epis in range(len(obs)):
             sub_dict['values'] = obs[epis]['values'][indx + i]
             sub_dict['episode'] = epis
             sub_dict['timestep'] = i
+            sub_dict['ego_vec'] = obs[epis]['ego'][indx + i]
+            sub_dict['drone_pos'] = obs[epis]['drone_pos'][indx + i]
+            sub_dict['headings'] = obs[epis]['headings'][indx + i]
+            sub_dict['crash'] = obs[epis]['crash'][indx + i]
 
             if sub_dict['actions'] == 15:
                 sub_dict['action_label'] = 'drop'
@@ -178,7 +182,7 @@ for epis in range(len(obs)):
         print("DROPPING TRAJECTORY OMITTED AS TOO SHORT")
 
 print("Saving....")
-pickle_in = open('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/selected_drop_traj_images.tj','wb')
+pickle_in = open('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/selected_drop_traj_everything.tj','wb')
 pickle.dump(dict,pickle_in)
 print("...saved")
 
