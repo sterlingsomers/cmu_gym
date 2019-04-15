@@ -30,12 +30,14 @@ import gym
 #from gym_grid.envs import GridEnv
 import gym_gridworld
 
+import copy
+
 FLAGS = flags.FLAGS
 flags.DEFINE_bool("visualize", False, "Whether to render with pygame.")
 flags.DEFINE_integer("resolution", 32, "Resolution for screen and minimap feature layers.")
 flags.DEFINE_integer("step_mul", 100, "Game steps per agent step.")
 flags.DEFINE_integer("n_envs", 20, "Number of environments to run in parallel")
-flags.DEFINE_integer("episodes", 100, "Number of complete episodes")
+flags.DEFINE_integer("episodes", 200, "Number of complete episodes")
 flags.DEFINE_integer("n_steps_per_batch", 32,
     "Number of steps per batch, if None use 8 for a2c and 128 for ppo")  # (MINE) TIMESTEPS HERE!!! You need them cauz you dont want to run till it finds the beacon especially at first episodes - will take forever
 flags.DEFINE_integer("all_summary_freq", 50, "Record all summaries every n batch")
@@ -346,7 +348,7 @@ def main():
             BLACK = (0, 0, 0)
             WHITE = (255, 255, 255)
 
-            sleep_time = 1.5
+            sleep_time = 0
 
             pygame.init()
             gameDisplay = pygame.display.set_mode((display_w, display_h))
@@ -366,21 +368,30 @@ def main():
                 surf = pygame.transform.scale(surf, (300, 300))
                 gameDisplay.blit(surf, (x, y))
 
+            #all_data = [{'nav':[],'drop':[]}] * FLAGS.episodes #each entry is an episode, sorted into nav or drop steps
+            all_data = [{'nav':[],'drop':[]} for x in range(FLAGS.episodes)]
+            step_data = {}
             dictionary = {}
             running = True
             while nav_runner.episode_counter <= (FLAGS.episodes - 1) and running==True:
                 print('Episode: ', nav_runner.episode_counter)
+
+
+
+
+
+
                 # Init storage structures
-                dictionary[nav_runner.episode_counter] = {}
-                mb_obs = []
-                mb_actions = []
-                mb_flag = []
-                mb_representation = []
-                mb_fc = []
+                #dictionary[nav_runner.episode_counter] = {}
+                #mb_obs = []
+                #mb_actions = []
+                #mb_flag = []
+                #mb_representation = []
+                #mb_fc = []
                 mb_rewards = []
-                mb_values = []
-                mb_drone_pos = []
-                mb_heading = []
+                #mb_values = []
+                #mb_drone_pos = []
+                #mb_heading = []
                 # dictionary[nav_runner.episode_counter]['observations'] = {}
                 # dictionary[nav_runner.episode_counter]['actions'] = []
                 # dictionary[nav_runner.episode_counter]['flag'] = []
@@ -392,8 +403,8 @@ def main():
                 process_img(map_alt, 20, 400)
                 pygame.display.update()
 
-                dictionary[nav_runner.episode_counter]['hiker_pos'] = nav_runner.envs.hiker_position
-                dictionary[nav_runner.episode_counter]['map_volume'] = map_xy
+                #dictionary[nav_runner.episode_counter]['hiker_pos'] = nav_runner.envs.hiker_position
+                #dictionary[nav_runner.episode_counter]['map_volume'] = map_xy
 
                 # Quit pygame if the (X) button is pressed on the top left of the window
                 # Seems that without this for event quit doesnt show anything!!!
@@ -407,29 +418,55 @@ def main():
 
                 drop_flag = 0
                 done = 0
+                step_count = 0
                 while done==0:
+                    if step_count >= 50:
+                        print("too many steps")
+                        done = True
+                        done2 = True
+                        step_data['stuck'] = True
+                        all_data[nav_runner.episode_counter]['nav'].append(step_data)
+                        break
+                    step_count += 1
+                    step_data = {'stuck':False}
+                    #I need the egocentric view + hiker's position
+                    #then drone steps, need action
+                    step_data['volume'] = np.array(nav_runner.envs.map_volume['vol'],copy=True)
+                    step_data['heading'] = nav_runner.envs.heading
+                    step_data['hiker'] = nav_runner.envs.hiker_position
+                    step_data['altitude'] = nav_runner.envs.altitude
+                    step_data['drone'] = np.where(step_data['volume'] == nav_runner.envs.map_volume['feature_value_map']['drone'][nav_runner.envs.altitude]['val'])
 
-                    mb_obs.append(nav_runner.latest_obs)
-                    mb_flag.append(drop_flag)
-                    mb_heading.append(nav_runner.envs.heading)
+                    #mb_obs.append(nav_runner.latest_obs)
+                    #mb_flag.append(drop_flag)
+                    #mb_heading.append(nav_runner.envs.heading)
 
-                    drone_pos = np.where(nav_runner.envs.map_volume['vol'] == nav_runner.envs.map_volume['feature_value_map']['drone'][nav_runner.envs.altitude]['val'])
-                    mb_drone_pos.append(drone_pos)
+                    #drone_pos =
+                    #mb_drone_pos.append(drone_pos)
 
                     # dictionary[nav_runner.episode_counter]['observations'].append(nav_runner.latest_obs)
                     # dictionary[nav_runner.episode_counter]['flag'].append(drop_flag)
 
                     # RUN THE MAIN LOOP
+
+
                     #obs, action, value, reward, done, representation, fc, grad_V, grad_pi = nav_runner.run_trained_batch(drop_flag) # Just one step. There is no monitor here so no info section
                     obs, action, value, reward, done, representation, fc, action_probs, grad_V_allo, grad_V_ego, mask_allo, mask_ego = nav_runner.run_trained_batch(drop_flag) # Just one step. There is no monitor here so no info section
                     # obs, action, value, reward, done, representation, fc, action_probs, grad_V_allo, grad_V_ego = nav_runner.run_trained_batch(drop_flag) # Just one step. There is no monitor here so no info section
 
+                    step_data['action'] = action
+                    step_data['reward'] = reward
+                    step_data['fc'] = fc
+                    step_data['action_probs'] = action_probs
+
+                    all_data[nav_runner.episode_counter]['nav'].append(step_data)
+
                     # dictionary[nav_runner.episode_counter]['actions'].append(action)
-                    mb_actions.append(action)
+                    #mb_actions.append(action)
                     mb_rewards.append(reward)
-                    mb_representation.append(representation)
-                    mb_fc.append(fc)
-                    mb_values.append(value)
+                    #mb_representation.append(representation)
+                    #mb_fc.append(fc)
+                    #mb_values.append(value)
 
                     # # Saliencies
                     # cmap = plt.get_cmap('viridis')
@@ -477,19 +514,36 @@ def main():
 
                     # Dropping Agent
                     if done==1:
+
                         print('=== DROPPING AGENT IN CHARGE ===')
                         drop_runner.latest_obs = nav_runner.latest_obs
                         done2 = 0
                         drop_flag = 1
                         # Store
-                        drone_pos = np.where(nav_runner.envs.map_volume['vol'] ==
-                                             nav_runner.envs.map_volume['feature_value_map']['drone'][
-                                                 nav_runner.envs.altitude]['val'])
-                        mb_drone_pos.append(drone_pos)
-                        mb_obs.append(nav_runner.latest_obs)
-                        mb_flag.append(drop_flag)
-                        mb_heading.append(nav_runner.envs.heading)
+                        #drone_pos = np.where(nav_runner.envs.map_volume['vol'] ==
+                        #                     nav_runner.envs.map_volume['feature_value_map']['drone'][
+                        #                         nav_runner.envs.altitude]['val'])
+                        #mb_drone_pos.append(drone_pos)
+                        #mb_obs.append(nav_runner.latest_obs)
+                        #mb_flag.append(drop_flag)
+                        #mb_heading.append(nav_runner.envs.heading)
                         while done2==0:
+                            if step_count >= 50:
+                                print("too many steps")
+                                done = True
+                                done2 = True
+                                step_data['stuck'] = True
+                                all_data[nav_runner.episode_counter]['drop'].append(step_data)
+                                break
+                            step_count += 1
+                            step_data = {'stuck':False}
+                            step_data['volume'] = np.array(nav_runner.envs.map_volume['vol'], copy=True)
+                            step_data['heading'] = nav_runner.envs.heading
+                            step_data['hiker'] = nav_runner.envs.hiker_position
+                            step_data['altitude'] = nav_runner.envs.altitude
+                            step_data['drone'] = np.where(step_data['volume'] ==
+                                                          nav_runner.envs.map_volume['feature_value_map']['drone'][
+                                                              nav_runner.envs.altitude]['val'])
 
                             # Step
                             obs, action, value, reward, done2, representation, fc, action_probs, grad_V_allo, grad_V_ego, mask_allo, mask_ego = drop_runner.run_trained_batch(drop_flag)
@@ -498,17 +552,12 @@ def main():
                             mb_rewards.append(reward)
 
                             # Store
-                            mb_obs.append(drop_runner.latest_obs)
-                            mb_flag.append(0) # We need to put zero only once
-                            mb_actions.append(action)
-                            mb_representation.append(representation)
-                            mb_fc.append(fc)
-                            mb_values.append(value)
-                            mb_heading.append(drop_runner.envs.heading)
-                            drone_pos = np.where(drop_runner.envs.map_volume['vol'] ==
-                                                 drop_runner.envs.map_volume['feature_value_map']['drone'][
-                                                     drop_runner.envs.altitude]['val'])
-                            mb_drone_pos.append(drone_pos) # The last location will be doubled as if it is a drop action the drone doesn't change location so obs will be the same!!!
+                            step_data['action'] = action
+                            step_data['reward'] = reward
+                            step_data['fc'] = fc
+                            step_data['action_probs'] = action_probs
+
+                            all_data[nav_runner.episode_counter]['drop'].append(step_data)
 
                             # Saliencies
                             # grad_V_allo = cmap(grad_V_allo)  # (100,100,4)
@@ -546,7 +595,7 @@ def main():
                                 screen_mssg_variable("Package state:", drop_runner.envs.package_state, (20, 350))
                                 pygame.display.update()
                                 pygame.event.get()  # Update the screen
-                                dictionary[nav_runner.episode_counter]['pack_hiker_dist'] = drop_runner.envs.pack_dist
+                                #dictionary[nav_runner.episode_counter]['pack_hiker_dist'] = drop_runner.envs.pack_dist
                                 sleep(sleep_time)
 
                             gameDisplay.fill(DARK_BLUE)
@@ -561,15 +610,15 @@ def main():
                             sleep(sleep_time)
                             t = t +1
 
-                        dictionary[nav_runner.episode_counter]['observations'] = mb_obs
-                        dictionary[nav_runner.episode_counter]['flag'] = mb_flag
-                        dictionary[nav_runner.episode_counter]['actions'] = mb_actions
-                        dictionary[nav_runner.episode_counter]['rewards'] = mb_rewards
-                        dictionary[nav_runner.episode_counter]['representation'] = mb_representation
-                        dictionary[nav_runner.episode_counter]['fc'] = mb_fc
-                        dictionary[nav_runner.episode_counter]['values'] = mb_values
-                        dictionary[nav_runner.episode_counter]['drone_pos'] = mb_drone_pos
-                        dictionary[nav_runner.episode_counter]['headings'] = mb_heading
+                        #dictionary[nav_runner.episode_counter]['observations'] = mb_obs
+                        #dictionary[nav_runner.episode_counter]['flag'] = mb_flag
+                        #dictionary[nav_runner.episode_counter]['actions'] = mb_actions
+                        #dictionary[nav_runner.episode_counter]['rewards'] = mb_rewards
+                        #dictionary[nav_runner.episode_counter]['representation'] = mb_representation
+                        #dictionary[nav_runner.episode_counter]['fc'] = mb_fc
+                        #dictionary[nav_runner.episode_counter]['values'] = mb_values
+                        #dictionary[nav_runner.episode_counter]['drone_pos'] = mb_drone_pos
+                        #dictionary[nav_runner.episode_counter]['headings'] = mb_heading
 
 
                         score = sum(mb_rewards)
@@ -579,7 +628,7 @@ def main():
                 clock.tick(15)
 
             print("...saving dictionary.")
-            with open('./data/test.tj', 'wb') as handle:
+            with open('./data/all_data' + str(FLAGS.episodes) + '.dict', 'wb') as handle:
                 pickle.dump(dictionary, handle)
 
         except KeyboardInterrupt:
