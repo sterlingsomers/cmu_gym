@@ -34,23 +34,23 @@ FLAGS = flags.FLAGS
 flags.DEFINE_bool("visualize", False, "Whether to render with pygame.")
 flags.DEFINE_integer("resolution", 32, "Resolution for screen and minimap feature layers.")
 flags.DEFINE_integer("step_mul", 100, "Game steps per agent step.")
-flags.DEFINE_integer("n_envs", 20, "Number of environments to run in parallel")
+flags.DEFINE_integer("n_envs", 80, "Number of environments to run in parallel")
 flags.DEFINE_integer("episodes", 10, "Number of complete episodes")
-flags.DEFINE_integer("n_steps_per_batch", 32,
+flags.DEFINE_integer("n_steps_per_batch", 128,
     "Number of steps per batch, if None use 8 for a2c and 128 for ppo")  # (MINE) TIMESTEPS HERE!!! You need them cauz you dont want to run till it finds the beacon especially at first episodes - will take forever
 flags.DEFINE_integer("all_summary_freq", 50, "Record all summaries every n batch")
 flags.DEFINE_integer("scalar_summary_freq", 5, "Record scalar summaries every n batch")
 flags.DEFINE_string("checkpoint_path", "_files/models", "Path for agent checkpoints")
 flags.DEFINE_string("summary_path", "_files/summaries", "Path for tensorboard summaries")
-flags.DEFINE_string("model_name", "Drop_2020", "Name for checkpoints and tensorboard summaries")
-flags.DEFINE_integer("K_batches", 2000, # Batch is like a training epoch!
+flags.DEFINE_string("model_name", "Drop_2020_ppo", "Name for checkpoints and tensorboard summaries")
+flags.DEFINE_integer("K_batches", 15000, # Batch is like a training epoch!
     "Number of training batches to run in thousands, use -1 to run forever") #(MINE) not for now
 flags.DEFINE_string("map_name", "DefeatRoaches", "Name of a map to use.")
 flags.DEFINE_float("discount", 0.95, "Reward-discount for the agent")
-flags.DEFINE_boolean("training", False,
+flags.DEFINE_boolean("training", True,
     "if should train the model, if false then save only episode score summaries"
 )
-flags.DEFINE_enum("if_output_exists", "continue", ["fail", "overwrite", "continue"],
+flags.DEFINE_enum("if_output_exists", "overwrite", ["fail", "overwrite", "continue"],
     "What to do if summary and model output exists, only for training, is ignored if notraining")
 flags.DEFINE_float("max_gradient_norm", 1000.0, "good value might depend on the environment")
 flags.DEFINE_float("loss_value_weight", 0.5, "good value might depend on the environment") # orig:1.0
@@ -60,41 +60,13 @@ flags.DEFINE_float("entropy_weight_action", 0.001, "entropy of action-id distrib
 flags.DEFINE_float("ppo_lambda", 0.95, "lambda parameter for ppo")
 flags.DEFINE_integer("ppo_batch_size", None, "batch size for ppo, if None use n_steps_per_batch")
 flags.DEFINE_integer("ppo_epochs", 3, "epochs per update")
-flags.DEFINE_enum("agent_mode", ACMode.A2C, [ACMode.A2C, ACMode.PPO], "if should use A2C or PPO")
+flags.DEFINE_enum("agent_mode", ACMode.PPO, [ACMode.A2C, ACMode.PPO], "if should use A2C or PPO")
 
 ### NEW FLAGS ####
-#flags.DEFINE_bool("render", True, "Whether to render with pygame.")
-# point_flag.DEFINE_point("feature_screen_size", 32,
-#                         "Resolution for screen feature layers.")
-# point_flag.DEFINE_point("feature_minimap_size", 32,
-#                         "Resolution for minimap feature layers.")
 flags.DEFINE_integer("rgb_screen_size", 128,
                         "Resolution for rendered screen.") # type None if you want only features
-# point_flag.DEFINE_point("rgb_minimap_size", 64,
-#                         "Resolution for rendered minimap.") # type None if you want only features
-# flags.DEFINE_enum("action_space", 'FEATURES', sc2_env.ActionSpace._member_names_,  # pylint: disable=protected-access, # type None if you want only features
-#                   "Which action space to use. Needed if you take both feature "
-#                   "and rgb observations.") # "RGB" or "FEATURES", None if only one is specified in the dimensions
-# flags.DEFINE_bool("use_feature_units", True,
-#                   "Whether to include feature units.")
-# flags.DEFINE_bool("disable_fog", False, "Whether to disable Fog of War.")
 
 flags.DEFINE_integer("max_agent_steps", 0, "Total agent steps.")
-#flags.DEFINE_integer("game_steps_per_episode", None, "Game steps per episode.")
-#flags.DEFINE_integer("max_episodes", 0, "Total episodes.")
-#flags.DEFINE_integer("step_mul", 8, "Game steps per agent step.")
-
-# flags.DEFINE_string("agent", "pysc2.agents.random_agent.RandomAgent",
-#                     "Which agent to run, as a python path to an Agent class.")
-# flags.DEFINE_enum("agent_race", "random", sc2_env.Race._member_names_,  # pylint: disable=protected-access
-#                   "Agent 1's race.")
-#
-# flags.DEFINE_string("agent2", "Bot", "Second agent, either Bot or agent class.")
-# flags.DEFINE_enum("agent2_race", "random", sc2_env.Race._member_names_,  # pylint: disable=protected-access
-#                   "Agent 2's race.")
-# flags.DEFINE_enum("difficulty", "very_easy", sc2_env.Difficulty._member_names_,  # pylint: disable=protected-access
-#                   "If agent2 is a built-in Bot, it's strength.")
-
 flags.DEFINE_bool("profile", False, "Whether to turn on code profiling.")
 flags.DEFINE_bool("trace", False, "Whether to trace the code execution.")
 #flags.DEFINE_integer("parallel", 1, "How many instances to run in parallel.")
@@ -160,10 +132,11 @@ def main():
     if FLAGS.training and FLAGS.n_envs != 1:
         #envs = SubprocVecEnv((partial(make_sc2env, **env_args),) * FLAGS.n_envs)
         #envs = SubprocVecEnv([make_env(i,**env_args) for i in range(FLAGS.n_envs)])
-        envs = make_custom_env('gridworld-v0', FLAGS.n_envs, 1)
+        envs = make_custom_env('gridworld{}-v0'.format('visualize' if FLAGS.visualize else ''), FLAGS.n_envs, 1)
     else:
         #envs = make_custom_env('gridworld-v0', 1, 1)
-        envs = gym.make('gridworld-v0')
+        envs = gym.make('gridworld{}-v0'.format('visualize' if FLAGS.visualize else ''))
+        # envs = gym.make('gridworld-v0')
 
         #envs = SingleEnv(make_sc2env(**env_args))
     #envs = gym.make('gridworld-v0')
