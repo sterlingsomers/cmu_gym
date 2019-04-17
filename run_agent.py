@@ -263,6 +263,7 @@ def reset_actr():
         chunk = [int(x) if type(x) == np.int64 else x for x in chunk]
         actr.add_dm(chunk)
 
+
     # for chunk in allchunks:
     #     for x, y in zip(*[iter(chunk)] * 2):
     #         #x, y[1]
@@ -270,6 +271,7 @@ def reset_actr():
     #             if y[1] not in min_max[x]:
     #                 min_max[x].append(y[1])
     #print('asf')
+    print("reset done.")
 
 
 def handle_observation(observation):
