@@ -1,4 +1,5 @@
 import tensorflow as tf
+import numpy as np
 from pysc2.lib import actions
 from pysc2.lib.features import SCREEN_FEATURES, MINIMAP_FEATURES
 from tensorflow.contrib import layers
@@ -64,100 +65,37 @@ class FullyConvPolicy:
         # return conv3
 
     def build(self):
-        # units_embedded = layers.embed_sequence(
-        #     self.placeholders.screen_unit_type,
-        #     vocab_size=SCREEN_FEATURES.unit_type.scale, # 1850
-        #     embed_dim=self.unittype_emb_dim, # 5
-        #     scope="unit_type_emb",
-        #     trainable=self.trainable
-        # )
-        #
-        # # Let's not one-hot zero which is background
-        # player_relative_screen_one_hot = layers.one_hot_encoding(
-        #     self.placeholders.player_relative_screen,
-        #     num_classes=SCREEN_FEATURES.player_relative.scale
-        # )[:, :, :, 1:]
-        # player_relative_minimap_one_hot = layers.one_hot_encoding(
-        #     self.placeholders.player_relative_minimap,
-        #     num_classes=MINIMAP_FEATURES.player_relative.scale
-        # )[:, :, :, 1:]
-        #
-        #channel_axis = 2
-        # alt0_all = tf.concat(
-        #     [self.placeholders.alt0_grass, self.placeholders.alt0_bush, self.placeholders.alt0_drone, self.placeholders.alt0_hiker],
-        #     axis=channel_axis
-        # )
-        # alt1_all = tf.concat(
-        #     [self.placeholders.alt1_pine, self.placeholders.alt1_pines, self.placeholders.alt1_drone],
-        #     axis=channel_axis
-        # )
-        # alt2_all = tf.concat(
-        #     [self.placeholders.alt2_drone],
-        #     axis=channel_axis
-        # )
-        # alt3_all = tf.concat(
-        #     [self.placeholders.alt3_drone],
-        #     axis=channel_axis
-        # )
 
-        # VOLUMETRIC APPROACH
-        # alt_all = tf.concat(
-        #     [self.placeholders.alt0_grass, self.placeholders.alt0_bush, self.placeholders.alt0_drone, self.placeholders.alt0_hiker,
-        #      self.placeholders.alt1_pine, self.placeholders.alt1_pines, self.placeholders.alt1_drone, self.placeholders.alt2_drone,
-        #      self.placeholders.alt3_drone],
-        #     axis=channel_axis
-        # )
-        # self.spatial_action_logits = layers.conv2d(
-        #     alt_all,
-        #     data_format="NHWC",
-        #     num_outputs=1,
-        #     kernel_size=1,
-        #     stride=1,
-        #     activation_fn=None,
-        #     scope='spatial_action',
-        #     trainable=self.trainable
-        # )
-        # self.screen_output = self._build_convs(screen_numeric_all, "screen_network")
-        # self.minimap_output = self._build_convs(minimap_numeric_all, "minimap_network")
         screen_px = tf.cast(self.placeholders.rgb_screen, tf.float32) / 255. # rgb_screen are integers (0-255) and here we convert to float and normalize
         alt_px = tf.cast(self.placeholders.alt_view, tf.float32) / 255.
         self.screen_output = self._build_convs(screen_px, "screen_network")
         self.alt_output = self._build_convs(alt_px, "alt_network")
-        #minimap_px = tf.cast(self.placeholders.rgb_screen, tf.float32) / 255.
-        # self.alt0_output = self._build_convs(alt0_all, "alt0_network")
-        # self.alt1_output = self._build_convs(alt1_all, "alt1_network")
-        # self.alt2_output = self._build_convs(alt2_all, "alt2_network")
-        # self.alt3_output = self._build_convs(alt3_all, "alt3_network")
-
-        # VOLUMETRIC APPROACH
-        # self.alt0_output = self._build_convs(self.spatial_action_logits, "alt0_network")
-
-        """(MINE) As described in the paper, the state representation is then formed by the concatenation
-        of the screen and minimap outputs as well as the broadcast vector stats, along the channer dimension"""
-        # State representation (last layer before separation as described in the paper)
-        #self.map_output = tf.concat([self.alt0_output, self.alt1_output, self.alt2_output, self.alt3_output], axis=2)
-        #self.map_output = tf.concat([self.alt0_output, self.alt1_output], axis=2)
         
-        self.map_output = tf.concat([self.screen_output, self.alt_output], axis=2)
+        self.map_output = tf.concat([self.screen_output, self.alt_output], axis=3)
 
-        #self.map_output = self.screen_output
-        # The output layer (conv) of the spatial action policy with one ouput. So this means that there is a 1-1 mapping
-        # (no filter that convolvues here) between layer and output. So eventually for every position of the layer you get
-        # one value. Then you flatten it and you pass it into a softmax to get probs.
-        # self.spatial_action_logits = layers.conv2d(
-        #     self.map_output,
-        #     data_format="NHWC",
-        #     num_outputs=1,
-        #     kernel_size=1,
-        #     stride=1,
-        #     activation_fn=None,
-        #     scope='spatial_action',
-        #     trainable=self.trainable
-        # )
-        #
-        # spatial_action_probs = tf.nn.softmax(layers.flatten(self.spatial_action_logits))
+        # BUILD CONVLSTM
+        self.rnn_in = tf.reshape(self.map_output, [1, -1, 25, 25, 128])
+        self.cell = tf.contrib.rnn.Conv2DLSTMCell(input_shape=[25, 25, 1],  # input dims
+                                                  kernel_shape=[3, 3],  # for a 3 by 3 conv
+                                                  output_channels=128)  # number of feature maps
+        c_init = np.zeros((1, 25, 25, 128), np.float32)
+        h_init = np.zeros((1, 25, 25, 128), np.float32)
+        self.state_init = [c_init, h_init]
+        step_size = tf.shape(self.map_output)[:1]  # Get step_size from input dimensions
+        c_in = tf.placeholder(tf.float32, [None, 25, 25, 128])
+        h_in = tf.placeholder(tf.float32, [None, 25, 25, 128])
+        self.state_in = (c_in, h_in)
+        state_in = tf.nn.rnn_cell.LSTMStateTuple(c_in, h_in)
+        self.step_size = tf.placeholder(tf.float32, [1])
+        (self.outputs, self.state) = tf.nn.dynamic_rnn(self.cell, self.rnn_in, initial_state=state_in,
+                                                       sequence_length=step_size, time_major=False,
+                                                       dtype=tf.float32)
+        lstm_c, lstm_h = self.state
+        self.state_out = (lstm_c[:1, :], lstm_h[:1, :])
 
-        map_output_flat = layers.flatten(self.map_output)
+        rnn_out = tf.reshape(self.outputs, [-1, 25, 25, 128])
+
+        map_output_flat = tf.reshape(self.outputs, [-1, 80000])# 25*25*128
         # (MINE) This is the last layer (fully connected -fc) for the non-spatial (categorical) actions
         fc1 = layers.fully_connected(
             map_output_flat,

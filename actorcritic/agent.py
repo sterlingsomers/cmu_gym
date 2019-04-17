@@ -159,22 +159,9 @@ class ActorCriticAgent:
         # Wtihin theta you build the policy net. Check the graph in tensoflow and expand theta to see the nets
         with tf.variable_scope("theta"):
             self.theta = self.policy(self, trainable=True).build() # (MINE) from policy.py you build the net. Theta is
-            # actually the policy and contains the actions ids and spatial action dstrs
-
-        # selected_spatial_action_flat = ravel_index_pairs(
-        #     self.placeholders.selected_spatial_action, self.spatial_dim
-        # )
 
         selected_log_probs = self._get_select_action_probs(self.theta)
 
-        # maximum is to avoid 0 / 0 because this is used to calculate some means
-        # sum_spatial_action_available = tf.maximum(
-        #     1e-10, tf.reduce_sum(self.placeholders.is_spatial_action_available)
-        # )
-
-        # neg_entropy_spatial = tf.reduce_sum(
-        #     self.theta.spatial_action_probs * self.theta.spatial_action_log_probs
-        # ) / sum_spatial_action_available
         neg_entropy_action_id = tf.reduce_mean(tf.reduce_sum(self.theta.action_id_probs * self.theta.action_id_log_probs, axis=1))
         # neg_entropy_action_id = tf.reduce_sum(self.theta.action_id_probs * self.theta.action_id_log_probs, axis=1)
         # (MINE) Sample now actions from the corresponding dstrs defined by the policy network theta
@@ -212,7 +199,6 @@ class ActorCriticAgent:
             policy_loss = -tf.reduce_mean(l_clip)
         else:
             self.sampled_action_id = weighted_random_sample(self.theta.action_id_probs)
-            # self.sampled_spatial_action = weighted_random_sample(self.theta.spatial_action_probs)
             self.value_estimate = self.theta.value_estimate
             policy_loss = -tf.reduce_mean(selected_log_probs.total * self.placeholders.advantage)
             #policy_loss = -tf.reduce_sum(selected_log_probs.total * self.placeholders.advantage)
@@ -265,13 +251,19 @@ class ActorCriticAgent:
     def _input_to_feed_dict(self, input_dict):
         return {k + ":0": v for k, v in input_dict.items()} # Add the :0 after the name of each feature
 
-    def step(self, obs):
+    def step(self, obs, rnn_state):
         # (MINE) Pass the observations through the net
         feed_dict = self._input_to_feed_dict(obs)
 
-        action_id, value_estimate, convs_im = self.sess.run(
-            [self.sampled_action_id, self.value_estimate, self.theta.map_output],
-            feed_dict=feed_dict
+        action_id, value_estimate, state_out = self.sess.run(
+            [self.sampled_action_id, self.value_estimate, self.theta.state_out],
+            feed_dict={
+                self.placeholders.rgb_screen: feed_dict['rgb_screen:0'],
+                self.placeholders.alt_view: feed_dict['alt_view:0'],
+                self.theta.step_size: [1],
+                self.theta.state_in[0]: rnn_state[0],
+                self.theta.state_in[1]: rnn_state[1]
+            }
         )
 
         # spatial_action_2d = np.array(
@@ -293,7 +285,7 @@ class ActorCriticAgent:
         ########
         #self.summary_writer.add_summary(images[2]) # seems not working cauz of merging all
 
-        return action_id, value_estimate
+        return action_id, value_estimate, state_out
 
     def step_eval(self, obs):
         # (MINE) Pass the observations through the net
@@ -312,7 +304,7 @@ class ActorCriticAgent:
 
         return action_id, value_estimate, representation
 
-    def train(self, input_dict):
+    def train(self, input_dict, rnn_state): # The input dictionary is designed in the runner with advantage function and other stuff in order to be used in the training.
         feed_dict = self._input_to_feed_dict(input_dict)
         ops = [self.train_op] # (MINE) From build model above the train_op contains all the operations for training
 
@@ -330,16 +322,32 @@ class ActorCriticAgent:
         elif write_scalar_summaries:
             ops.append(self.scalar_summary_op)
 
-        r = self.sess.run(ops, feed_dict)  # (MINE) TRAIN!!!
+        r = self.sess.run(ops, feed_dict={
+            self.placeholders.advantage: feed_dict['advantage:0'],
+            self.placeholders.value_target: feed_dict['value_target:0'],
+            self.placeholders.selected_action_id: feed_dict['selected_action_id:0'],
+            self.placeholders.rgb_screen: feed_dict['rgb_screen:0'],
+            self.placeholders.alt_view: feed_dict['alt_view:0'],
+            self.theta.step_size: [32],
+            self.theta.state_in[0]: rnn_state[0],
+            self.theta.state_in[1]: rnn_state[1]
+        })  # (MINE) TRAIN!!!
 
         if write_all_summaries or write_scalar_summaries:
             self.summary_writer.add_summary(r[-1], global_step=self.train_step)
 
         self.train_step += 1
 
-    def get_value(self, obs):
+    def get_value(self, obs,rnn_state):
         feed_dict = self._input_to_feed_dict(obs)
-        return self.sess.run(self.value_estimate, feed_dict=feed_dict)
+        return self.sess.run(self.value_estimate, feed_dict={
+                self.placeholders.rgb_screen: feed_dict['rgb_screen:0'],
+                self.placeholders.alt_view: feed_dict['alt_view:0'],
+                self.theta.step_size: [1],
+                self.theta.state_in[0]: rnn_state[0],
+                self.theta.state_in[1]: rnn_state[1]
+            }
+                             )
 
     def flush_summaries(self):
         self.summary_writer.flush()

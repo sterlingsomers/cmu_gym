@@ -85,7 +85,7 @@ class Runner(object):
 
     def run_batch(self):
         #(MINE) MAIN LOOP!!!
-        # The reset is happening through Monitor (except the first one of the first batch (is in hte run_agent)
+        # The reset is happening through Monitor when done=true (except the first one of the first batch (which is in the run_agent)
         mb_actions = []
         mb_obs = []
         mb_values = np.zeros((self.envs.num_envs, self.n_steps + 1), dtype=np.float32)
@@ -93,11 +93,11 @@ class Runner(object):
         mb_done = np.zeros((self.envs.num_envs, self.n_steps), dtype=np.int32)
 
         latest_obs = self.latest_obs # (MINE) =state(t)
-
+        rnn_state = self.agent.theta.state_init # you might need theta instead of policy
         for n in range(self.n_steps):
             # could calculate value estimate from obs when do training
             # but saving values here will make n step reward calculation a bit easier
-            action_ids, value_estimate = self.agent.step(latest_obs)
+            action_ids, value_estimate, rnn_state = self.agent.step(latest_obs, rnn_state)
             print('|step:', n, '|actions:', action_ids)  # (MINE) If you put it after the envs.step the SUCCESS appears at the envs.step so it will appear oddly
             # (MINE) Store actions and value estimates for all steps
             mb_values[:, n] = value_estimate
@@ -130,7 +130,7 @@ class Runner(object):
             #         self._handle_episode_end(t)
 
         #print(">> Avg. Reward:",np.round(np.mean(mb_rewards),3))
-        mb_values[:, -1] = self.agent.get_value(latest_obs) # We bootstrap from last step if not terminal! although he doesnt use any check here
+        mb_values[:, -1] = self.agent.get_value(latest_obs, rnn_state) # We bootstrap from last step if not terminal! although he doesnt use any check here
 
         n_step_advantage = general_n_step_advantage(
             mb_rewards,
@@ -154,7 +154,7 @@ class Runner(object):
         if not self.do_training:
             pass
         elif self.agent.mode == ACMode.A2C:
-            self.agent.train(full_input)
+            self.agent.train(full_input, rnn_state)
         elif self.agent.mode == ACMode.PPO:
             for epoch in range(self.ppo_par.n_epochs):
                 self._train_ppo_epoch(full_input)
