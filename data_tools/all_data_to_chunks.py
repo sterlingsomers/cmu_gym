@@ -19,6 +19,7 @@ possible_actions_map = {
     }
 def altitudes_from_egocentric_slice(ego_slice):
     alts = np.count_nonzero(egocentric_slice, axis=0)
+    alts = [int(x) for x in alts]
 
     return alts
 
