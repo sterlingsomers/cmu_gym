@@ -259,6 +259,8 @@ def reset_actr():
         #chunk[9][1] = chunk[9][1] - alt
         #chunk[11][1] = chunk[11][1] - alt
         #chunk[13][1] = chunk[13][1] - alt
+        chunk = [float(x) if type(x) == np.float64 else x for x in chunk]
+        chunk = [int(x) if type(x) == np.int64 else x for x in chunk]
         actr.add_dm(chunk)
 
     # for chunk in allchunks:
