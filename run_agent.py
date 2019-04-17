@@ -31,13 +31,14 @@ import gym
 import gym_gridworld
 
 import copy
+import math
 
 FLAGS = flags.FLAGS
 flags.DEFINE_bool("visualize", False, "Whether to render with pygame.")
 flags.DEFINE_integer("resolution", 32, "Resolution for screen and minimap feature layers.")
 flags.DEFINE_integer("step_mul", 100, "Game steps per agent step.")
 flags.DEFINE_integer("n_envs", 20, "Number of environments to run in parallel")
-flags.DEFINE_integer("episodes", 200, "Number of complete episodes")
+flags.DEFINE_integer("episodes", 100, "Number of complete episodes")
 flags.DEFINE_integer("n_steps_per_batch", 32,
     "Number of steps per batch, if None use 8 for a2c and 128 for ppo")  # (MINE) TIMESTEPS HERE!!! You need them cauz you dont want to run till it finds the beacon especially at first episodes - will take forever
 flags.DEFINE_integer("all_summary_freq", 50, "Record all summaries every n batch")
@@ -369,7 +370,7 @@ def main():
                 gameDisplay.blit(surf, (x, y))
 
             #all_data = [{'nav':[],'drop':[]}] * FLAGS.episodes #each entry is an episode, sorted into nav or drop steps
-            all_data = [{'nav':[],'drop':[]} for x in range(FLAGS.episodes)]
+            all_data = [{'nav':[],'drop':[],'stuck':False} for x in range(FLAGS.episodes)]
             step_data = {}
             dictionary = {}
             running = True
@@ -425,6 +426,7 @@ def main():
                         done = True
                         done2 = True
                         step_data['stuck'] = True
+                        all_data[nav_runner.episode_counter]['stuck'] = True
                         all_data[nav_runner.episode_counter]['nav'].append(step_data)
                         break
                     step_count += 1
@@ -436,6 +438,17 @@ def main():
                     step_data['hiker'] = nav_runner.envs.hiker_position
                     step_data['altitude'] = nav_runner.envs.altitude
                     step_data['drone'] = np.where(step_data['volume'] == nav_runner.envs.map_volume['feature_value_map']['drone'][nav_runner.envs.altitude]['val'])
+
+                    #angle test code
+                    x1,x2 = step_data['drone'][-2:]
+                    y1,y2 = step_data['hiker'][-2:]
+
+                    rads = math.atan2(y1-x1, y2-x2)
+                    deg = math.degrees(rads) + 90 - ((step_data['heading'] * 45) - 45)
+                    if deg < -180:
+                        deg = deg + 360
+
+
 
                     #mb_obs.append(nav_runner.latest_obs)
                     #mb_flag.append(drop_flag)
@@ -533,6 +546,7 @@ def main():
                                 done = True
                                 done2 = True
                                 step_data['stuck'] = True
+                                all_data[nav_runner.episode_counter]['stuck'] = True
                                 all_data[nav_runner.episode_counter]['drop'].append(step_data)
                                 break
                             step_count += 1
@@ -628,8 +642,8 @@ def main():
                 clock.tick(15)
 
             print("...saving dictionary.")
-            with open('./data/all_data' + str(FLAGS.episodes) + '.dict', 'wb') as handle:
-                pickle.dump(dictionary, handle)
+            with open('./data/all_data' + str(FLAGS.episodes) + '.lst', 'wb') as handle:
+                pickle.dump(all_data, handle)
 
         except KeyboardInterrupt:
             pass

@@ -679,7 +679,12 @@ class GridworldEnv(gym.Env):
         drone = (random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))#(6,5)#(2,6)#(random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2)) #(1,8)
         while drone == hiker:
             drone = (random.randint(2, self.map_volume['vol'].shape[1] - 1),
-                     random.randint(2, self.map_volume['vol'].shape[1] - 2),1)
+                     random.randint(2, self.map_volume['vol'].shape[1] - 2))
+        #a test of the angle
+        #self.heading = 3
+        #hiker = (10,10)
+        #drone = (10,12)
+
         ##################
 
         ####actual maps### (Un)comment below if you DONT want to use custom maps
