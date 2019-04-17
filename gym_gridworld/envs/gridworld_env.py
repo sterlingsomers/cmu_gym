@@ -636,7 +636,6 @@ class GridworldEnv(gym.Env):
         # end DRAWN world
 
         #####START COMMMENT OUT
-        # #self.map_volume = CNP.map_to_volume_dict(_map[0], _map[1], 10, 10)
         # #Random generated map
         # # start = random.choice([1,1,1,1,1,1,1,1,1,1])
         # # stop = random.choice([13,13,13,13,13,13,13,13,13,13])
@@ -650,7 +649,7 @@ class GridworldEnv(gym.Env):
         # # #hiker = (random.randint(2, self.map_volume['vol'].shape[1] - 1), random.randint(2, self.map_volume['vol'].shape[1] - 2)) #(8,8) #
         # # #if self.dropping:
         # # hiker = (random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))#(10,10)#(random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))  #random.choice([(4,5),(5,5),(5,4),(4,4)]) (7,8) #
-        # all_no_goes = []
+        # all_no_goes = [] # all points hiker is not allowed to go (e.g. water)
         # # better random map
         # just_grass = np.full((20, 20), 2)
         # # add some trail, trees
@@ -687,7 +686,7 @@ class GridworldEnv(gym.Env):
         # hiker = (
         #     random.randint(3, self.map_volume['vol'].shape[1] - 3),
         #     random.randint(3, self.map_volume['vol'].shape[1] - 3))
-        # while self.hiker_in_no_go_list(hiker, all_no_goes):
+        # while self.hiker_in_no_go_list(hiker, all_no_goes): Place the hiker but check if is placed on a no go feature
         #     hiker = (random.randint(3, self.map_volume['vol'].shape[1] - 3),
         #              random.randint(3, self.map_volume['vol'].shape[1] - 3))
         ##################
