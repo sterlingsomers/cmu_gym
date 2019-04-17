@@ -135,6 +135,7 @@ for episode in all_data:
         #need the altitudes from the slice
         altitudes = altitudes_from_egocentric_slice(egocentric_slice)
         alt = step['altitude']
+        chunk.extend(['current_altitude',int(alt)])
         chunk.extend(['ego_left',alt - altitudes[0],
                       'ego_diagonal_left', alt - altitudes[1],
                       'ego_center', alt - altitudes[2],
@@ -143,6 +144,7 @@ for episode in all_data:
         chunk.extend(['type','nav'])
         #also want distance  to hiker
         chunk.extend(['distance_to_hiker',distance_to_hiker(np.array(step['drone']),np.array(step['hiker']))])
+
         nav.append(chunk)
         print('step')
     for step in episode['drop']:
@@ -157,6 +159,7 @@ for episode in all_data:
         # need the altitudes from the slice
         altitudes = altitudes_from_egocentric_slice(egocentric_slice)
         alt = step['altitude']
+        chunk.extend(['current_altitude', int(alt)])
         chunk.extend(['ego_left', alt - altitudes[0],
                       'ego_diagonal_left', alt - altitudes[1],
                       'ego_center', alt - altitudes[2],
