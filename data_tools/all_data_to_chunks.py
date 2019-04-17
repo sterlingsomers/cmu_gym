@@ -65,25 +65,25 @@ def angle_categories(angle):
     '''Values -180 to +180. Returns a fuzzy set dictionary.'''
     returndict = {'hiker_left': 0, 'hiker_diagonal_left': 0, 'hiker_center': 0, 'hiker_diagonal_right': 0, 'hiker_right': 0}
     if angle < -90:
-        returndict['left'] = 1
+        returndict['hiker_left'] = 1
     if angle >= -90 and angle < -60:
-        returndict['left'] = abs(angle + 60) / 30.0
+        returndict['hiker_left'] = abs(angle + 60) / 30.0
     if angle >= -75 and angle < -45:
-        returndict['diagonal_left'] = 1 + (angle + 45) / 30
+        returndict['hiker_diagonal_left'] = 1 + (angle + 45) / 30
     if angle >= -45 and angle < -15:
-        returndict['diagonal_left'] = abs(angle + 15) / 30.0
+        returndict['hiker_diagonal_left'] = abs(angle + 15) / 30.0
     if angle >= - 30 and angle < 0:
-        returndict['center'] = 1 + angle/30.0
+        returndict['hiker_center'] = 1 + angle/30.0
     if angle >= 0 and angle < 30:
-        returndict['center'] = 1 - angle/30.0
+        returndict['hiker_center'] = 1 - angle/30.0
     if angle >=15 and angle < 45:
-        returndict['diagonal_right'] = (angle - 15)/30.0
+        returndict['hiker_diagonal_right'] = (angle - 15)/30.0
     if angle >=45 and angle < 75:
-        returndict['diagonal_right'] = 1 - (angle - 45)/30.0
+        returndict['hiker_diagonal_right'] = 1 - (angle - 45)/30.0
     if angle >=60 and angle < 90:
-        returndict['right'] = (angle - 60)/30.0
+        returndict['hiker_right'] = (angle - 60)/30.0
     if angle >=90:
-        returndict['right'] = 1
+        returndict['hiker_right'] = 1
 
     return returndict
 
