@@ -17,9 +17,14 @@ possible_actions_map = {
         8: [[1, -1], [0, -1], [-1, -1], [-1, 0], [-1, 1]]
 
     }
+
+def distance_to_hiker(drone_position,hiker_position):
+    distance = np.linalg.norm(drone_position-hiker_position)
+    return distance
+
+
 def altitudes_from_egocentric_slice(ego_slice):
     alts = np.count_nonzero(egocentric_slice, axis=0)
-    alts = [int(x) for x in alts]
 
     return alts
 
@@ -60,25 +65,25 @@ def angle_categories(angle):
     '''Values -180 to +180. Returns a fuzzy set dictionary.'''
     returndict = {'hiker_left': 0, 'hiker_diagonal_left': 0, 'hiker_center': 0, 'hiker_diagonal_right': 0, 'hiker_right': 0}
     if angle < -90:
-        returndict['left'] = 1
+        returndict['hiker_left'] = 1
     if angle >= -90 and angle < -60:
-        returndict['left'] = abs(angle + 60) / 30.0
+        returndict['hiker_left'] = abs(angle + 60) / 30.0
     if angle >= -75 and angle < -45:
-        returndict['diagonal_left'] = 1 + (angle + 45) / 30
+        returndict['hiker_diagonal_left'] = 1 + (angle + 45) / 30
     if angle >= -45 and angle < -15:
-        returndict['diagonal_left'] = abs(angle + 15) / 30.0
+        returndict['hiker_diagonal_left'] = abs(angle + 15) / 30.0
     if angle >= - 30 and angle < 0:
-        returndict['center'] = 1 + angle/30.0
+        returndict['hiker_center'] = 1 + angle/30.0
     if angle >= 0 and angle < 30:
-        returndict['center'] = 1 - angle/30.0
+        returndict['hiker_center'] = 1 - angle/30.0
     if angle >=15 and angle < 45:
-        returndict['diagonal_right'] = (angle - 15)/30.0
+        returndict['hiker_diagonal_right'] = (angle - 15)/30.0
     if angle >=45 and angle < 75:
-        returndict['diagonal_right'] = 1 - (angle - 45)/30.0
+        returndict['hiker_diagonal_right'] = 1 - (angle - 45)/30.0
     if angle >=60 and angle < 90:
-        returndict['right'] = (angle - 60)/30.0
+        returndict['hiker_right'] = (angle - 60)/30.0
     if angle >=90:
-        returndict['right'] = 1
+        returndict['hiker_right'] = 1
 
     return returndict
 
@@ -130,12 +135,16 @@ for episode in all_data:
         #need the altitudes from the slice
         altitudes = altitudes_from_egocentric_slice(egocentric_slice)
         alt = step['altitude']
+        chunk.extend(['current_altitude',int(alt)])
         chunk.extend(['ego_left',alt - altitudes[0],
                       'ego_diagonal_left', alt - altitudes[1],
                       'ego_center', alt - altitudes[2],
                       'ego_diagonal_right', alt - altitudes[3],
                       'ego_right', alt - altitudes[4]])
         chunk.extend(['type','nav'])
+        #also want distance  to hiker
+        chunk.extend(['distance_to_hiker',distance_to_hiker(np.array(step['drone']),np.array(step['hiker']))])
+
         nav.append(chunk)
         print('step')
     for step in episode['drop']:
@@ -150,12 +159,14 @@ for episode in all_data:
         # need the altitudes from the slice
         altitudes = altitudes_from_egocentric_slice(egocentric_slice)
         alt = step['altitude']
+        chunk.extend(['current_altitude', int(alt)])
         chunk.extend(['ego_left', alt - altitudes[0],
                       'ego_diagonal_left', alt - altitudes[1],
                       'ego_center', alt - altitudes[2],
                       'ego_diagonal_right', alt - altitudes[3],
                       'ego_right', alt - altitudes[4]])
         chunk.extend(['type', 'drop'])
+        chunk.extend(['distance_to_hiker',distance_to_hiker(np.array(step['drone']),np.array(step['hiker']))])
         drop.append(chunk)
 
     print("episode complete")
