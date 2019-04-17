@@ -17,6 +17,12 @@ possible_actions_map = {
         8: [[1, -1], [0, -1], [-1, -1], [-1, 0], [-1, 1]]
 
     }
+
+def distance_to_hiker(drone_position,hiker_position):
+    distance = np.linalg.norm(drone_position-hiker_position)
+    return distance
+
+
 def altitudes_from_egocentric_slice(ego_slice):
     alts = np.count_nonzero(egocentric_slice, axis=0)
 
@@ -135,6 +141,8 @@ for episode in all_data:
                       'ego_diagonal_right', alt - altitudes[3],
                       'ego_right', alt - altitudes[4]])
         chunk.extend(['type','nav'])
+        #also want distance  to hiker
+        chunk.extend(['distance_to_hiker',distance_to_hiker(np.array(step['drone']),np.array(step['hiker']))])
         nav.append(chunk)
         print('step')
     for step in episode['drop']:
@@ -155,6 +163,7 @@ for episode in all_data:
                       'ego_diagonal_right', alt - altitudes[3],
                       'ego_right', alt - altitudes[4]])
         chunk.extend(['type', 'drop'])
+        chunk.extend(['distance_to_hiker',distance_to_hiker(np.array(step['drone']),np.array(step['hiker']))])
         drop.append(chunk)
 
     print("episode complete")
