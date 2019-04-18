@@ -190,7 +190,7 @@ for episode in all_data:
         # need the altitudes from the slice
         altitudes = altitudes_from_egocentric_slice(egocentric_slice)
         altitudes = [x - 1 for x in altitudes]
-        alt = step['altitude'] - 1#to be consistant with the numpy
+        alt = step['altitude'] #to be consistant with the numpy
         chunk.extend(['current_altitude', int(alt)])
         chunk.extend(['ego_left', altitudes[0] - alt,
                       'ego_diagonal_left', altitudes[1] - alt,
