@@ -593,31 +593,31 @@ class GridworldEnv(gym.Env):
         self.reward = 0
         _map = random.choice(self.maps)
         # start DRAWN world (Un)comment BELOW this part if you want a custom map
-        # drawn_map = [[2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 2, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 2, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15],
-        #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2], ]
-        # drawn_map = np.array(drawn_map)
-        # self.map_volume = CNP.create_custom_map(drawn_map)
-        # hiker = (8, 5)
-        # drone = (17, 17)
-        # self.altitude = 1
+        drawn_map = [[2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+                     [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+                     [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+                     [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+                     [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+                     [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+                     [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+                     [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+                     [2, 2, 2, 2, 2, 2, 26, 26, 26, 26, 26, 26, 26, 2, 2, 2, 2, 2, 2, 2],
+                     [2, 2, 2, 2, 2, 2, 2, 26, 26, 26, 26, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+                     [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+                     [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+                     [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+                     [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+                     [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+                     [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+                     [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+                     [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+                     [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+                     [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2], ]
+        drawn_map = np.array(drawn_map)
+        self.map_volume = CNP.create_custom_map(drawn_map)
+        hiker = (5, 10)
+        drone = (15, 10)
+        self.altitude = 1
         # end DRAWN world
 
         #####START COMMMENT OUT
@@ -635,51 +635,54 @@ class GridworldEnv(gym.Env):
         # # #hiker = (random.randint(2, self.map_volume['vol'].shape[1] - 1), random.randint(2, self.map_volume['vol'].shape[1] - 2)) #(8,8) #
         # # #if self.dropping:
         # # hiker = (random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))#(10,10)#(random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))  #random.choice([(4,5),(5,5),(5,4),(4,4)]) (7,8) #
-        all_no_goes = []
-        # better random map
-        just_grass = np.full((20, 20), 2)
-        # add some trail, trees
-        updated_map = self.add_blob(just_grass, 15, 5)[0]
-        for i in range(random.randint(1, 10)):
-            updated_map = self.add_blob(updated_map, 50, random.choice([1, 3]))[0]
 
-        # add some water (maybe)
-        if random.randint(0, 1):
-            updated_map, no_go_points = self.add_blob(updated_map, 100, 15)
-            all_no_goes.append(no_go_points)
-        # add some mountain ridges
-        updated_map, no_go_points = self.add_blob(updated_map, 75, 26)
-        all_no_goes.append(no_go_points)
-        # a few small mountain ridges
-        for i in range(random.randint(1, 5)):
-            updated_map, no_go_points = self.add_blob(updated_map, random.randint(1, 10), 25)
-            all_no_goes.append(no_go_points)
-        # add some bushes
-        # small clusters, 5 times
-        for i in range(random.randint(1, 8)):
-            updated_map = self.add_blob(updated_map, random.randint(1, 5), 4)[0]
-        # add one campfire
-        updated_map, no_go_points = self.add_blob(updated_map, 0, 33)
-        all_no_goes.append(no_go_points)
-
-        self.map_volume = CNP.create_custom_map(updated_map)
+        #BLOB WORLD
+        # all_no_goes = []
+        # # better random map
+        # just_grass = np.full((20, 20), 2)
+        # # add some trail, trees
+        # updated_map = self.add_blob(just_grass, 15, 5)[0]
+        # for i in range(random.randint(1, 10)):
+        #     updated_map = self.add_blob(updated_map, 50, random.choice([1, 3]))[0]
+        #
+        # # add some water (maybe)
+        # if random.randint(0, 1):
+        #     updated_map, no_go_points = self.add_blob(updated_map, 100, 15)
+        #     all_no_goes.append(no_go_points)
+        # # add some mountain ridges
+        # updated_map, no_go_points = self.add_blob(updated_map, 75, 26)
+        # all_no_goes.append(no_go_points)
+        # # a few small mountain ridges
+        # for i in range(random.randint(1, 5)):
+        #     updated_map, no_go_points = self.add_blob(updated_map, random.randint(1, 10), 25)
+        #     all_no_goes.append(no_go_points)
+        # # add some bushes
+        # # small clusters, 5 times
+        # for i in range(random.randint(1, 8)):
+        #     updated_map = self.add_blob(updated_map, random.randint(1, 5), 4)[0]
+        # # add one campfire
+        # updated_map, no_go_points = self.add_blob(updated_map, 0, 33)
+        # all_no_goes.append(no_go_points)
+        #
+        # self.map_volume = CNP.create_custom_map(updated_map)
+        #END BLOB WORLD
 
         # self.map_volume = CNP.create_custom_map(np.random.random_integers(start, stop, (20, 20)))#CNP.create_custom_map(np.random.random_integers(start, stop, (20, 20)))#CNP.map_to_volume_dict(_map[0],_map[1], self.mapw, self.maph)#CNP.create_custom_map(self.custom_map)#CNP.create_custom_map(np.random.random_integers(start, stop, (20, 20)))#CNP.map_to_volume_dict(_map[0],_map[1], self.mapw, self.maph)#CNP.create_custom_map(np.random.random_integers(start, stop, (10, 10)))#CNP.create_custom_map(self.custom_map)#CNP.create_custom_map(np.random.random_integers(start, stop, (10, 10)))
 
         # Set hiker's and drone's location
         # hiker = (random.randint(2, self.map_volume['vol'].shape[1] - 1), random.randint(2, self.map_volume['vol'].shape[1] - 2)) #(8,8) #
         # (8, 1)  # (6,3)#
-        hiker = (
-            random.randint(3, self.map_volume['vol'].shape[1] - 3),
-            random.randint(3, self.map_volume['vol'].shape[1] - 3))
-        while self.hiker_in_no_go_list(hiker, all_no_goes):
-            hiker = (random.randint(3, self.map_volume['vol'].shape[1] - 3),
-                     random.randint(3, self.map_volume['vol'].shape[1] - 3),1)
-
-        drone = (random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))#(6,5)#(2,6)#(random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2)) #(1,8)
-        while drone == hiker:
-            drone = (random.randint(2, self.map_volume['vol'].shape[1] - 1),
-                     random.randint(2, self.map_volume['vol'].shape[1] - 2))
+        # hiker = (
+        #     random.randint(3, self.map_volume['vol'].shape[1] - 3),
+        #     random.randint(3, self.map_volume['vol'].shape[1] - 3))
+        # while self.hiker_in_no_go_list(hiker, all_no_goes):
+        #     hiker = (random.randint(3, self.map_volume['vol'].shape[1] - 3),
+        #              random.randint(3, self.map_volume['vol'].shape[1] - 3),1)
+        #
+        # drone = (random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))#(6,5)#(2,6)#(random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2)) #(1,8)
+        # while drone == hiker:
+        #     drone = (random.randint(2, self.map_volume['vol'].shape[1] - 1),
+        #              random.randint(2, self.map_volume['vol'].shape[1] - 2))
         #a test of the angle
         #self.heading = 3
         #hiker = (10,10)

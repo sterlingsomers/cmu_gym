@@ -78,7 +78,7 @@
   (p p2
      =blending>
        isa decision
-       action =action
+       ;action =action
      ?blending>
        state free
      ==>

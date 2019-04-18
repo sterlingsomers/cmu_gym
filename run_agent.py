@@ -34,7 +34,7 @@ import copy
 import math
 
 import json
-
+import operator
 import actr #Version 7.11.1 tested (may work on others)
 
 FLAGS = flags.FLAGS
@@ -156,6 +156,14 @@ action_to_category_map = {
     15: ['drop']
 }
 
+combos_to_actions = {('down','left'):0,('down','diagonal_left'):1,('down','center'):2,
+                     ('down','diagonal_right'):3,('down','right'):4,
+                     ('level','left'):5,('level','diagonal_left'):6,('level','center'):7,
+                     ('level','diagonal_right'):8,('level','right'):9,
+                     ('up','left'):10,('up','diagonal_left'):11,('up','center'):12,
+                     ('up','diagonal_right'):13,('up','right'):14,('drop'):15}
+
+
 def distance_to_hiker(drone_position,hiker_position):
     distance = np.linalg.norm(drone_position-hiker_position)
     return distance
@@ -263,17 +271,25 @@ def access_by_key(key, list):
 
 def similarity(val1, val2):
     '''Linear tranformation, abslute difference'''
+    #val2 is recalled, val1 is the observation
+    if val1 == val2:
+        return 0
+    if val1 == 'NAV' and val2 == 'DROP':
+        return -5
+
     max_val = max(min_max[val1[0].lower()])
     min_val = min(min_max[val1[0].lower()])
+
     if val1 == None:
         return None
-    val1 = val1[1]
-    val2 = val2[1]
+    value1 = val1[1]
+    value2 = val2[1]
     #max_val = 4#max(map(max, zip(*feature_sets)))
     #min_val = 1#min(map(min, zip(*feature_sets)))
-    print("max,min,val1,val2",max_val,min_val,val1,val2)
-    val1_t = (((val1 - min_val) * (0 + 1)) / (max_val - min_val)) + 0
-    val2_t = (((val2 - min_val) * (0 + 1)) / (max_val - min_val)) + 0
+    #print("max,min,val1,val2",max_val,min_val,val1,val2)
+    #The intent looks to be to transpose the values to a 0,1 range so that the math is all the same
+    val1_t = (((value1 - min_val) * (0 + 1)) / (max_val - min_val)) + 0
+    val2_t = (((value2 - min_val) * (0 + 1)) / (max_val - min_val)) + 0
     #print("val1_t,val2_t", val1_t, val2_t)
     #print("sim returning", abs(val1_t - val2_t) * -1)
     #print("sim returning", ((val1_t - val2_t)**2) * - 1)
@@ -282,11 +298,12 @@ def similarity(val1, val2):
     #return 0
     #print("sim returning", abs(val1_t - val2_t) * - 1)
     #return abs(val1_t - val2_t) * -1
-    print("sim returning", (abs(val1 - val2) * - 1)/max_val)
-    return (abs(val1 - val2) * - 1)/max_val
+    #print("sim returning", (abs(value1 - value2) * - 1)/max_val)
+    return_value = abs(val1_t - val2_t) * -1#/max_val
+    return return_value#(abs(value1 - value2) * - 1)/max_val
 
-    print("sim returning", abs(val1 - val2) / (max_val - min_val) * - 1)
-    return abs(val1 - val2) / (max_val - min_val) * - 1
+    #print("sim returning", abs(val1 - val2) / (max_val - min_val) * - 1)
+    #return abs(val1 - val2) / (max_val - min_val) * - 1
 
 
 def compute_S(blend_trace, keys_list):
@@ -451,11 +468,37 @@ def handle_observation(observation):
     actr.schedule_set_buffer_chunk('imaginal',chunk[0],0)
     actr.run(10)
 
-    # d = actr.get_history_data("blending-trace")
-    # d = json.loads(d)
-    #
-    # # first add the blend to the results dictionary
-    # blend_return = access_by_key('RESULT-CHUNK', d[0][1])
+    d = actr.get_history_data("blending-trace")
+    d = json.loads(d)
+
+    # first add the blend to the results dictionary
+    blend_return = access_by_key('RESULT-CHUNK', d[0][1])
+    #HACK - carry out the action here.
+    action_choice_pitch = {'up': 0, 'down': 0, 'level': 0}
+    action_choice_yaw = {'left': 0, 'diagonal_left': 0, 'center': 0, 'diagonal_right': 0, 'right': 0}
+    action_choice_pitch['up'] = access_by_key('UP', blend_return)
+    action_choice_pitch['down'] = access_by_key('DOWN', blend_return)
+    action_choice_pitch['level'] = access_by_key('LEVEL', blend_return)
+    pitch_action = max(action_choice_pitch.items(), key=operator.itemgetter(1))[0]
+
+    action_choice_yaw['left'] = access_by_key('LEFT', blend_return)
+    action_choice_yaw['diagonal_left'] = access_by_key('DIAGONAL_LEFT', blend_return)
+    action_choice_yaw['center'] = access_by_key('CENTER', blend_return)
+    action_choice_yaw['diagonal_right'] = access_by_key('DIAGONAL_RIGHT', blend_return)
+    action_choice_yaw['right'] = access_by_key('RIGHT', blend_return)
+    yaw_action = max(action_choice_yaw.items(), key=operator.itemgetter(1))[0]
+
+
+    drop_action = access_by_key('DROP',blend_return)
+    if drop_action > action_choice_pitch[pitch_action] and drop_action > action_choice_yaw[yaw_action]:
+        return combos_to_actions[('drop')]
+    else:
+        return combos_to_actions[(pitch_action,yaw_action)]
+
+
+
+    print("here.")
+
     #
     #
     # t = actr.get_history_data("blending-times")
@@ -843,7 +886,10 @@ def main():
                     step_data['drone'] = np.where(step_data['volume'] == nav_runner.envs.map_volume['feature_value_map']['drone'][nav_runner.envs.altitude]['val'])
 
                     actr_observation = create_actr_observation(step_data)
-                    handle_observation(actr_observation)
+                    action = handle_observation(actr_observation)
+                    nav_runner.envs.step(action)
+                    reset_actr()
+
                     #angle test code
                     # x1,x2 = step_data['drone'][-2:]
                     # y1,y2 = step_data['hiker'][-2:]
@@ -879,9 +925,10 @@ def main():
 
                     #START WITH RANDOM AGENT
                     obs = nav_runner.envs.generate_observation()
-                    value = random.randint(5,15)
-                    nav_runner.envs.step(value)
+                    #value = random.randint(5,15)
+                    #nav_runner.envs.step(value)
                     reward = 0
+                    value = 0
 
                     #all_data[nav_runner.episode_counter]['nav'].append(step_data)
 
