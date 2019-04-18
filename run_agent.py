@@ -155,7 +155,7 @@ def distance_to_hiker(drone_position,hiker_position):
 
 def altitudes_from_egocentric_slice(ego_slice):
     alts = np.count_nonzero(ego_slice, axis=0)
-
+    alts = [int(x) for x in alts]
     return alts
 
 
@@ -412,13 +412,14 @@ def create_actr_observation(step):
         chunk.extend([key, value])
     # need the altitudes from the slice
     altitudes = altitudes_from_egocentric_slice(egocentric_slice)
-    alt = step['altitude'] - 1 #to be consistant with numpy
+    altitudes = [x - 1 for x in altitudes]
+    alt = step['altitude']  #to be consistant with numpy
     chunk.extend(['current_altitude', int(alt)])
-    chunk.extend(['ego_left', alt - altitudes[0],
-                  'ego_diagonal_left', alt - altitudes[1],
-                  'ego_center', alt - altitudes[2],
-                  'ego_diagonal_right', alt - altitudes[3],
-                  'ego_right', alt - altitudes[4]])
+    chunk.extend(['ego_left', altitudes[0] - alt,
+                  'ego_diagonal_left', altitudes[1] - alt,
+                  'ego_center',  altitudes[2] - alt,
+                  'ego_diagonal_right', altitudes[3] - alt,
+                  'ego_right', altitudes[4] - alt])
     chunk.extend(['type', 'nav'])
     # also want distance  to hiker
     chunk.extend(['distance_to_hiker', distance_to_hiker(np.array(step['drone']), np.array(step['hiker']))])
@@ -428,7 +429,9 @@ def create_actr_observation(step):
     #     action_values[component] = 1
     # for key, value in action_values.items():
     #     chunk.extend([key, value])
-    chunk = [int(x) if type()]
+    #json cannot serialize int64
+    chunk = [float(x) if type(x) == np.float64 else x for x in chunk]
+    chunk = [int(x) if type(x) == np.int64 else x for x in chunk]
     return chunk
 
 def handle_observation(observation):

@@ -43,7 +43,7 @@ def distance_to_hiker(drone_position,hiker_position):
 
 def altitudes_from_egocentric_slice(egocentric_slice):
     alts = np.count_nonzero(egocentric_slice, axis=0)
-
+    alts = [int(x) for x in alts]
     return alts
 
 
@@ -155,13 +155,14 @@ for episode in all_data:
             chunk.extend([key,value])
         #need the altitudes from the slice
         altitudes = altitudes_from_egocentric_slice(egocentric_slice)
+        altitudes = [x -1 for x in altitudes]
         alt = step['altitude']
         chunk.extend(['current_altitude',int(alt)])
-        chunk.extend(['ego_left',alt - altitudes[0],
-                      'ego_diagonal_left', alt - altitudes[1],
-                      'ego_center', alt - altitudes[2],
-                      'ego_diagonal_right', alt - altitudes[3],
-                      'ego_right', alt - altitudes[4]])
+        chunk.extend(['ego_left',altitudes[0] - alt,
+                      'ego_diagonal_left', altitudes[1] - alt,
+                      'ego_center', altitudes[2] - alt,
+                      'ego_diagonal_right', altitudes[3] - alt,
+                      'ego_right', altitudes[4] - alt])
         chunk.extend(['type','nav'])
         #also want distance  to hiker
         chunk.extend(['distance_to_hiker',distance_to_hiker(np.array(step['drone']),np.array(step['hiker']))])
@@ -188,13 +189,14 @@ for episode in all_data:
             chunk.extend([key, value])
         # need the altitudes from the slice
         altitudes = altitudes_from_egocentric_slice(egocentric_slice)
+        altitudes = [x - 1 for x in altitudes]
         alt = step['altitude'] - 1#to be consistant with the numpy
         chunk.extend(['current_altitude', int(alt)])
-        chunk.extend(['ego_left', alt - altitudes[0],
-                      'ego_diagonal_left', alt - altitudes[1],
-                      'ego_center', alt - altitudes[2],
-                      'ego_diagonal_right', alt - altitudes[3],
-                      'ego_right', alt - altitudes[4]])
+        chunk.extend(['ego_left', altitudes[0] - alt,
+                      'ego_diagonal_left', altitudes[1] - alt,
+                      'ego_center', altitudes[2] - alt,
+                      'ego_diagonal_right',  altitudes[3] - alt,
+                      'ego_right', altitudes[4] - alt])
         chunk.extend(['type', 'drop'])
         chunk.extend(['distance_to_hiker',distance_to_hiker(np.array(step['drone']),np.array(step['hiker']))])
         # split action into components [up, level, down, left, right, etc]
