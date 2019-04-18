@@ -88,17 +88,19 @@ class GridworldEnv(gym.Env):
                                    "stuck_probability": {"pine trees": 0.50, "pine tree": 0.25, "cabin": 0.50,
                                                          "flight tower": 0.15, "firewatch tower": 0.20},
                                    "sunk_probability": {"water": 0.50}
-                                   }
+
+                                  }
+        #originally below OK=1, DAMAGED=-1
         self.drop_rewards = {"OK": 1,#10, # try all positive rewards
                              # "OK_STUCK": 5,
                              # "OK_SUNK": 5,
-                             "DAMAGED": -1,#-10,
+                             "DAMAGED": 0,#-10,
                              # "DAMAGED_STUCK": -15,
                              # "DAMAGED_SUNK": -15,
                              # "CRASHED": -30
                              }
         # self.alt_rewards = {0:-1, 1:1, 2:-0.5, 3:-0.8} # This is bad!
-        self.alt_rewards = {0: 0, 1: 1, 2: 0.5, 3: 0.08}
+        self.alt_rewards = {0: 0, 1: 1, 2: 0.3, 3: 0.02}
 
         
 
@@ -326,6 +328,7 @@ class GridworldEnv(gym.Env):
                                               int(drone_position[2]), region)
         w = self.map_volume['vol'][0][left:right, top:bottom]
         is_hiker_in_neighbors = np.any(w == self.map_volume['feature_value_map']['hiker']['val'])
+        print('hiker in da hood:', is_hiker_in_neighbors)
         # print("neigh:")
         # print(neighbors)
         # x = drone_position[0]
@@ -334,15 +337,22 @@ class GridworldEnv(gym.Env):
         y = np.random.randint(0, neighbors.shape[1])
         #print(x, y)
         # value = [x, y]
-        value = neighbors[x, y] # It returns what kind of terrain is there in (number)
+        value = neighbors[x, y] # It returns what kind of terrain is there (the number that correspond to a feature)
         pack_world_coords = (x + left, y + top) #(x,y) #
         terrain = self.original_map_volume['value_feature_map'][value]['feature'] # what kind of terrain is there (string)
         reward = self.position_value(terrain, alt, self.drop_rewards, self.drop_probabilities)
-        self.pack_dist = np.linalg.norm(np.array(pack_world_coords) - np.array(self.hiker_position[-2:])) # Check it out if it is correct!!!
-        reward -= self.pack_dist * 0.1 # Do not penalize put a small reward here. Penalizing according to the dropping distance is wrong! The closer the package is the HIGHER the penalty
-        #reward = reward*(1/(self.pack_dist+1e-7))*0.1
-        self.reward = reward*is_hiker_in_neighbors # YOU CANNOT DO THAT EVEN IF IT WORKS FOR THAT MAP AS IT DOESNT GET PENALTY FOR DAMAGING THE PACK!
+        # Below we assume that package lands always in alt=0
+        # self.pack_dist = np.linalg.norm(np.array(pack_world_coords) - np.array(self.hiker_position[-2:])) # Check it out if it is correct!!!
+        # reward -= self.pack_dist * 0.1 # Do not penalize put a small reward here. Penalizing according to the dropping distance is wrong! The closer the package is the HIGHER the penalty
+        # #reward = reward*(1/(self.pack_dist+1e-7))*0.1
+        # self.reward = reward*is_hiker_in_neighbors # YOU CANNOT DO THAT EVEN IF IT WORKS FOR THAT MAP AS IT DOESNT GET PENALTY FOR DAMAGING THE PACK!
         #print(terrain, reward)
+        # distance in tiles ( we use Transpose and take the first element as the np.array for hiker pos is inside another array and καθετο vector
+        self.pack_dist = max(abs(np.array(pack_world_coords) - np.array(self.hiker_position[-2:]).T[0]))
+        if int(self.pack_dist) == 0: # pack lands on top of the hiker
+            self.reward = reward + is_hiker_in_neighbors
+        else:
+            self.reward = reward*is_hiker_in_neighbors + 1/self.pack_dist # if you are far away you get only the reward from the distance
         x = eval(self.actionvalue_heading_action[7][self.heading])
 
     def take_action(self, delta_alt=0, delta_x=0, delta_y=0, new_heading=1):
@@ -588,8 +598,9 @@ class GridworldEnv(gym.Env):
 
         if self.drop:
             done = True
-            reward = self.reward + self.alt_rewards[self.altitude] # (try to multiply them and see if it makes a difference!!! Here tho u reward for dropping low alt
-            print('DROP!!!', 'self.reward=', self.reward, 'alt_reward=', self.alt_rewards[self.altitude])
+            # reward = self.reward + self.alt_rewards[self.altitude] # (try to multiply them and see if it makes a difference!!! Here tho u reward for dropping low alt
+            reward = self.reward
+            print('DROP!!!', 'self.reward=', self.reward, 'alt_reward=', self.alt_rewards[self.altitude], 'hiker-package distance=', self.pack_dist)
             if self.restart_once_done: # HAVE IT ALWAYS TRUE!!!
                 return (observation, reward, done, info)
         # print("state", [ self.observation[self.altitude]['drone'].nonzero()[0][0],self.observation[self.altitude]['drone'].nonzero()[1][0]] )
@@ -700,8 +711,8 @@ class GridworldEnv(gym.Env):
         #if self.dropping:
         hiker = (10,10)#(random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))  # (7,8) #
         # drone = (random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 1))
-        drone = random.choice([(hiker[0]-1, hiker[1]-1),(hiker[0]-1, hiker[1]),(hiker[0], hiker[1]-1)])## Package drop starts close to hiker!!! #(random.randint(2, self.map_volume['vol'].shape[1] - 1), random.randint(2, self.map_volume['vol'].shape[1] - 2)) # (8,8) #
-        # drone = random.choice([(hiker[0] - 5, hiker[1] - 7), (hiker[0] - 7, hiker[1]), (hiker[0], hiker[1] - 7)])
+        # drone = random.choice([(hiker[0]-1, hiker[1]-1),(hiker[0]-1, hiker[1]),(hiker[0], hiker[1]-1)])## Package drop starts close to hiker!!! #(random.randint(2, self.map_volume['vol'].shape[1] - 1), random.randint(2, self.map_volume['vol'].shape[1] - 2)) # (8,8) #
+        drone = random.choice([(hiker[0] - 1, hiker[1] ), (hiker[0] - 1, hiker[1] - 2), (hiker[0] - 1, hiker[1] - 1), (hiker[0] - 3, hiker[1] - 2), (hiker[0] - 5, hiker[1]), (hiker[0] - 5, hiker[1] - 4), (hiker[0], hiker[1] - 7)])
         #else:
             # hiker = (random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))  # (7,8) #
             # drone = (random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))
