@@ -41,12 +41,17 @@
   (p p1
      =imaginal>
        current_altitude =CA
-       ;heading =HD
-       view_left =VL
-       view_diagonal_left =VDL
-       view_center =VC
-       view_diagonal_right =VDR
-       view_right =VR
+       distance_to_hiker =DTH
+       ego_right =ER
+       ego_diagonal_right =EDR
+       ego_center =EC
+       ego_diagonal_left =EDL
+       ego_left =EL
+       hiker_right =HR
+       hiker_diagonal_right =HDR
+       hiker_center =HC
+       hiker_diagonal_left =HDL
+       hiker_left =HL
      ?blending>
        state free
        buffer empty
@@ -56,12 +61,18 @@
      +blending>
        isa decision
        current_altitude =CA
-       ;heading =HD
-       view_left =VL
-       view_diagonal_left =VDL
-       view_center =VC
-       view_diagonal_right =VDR
-       view_right =VR)
+       distance_to_hiker =DTH
+       ego_right =ER
+       ego_diagonal_right =EDR
+       ego_center =EC
+       ego_diagonal_left =EDL
+       ego_left =EL
+       hiker_right =HR
+       hiker_diagonal_right =HDR
+       hiker_center =HC
+       hiker_diagonal_left =HDL
+       hiker_left =HL
+       type NAV)
 
   
   (p p2

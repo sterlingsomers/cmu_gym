@@ -33,6 +33,8 @@ import gym_gridworld
 import copy
 import math
 
+import json
+
 import actr #Version 7.11.1 tested (may work on others)
 
 FLAGS = flags.FLAGS
@@ -109,13 +111,19 @@ flags.DEFINE_bool("save_replay", False, "Whether to save a replay at the end.")
 
 
 #ADD some global stuff for ACT-R
-min_max = {'view_left':[],
-           'view_diagonal_left':[],
-           'view_diagonal_right':[],
-           'view_center':[],
-           'view_right':[],
-           'heading':[],
-           'current_altitude':[]}
+min_max = {'ego_left':[],
+           'ego_diagonal_left':[],
+           'ego_diagonal_right':[],
+           'ego_center':[],
+           'ego_right':[],
+           'distance_to_hiker':[],
+           'hiker_left':[],
+           'hiker_diagonal_left':[],
+           'hiker_center':[],
+           'hiker_diagonal_right':[],
+           'hiker_right':[],
+           'distance_to_hiker':[],
+           'current_altitude':[],}
 
 
 possible_actions_map = {
@@ -388,13 +396,13 @@ def reset_actr():
         chunk = [int(x) if type(x) == np.int64 else x for x in chunk]
         actr.add_dm(chunk)
 
-
-    # for chunk in allchunks:
-    #     for x, y in zip(*[iter(chunk)] * 2):
-    #         #x, y[1]
-    #         if not x == 'action' and not x == 'isa':
-    #             if y[1] not in min_max[x]:
-    #                 min_max[x].append(y[1])
+    ignore_list = ['left', 'diagonal_left', 'center', 'diagonal_right', 'right', 'type', 'drop', 'up', 'down', 'level']
+    for chunk in allchunks:
+        for x, y in zip(*[iter(chunk)] * 2):
+            #x, y[1]
+            if not x in ignore_list and not x == 'isa':
+                if y[1] not in min_max[x]:
+                    min_max[x].append(y[1])
     #print('asf')
     print("reset done.")
 
@@ -409,20 +417,20 @@ def create_actr_observation(step):
     # compile all that into chunks [slot, value, slot, value]
     chunk = []
     for key, value in angle_categories_to_hiker.items():
-        chunk.extend([key, value])
+        chunk.extend([key, [key,value]])
     # need the altitudes from the slice
     altitudes = altitudes_from_egocentric_slice(egocentric_slice)
     altitudes = [x - 1 for x in altitudes]
     alt = step['altitude']  #to be consistant with numpy
-    chunk.extend(['current_altitude', int(alt)])
-    chunk.extend(['ego_left', altitudes[0] - alt,
-                  'ego_diagonal_left', altitudes[1] - alt,
-                  'ego_center',  altitudes[2] - alt,
-                  'ego_diagonal_right', altitudes[3] - alt,
-                  'ego_right', altitudes[4] - alt])
+    chunk.extend(['current_altitude', ['current_altitude',int(alt)]])
+    chunk.extend(['ego_left', ['ego_left',altitudes[0] - alt],
+                  'ego_diagonal_left', ['ego_diagonal_left',altitudes[1] - alt],
+                  'ego_center',  ['ego_center',altitudes[2] - alt],
+                  'ego_diagonal_right', ['ego_diagonal_right', altitudes[3] - alt],
+                  'ego_right', ['ego_right',altitudes[4] - alt]])
     chunk.extend(['type', 'nav'])
     # also want distance  to hiker
-    chunk.extend(['distance_to_hiker', distance_to_hiker(np.array(step['drone']), np.array(step['hiker']))])
+    chunk.extend(['distance_to_hiker', ['distance_to_hiker',distance_to_hiker(np.array(step['drone']), np.array(step['hiker']))]])
     # split action into components [up, level, down, left, right, etc]
     # components = action_to_category_map[step['action']]
     # for component in components:
@@ -443,37 +451,37 @@ def handle_observation(observation):
     actr.schedule_set_buffer_chunk('imaginal',chunk[0],0)
     actr.run(10)
 
-    d = actr.get_history_data("blending-trace")
-    d = json.loads(d)
-
-    # first add the blend to the results dictionary
-    blend_return = access_by_key('RESULT-CHUNK', d[0][1])
-
-
-    t = actr.get_history_data("blending-times")
-
-    MP = actr.get_parameter_value(':mp')
-    # #get t
-    t = access_by_key('TEMPERATURE', d[0][1])
-    # #the values
-    # vs = [actr.chunk_slot_value(x,'value') for x in chunk_names]
+    # d = actr.get_history_data("blending-trace")
+    # d = json.loads(d)
     #
-    #factors = ['current_altitude', 'heading', 'view_left', 'view_diagonal_left', 'view_center', 'view_diagonal_right', 'view_right']
-    factors = ['current_altitude', 'view_left', 'view_diagonal_left', 'view_center', 'view_diagonal_right', 'view_right']
-    # factors = ['needsFood', 'needsWater']
-    result_factors = ['action']
-    # result_factors = ['food','water']
-    results = compute_S(d, factors)  # ,'f3'])
-    results_dict = {'action':{}}
-    results_dict['blend'] = blend_return
-    for sums, result_factor in zip(results, result_factors):
-        #print("For", result_factor)
-
-        for s, factor in zip(sums, factors):
-            results_dict['action'][factor] = MP / t * sum(s)
-            #print(factor, MP / t * sum(s))
-
-    return results_dict
+    # # first add the blend to the results dictionary
+    # blend_return = access_by_key('RESULT-CHUNK', d[0][1])
+    #
+    #
+    # t = actr.get_history_data("blending-times")
+    #
+    # MP = actr.get_parameter_value(':mp')
+    # # #get t
+    # t = access_by_key('TEMPERATURE', d[0][1])
+    # # #the values
+    # # vs = [actr.chunk_slot_value(x,'value') for x in chunk_names]
+    # #
+    # #factors = ['current_altitude', 'heading', 'view_left', 'view_diagonal_left', 'view_center', 'view_diagonal_right', 'view_right']
+    # factors = ['current_altitude', 'view_left', 'view_diagonal_left', 'view_center', 'view_diagonal_right', 'view_right']
+    # # factors = ['needsFood', 'needsWater']
+    # result_factors = ['action']
+    # # result_factors = ['food','water']
+    # results = compute_S(d, factors)  # ,'f3'])
+    # results_dict = {'action':{}}
+    # results_dict['blend'] = blend_return
+    # for sums, result_factor in zip(results, result_factors):
+    #     #print("For", result_factor)
+    #
+    #     for s, factor in zip(sums, factors):
+    #         results_dict['action'][factor] = MP / t * sum(s)
+    #         #print(factor, MP / t * sum(s))
+    #
+    # return results_dict
 
     #print("actual value is", actr.chunk_slot_value('OBSERVATION0', 'ACTUAL'))
 
@@ -835,6 +843,7 @@ def main():
                     step_data['drone'] = np.where(step_data['volume'] == nav_runner.envs.map_volume['feature_value_map']['drone'][nav_runner.envs.altitude]['val'])
 
                     actr_observation = create_actr_observation(step_data)
+                    handle_observation(actr_observation)
                     #angle test code
                     # x1,x2 = step_data['drone'][-2:]
                     # y1,y2 = step_data['hiker'][-2:]
