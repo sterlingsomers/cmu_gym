@@ -192,3 +192,32 @@ class Runner(object):
         sys.stdout.flush()
         # return obs_raw[0:-3], action_ids[0], value_estimate[0], obs_raw[1], obs_raw[2], representation, fc, action_probs, grad_V_allo,grad_V_ego, mask_allo, mask_ego#, grad_pi
         return obs_raw[0:-3], action_ids[0], value_estimate[0], obs_raw[1], obs_raw[2], representation, fc, action_probs
+
+    def run_keyboard_batch(self):
+
+        latest_obs = self.latest_obs # (MINE) =state(t)
+
+        # action = agent(state)
+        action_ids, value_estimate, representation, fc, action_probs = self.agent.step_eval(latest_obs)
+        # BELOW IS THE CORRECT ONE
+        # action_ids, value_estimate, representation, fc, action_probs, grad_V_allo, grad_V_ego, mask_allo, mask_ego = self.agent.step_eval(latest_obs)
+
+        # print('|actions:', action_ids)
+        # if drop_on:
+        #     obs_raw = self.envs.step_drop(action_ids) # It will also visualize the next observation if all the episodes have ended as after success it retunrs the obs from reset
+        # else:
+        #     obs_raw = self.envs.step(action_ids)
+        # latest_obs = self.obs_processer.process(obs_raw[0:-3])  # Take only the first element which is the rgb image and ignore the reward, done etc
+        # print('-->|rewards:', np.round(np.mean(obs_raw[1]), 3))
+
+        # if obs_raw[2]: # done is True
+        #     # for r in obs_raw[1]: # You will double count here as t
+        #     self._handle_episode_end(obs_raw[1])  # The printing score process is NOT a parallel process apparrently as you input every reward (t) independently
+
+        self.latest_obs = latest_obs # (MINE) state(t) = state(t+1), the usual s=s'
+        self.batch_counter += 1
+        #print('Batch %d finished' % self.batch_counter)
+        sys.stdout.flush()
+        # return obs_raw[0:-3], action_ids[0], value_estimate[0], obs_raw[1], obs_raw[2], representation, fc, action_probs, grad_V_allo,grad_V_ego, mask_allo, mask_ego#, grad_pi
+        return action_ids[0], value_estimate[0], representation, fc, action_probs
+

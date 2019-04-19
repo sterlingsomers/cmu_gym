@@ -32,6 +32,7 @@ import gym_gridworld
 
 FLAGS = flags.FLAGS
 flags.DEFINE_bool("visualize", False, "Whether to render with pygame.")
+flags.DEFINE_bool("Save", False, "Whether to save the collected data of the agents.")
 flags.DEFINE_integer("resolution", 32, "Resolution for screen and minimap feature layers.")
 flags.DEFINE_integer("step_mul", 100, "Game steps per agent step.")
 flags.DEFINE_integer("n_envs", 20, "Number of environments to run in parallel")
@@ -371,19 +372,19 @@ def main():
             while nav_runner.episode_counter <= (FLAGS.episodes - 1) and running==True:
                 print('Episode: ', nav_runner.episode_counter)
                 # Init storage structures
-                dictionary[nav_runner.episode_counter] = {}
-                mb_obs = []
-                mb_actions = []
-                mb_flag = []
-                mb_representation = []
-                mb_fc = []
-                mb_rewards = []
-                mb_values = []
-                mb_drone_pos = []
-                mb_heading = []
-                mb_crash = []
-                mb_map_volume = [] # obs[0]['volume']==envs.map_volume
-                mb_ego = []
+                # dictionary[nav_runner.episode_counter] = {}
+                # mb_obs = []
+                # mb_actions = []
+                # mb_flag = []
+                # mb_representation = []
+                # mb_fc = []
+                # mb_rewards = []
+                # mb_values = []
+                # mb_drone_pos = []
+                # mb_heading = []
+                # mb_crash = []
+                # mb_map_volume = [] # obs[0]['volume']==envs.map_volume
+                # mb_ego = []
 
 
                 nav_runner.reset_demo()  # Cauz of differences in the arrangement of the dictionaries
@@ -393,7 +394,7 @@ def main():
                 process_img(map_alt, 20, 400)
                 pygame.display.update()
 
-                dictionary[nav_runner.episode_counter]['hiker_pos'] = nav_runner.envs.hiker_position
+                # dictionary[nav_runner.episode_counter]['hiker_pos'] = nav_runner.envs.hiker_position
                 # dictionary[nav_runner.episode_counter]['map_volume'] = map_xy
 
                 # Quit pygame if the (X) button is pressed on the top left of the window
@@ -403,6 +404,8 @@ def main():
                     if event.type == pygame.QUIT:
                         running = False
                 sleep(sleep_time)
+
+
                 # Timestep counter
                 t=0
 
@@ -410,31 +413,50 @@ def main():
                 done = 0
                 while done==0:
 
-                    mb_obs.append(nav_runner.latest_obs)
-                    mb_flag.append(drop_flag)
-                    mb_heading.append(nav_runner.envs.heading)
-
-                    drone_pos = np.where(nav_runner.envs.map_volume['vol'] == nav_runner.envs.map_volume['feature_value_map']['drone'][nav_runner.envs.altitude]['val'])
-                    mb_drone_pos.append(drone_pos)
-                    mb_map_volume.append(nav_runner.envs.map_volume)
-                    mb_ego.append(nav_runner.envs.ego)
-
-
+                    # mb_obs.append(nav_runner.latest_obs)
+                    # mb_flag.append(drop_flag)
+                    # mb_heading.append(nav_runner.envs.heading)
+                    #
+                    # drone_pos = np.where(nav_runner.envs.map_volume['vol'] == nav_runner.envs.map_volume['feature_value_map']['drone'][nav_runner.envs.altitude]['val'])
+                    # mb_drone_pos.append(drone_pos)
+                    # mb_map_volume.append(nav_runner.envs.map_volume)
+                    # mb_ego.append(nav_runner.envs.ego)
+                    # action= -1
+                    pygame.event.clear()
+                    event = pygame.event.wait()
+                    if event.type == pygame.QUIT:
+                        pygame.quit()
+                        sys.exit()
+                    elif event.type == pygame.KEYDOWN:
+                        if (event.key == pygame.K_LEFT):
+                            action = 5
+                        elif (event.key == pygame.K_RIGHT):
+                            action = 9
+                        elif (event.key == pygame.K_UP):
+                            action = 7
+                    # action stays till renewed no matter what key you press!!! So whichever key will do the last action
+                    pygame.event.clear()
                     # dictionary[nav_runner.episode_counter]['observations'].append(nav_runner.latest_obs)
                     # dictionary[nav_runner.episode_counter]['flag'].append(drop_flag)
 
                     # RUN THE MAIN LOOP
                     #obs, action, value, reward, done, representation, fc, grad_V, grad_pi = nav_runner.run_trained_batch(drop_flag) # Just one step. There is no monitor here so no info section
                     # obs, action, value, reward, done, representation, fc, action_probs, grad_V_allo, grad_V_ego, mask_allo, mask_ego = nav_runner.run_trained_batch(drop_flag) # Just one step. There is no monitor here so no info section
-                    obs, action, value, reward, done, representation, fc, action_probs = nav_runner.run_trained_batch(drop_flag) # Just one step. There is no monitor here so no info section
-
+                    action_net, value, representation, fc, action_probs = nav_runner.run_keyboard_batch() # Just one step. There is no monitor here so no info section
+                    if drop_flag:
+                        obs_raw = nav_runner.envs.step_drop(action)
+                    else:
+                        obs_raw = nav_runner.envs.step(action)
                     # dictionary[nav_runner.episode_counter]['actions'].append(action)
-                    mb_actions.append(action)
-                    mb_rewards.append(reward)
-                    mb_representation.append(representation)
-                    mb_fc.append(fc)
-                    mb_values.append(value)
-                    mb_crash.append(nav_runner.envs.crash)
+                    obs = obs_raw[0:-3]
+                    reward = obs_raw[1]
+                    done = obs_raw[2]
+                    # mb_actions.append(action)
+                    # mb_rewards.append(reward)
+                    # mb_representation.append(representation)
+                    # mb_fc.append(fc)
+                    # mb_values.append(value)
+                    # mb_crash.append(nav_runner.envs.crash)
 
                     # Saliencies
                     # cmap = plt.get_cmap('viridis')
@@ -479,125 +501,14 @@ def main():
                     pygame.event.get() # Show the last state and then reset
                     sleep(sleep_time)
                     t += 1
-                    if t == 70:
-                        break
-
-                    # Dropping Agent
-                    if done==1:
-                        print('=== DROPPING AGENT IN CHARGE ===')
-                        drop_runner.latest_obs = nav_runner.latest_obs
-                        done2 = 0
-                        drop_flag = 1
-                        # Store
-                        drone_pos = np.where(nav_runner.envs.map_volume['vol'] ==
-                                             nav_runner.envs.map_volume['feature_value_map']['drone'][
-                                                 nav_runner.envs.altitude]['val']) # the 2nd part is a num between 35-39
-                        mb_drone_pos.append(drone_pos)
-                        mb_obs.append(nav_runner.latest_obs)
-                        mb_flag.append(drop_flag)
-                        mb_heading.append(nav_runner.envs.heading)
-                        mb_map_volume.append(nav_runner.envs.map_volume)
-                        mb_ego.append(nav_runner.envs.ego)
-                        while done2==0:
-
-                            # Step
-                            # obs, action, value, reward, done2, representation, fc, action_probs, grad_V_allo, grad_V_ego, mask_allo, mask_ego = drop_runner.run_trained_batch(drop_flag)
-                            obs, action, value, reward, done2, representation, fc, action_probs = drop_runner.run_trained_batch(drop_flag)
-
-                            mb_rewards.append(reward)
-
-                            # Store
-                            mb_obs.append(drop_runner.latest_obs)
-                            mb_map_volume.append(drop_runner.envs.map_volume)
-                            mb_flag.append(0) # We need to put zero only once
-                            mb_actions.append(action)
-                            mb_representation.append(representation)
-                            mb_fc.append(fc)
-                            mb_values.append(value)
-                            mb_crash.append(drop_runner.envs.crash)
-                            mb_heading.append(drop_runner.envs.heading)
-                            drone_pos = np.where(drop_runner.envs.map_volume['vol'] ==
-                                                 drop_runner.envs.map_volume['feature_value_map']['drone'][
-                                                     drop_runner.envs.altitude]['val'])
-                            mb_drone_pos.append(drone_pos) # The last location will be doubled as if it is a drop action the drone doesn't change location so obs will be the same!!!
-                            mb_ego.append(drop_runner.envs.ego)
-
-                            # Saliencies
-                            # grad_V_allo = cmap(grad_V_allo)  # (100,100,4)
-                            # grad_V_allo = np.delete(grad_V_allo, 3, 2)  # (100,100,3)
-                            # # grad_V = np.stack((grad_V,) * 3, -1)
-                            # grad_V_allo = grad_V_allo * 255
-                            # grad_V_allo = grad_V_allo.astype(np.uint8)
-                            # process_img(grad_V_allo, 400, 20)
-                            #
-                            # grad_V_ego = cmap(grad_V_ego)  # (100,100,4)
-                            # grad_V_ego = np.delete(grad_V_ego, 3, 2)  # (100,100,3)
-                            # # grad_pi = np.stack((grad_pi,) * 3, -1)
-                            # grad_V_ego = grad_V_ego * 255
-                            # grad_V_ego = grad_V_ego.astype(np.uint8)
-                            # process_img(grad_V_ego, 400, 400)
-                            #
-                            # # Masks
-                            # masked_map_xy = map_xy
-                            # masked_map_xy[mask_allo == 0] = 0
-                            # process_img(masked_map_xy, 800, 20)
-                            # masked_map_alt = map_alt
-                            # masked_map_alt[mask_ego == 0] = 0
-                            # process_img(masked_map_alt, 800, 400)
-
-                            screen_mssg_variable("Value    : ", np.round(value, 3), (168, 350))
-                            screen_mssg_variable("Reward: ", np.round(reward, 3), (168, 372))
-                            screen_mssg_variable("P(drop|s): ", np.round(action_probs[0][-1], 3), (168, 700))
-
-                            pygame.display.update()
-                            pygame.event.get()
-                            sleep(sleep_time)
-
-                            if action == 15:
-                                # The update of the text will be at the same time with the update of state
-                                screen_mssg_variable("Package state:", drop_runner.envs.package_state, (20, 350))
-                                pygame.display.update()
-                                pygame.event.get()  # Update the screen
-                                dictionary[nav_runner.episode_counter]['pack_hiker_dist'] = drop_runner.envs.pack_dist
-                                sleep(sleep_time)
-
-                            gameDisplay.fill(DARK_BLUE)
-                            map_xy = obs[0]['img']
-                            map_alt = obs[0]['nextstepimage']
-                            process_img(map_xy, 20, 20)
-                            process_img(map_alt, 20, 400)
-
-                            # Update finally the screen with all the images you blitted in the run_trained_batch
-                            pygame.display.update()  # Updates only the blitted parts of the screen, pygame.display.flip() updates the whole screen
-                            pygame.event.get()  # Show the last state and then reset
-                            sleep(sleep_time)
-                            t = t +1
-                            if t==70:
-                                break
-
-                        dictionary[nav_runner.episode_counter]['map_volume'] = mb_map_volume
-                        dictionary[nav_runner.episode_counter]['observations'] = mb_obs
-                        dictionary[nav_runner.episode_counter]['ego'] = mb_ego
-                        dictionary[nav_runner.episode_counter]['flag'] = mb_flag
-                        dictionary[nav_runner.episode_counter]['actions'] = mb_actions
-                        dictionary[nav_runner.episode_counter]['rewards'] = mb_rewards
-                        # dictionary[nav_runner.episode_counter]['representation'] = mb_representation
-                        dictionary[nav_runner.episode_counter]['fc'] = mb_fc
-                        dictionary[nav_runner.episode_counter]['values'] = mb_values
-                        dictionary[nav_runner.episode_counter]['drone_pos'] = mb_drone_pos
-                        dictionary[nav_runner.episode_counter]['headings'] = mb_heading
-                        dictionary[nav_runner.episode_counter]['crash'] = mb_crash
-                        #STORE THE NUMBER OF THE MAP!!!
-
-                        score = sum(mb_rewards)
-                        print(">>>>>>>>>>>>>>>>>>>>>>>>>>> episode %d ended in %d steps. Score %f" % (nav_runner.episode_counter, t, score))
-                        nav_runner.episode_counter += 1
+                    # if t == 70:
+                    #     break
 
                 clock.tick(15)
-
-            print("...saving dictionary.")
-            pickle_in = open('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/All_maps_20x20_500_images_volume_ego.tj','wb')
-            pickle.dump(dictionary, pickle_in)
+            if FLAGS.Save:
+                print("...saving dictionary.")
+                pickle_in = open('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/All_maps_20x20_500_images_volume_ego.tj','wb')
+                pickle.dump(dictionary, pickle_in)
             # with open('./data/All_maps_20x20_500.tj', 'wb') as handle:
             #     pickle.dump(dictionary, handle)
 
