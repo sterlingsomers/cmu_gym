@@ -3,9 +3,12 @@ import math
 import numpy as np
 import os
 import random
-include_fc = True
 
-all_data = pickle.load(open('all_data1000.lst', "rb"))
+
+
+include_fc = False
+
+all_data = pickle.load(open('all_data100.lst', "rb"))
 
 possible_actions_map = {
         1: [[0, -1], [-1, -1], [-1, 0], [-1, 1], [0, 1]],
