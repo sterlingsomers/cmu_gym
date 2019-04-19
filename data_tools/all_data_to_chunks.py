@@ -2,10 +2,10 @@ import pickle
 import math
 import numpy as np
 import os
-
+import random
 include_fc = True
 
-all_data = pickle.load(open('all_data20.lst', "rb"))
+all_data = pickle.load(open('all_data1000.lst', "rb"))
 
 possible_actions_map = {
         1: [[0, -1], [-1, -1], [-1, 0], [-1, 1], [0, 1]],
@@ -135,11 +135,61 @@ def angle_categories(angle):
 
 
 
+def bin_chunks_by_action(allchunks):
+    nav = []
+    drop = []
+    by_action_count = {1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0,10:0,11:0,12:0,13:0,14:0,15:0}
+    by_action = {}
+    for episode in allchunks:
+        for step in episode['nav']:
+            nav.append(step)
+    #now nav just has all the steps, combined from episodes.
+    nav = [x for x in nav if not x['stuck']]
+    no_finds = False
+    #first, search the entire thing and look for unique actions
+    #must have n% examples of actions to be considered a regular action
+    for i in range(len(nav)):
+        step = nav[i]
+        by_action_count[step['action']] += 1
+    for step in nav:
+        n = by_action_count[step['action']] / len(nav) * 100
+        if n > 10:
+            by_action[step['action']] = []
+    #by_action now includes all actions that were chosen n% least once by the network.  Now to populate those evenly (add their index, easier for duplicate checking and memory managmenet)
+    #we need to include a maximum number of example equal to the minimum viable examples
+    num_actions = [by_action_count[x] for x in by_action]
+    min_samples = min(num_actions)
+    #shuffle nav to select at random
+    random.shuffle(nav)
+    while not no_finds:
+        for action in by_action:
+            for i in range(len(nav)):
+                if len(by_action[action]) >= min_samples:
+                    break
+                step = nav[i]
+                if step['action'] == action:
+                    by_action[action].append(i)
+                    continue
+            #if you get here, and haven't continued, nothing was found
+            no_finds = True
+    #now we have all the indexes of chunks that should be added.
+    index_values = []
+    for key,value in by_action.items():
+        index_values = index_values + value
+    #now they are all gathered in one list
+    all_navs = [nav[val] for val in index_values]
+
+    return [{'nav':all_navs,'drop':[]}]#to mimic what's expected in the loop
+
+
+#bin_chunks_by_action(all_data)
+
 #each of the entries in all data is an episode, comprised of nav and drop steps.
 #dumped into two types of memories, nav and drop
 nav = []
 drop = []
 
+all_data = bin_chunks_by_action(all_data)
 
 for episode in all_data:
     for step in episode['nav']:
