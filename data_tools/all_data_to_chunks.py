@@ -54,7 +54,7 @@ def egocentric_representation(drone_position, drone_heading, volume):
         try:
             column = volume[:, int(drone_position[1]) + xy[0], int(drone_position[2]) + xy[1]]
         except IndexError:
-            column = [1., 1., 1., 1.]
+            column = [1., 1., 1., 1., 1.]
         ego_slice[:,column_number] = column
         column_number += 1
     return np.flip(ego_slice,0)
