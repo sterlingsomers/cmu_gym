@@ -3,6 +3,7 @@ import math
 import numpy as np
 import os
 
+include_fc = True
 
 all_data = pickle.load(open('all_data20.lst', "rb"))
 
@@ -173,6 +174,9 @@ for episode in all_data:
         for key,value in action_values.items():
             chunk.extend([key,[key,value]])
 
+        if include_fc:
+            chunk.extend(['fc',['fc',step['fc']]])
+
         nav.append(chunk)
         print('step')
     for step in episode['drop']:
@@ -206,6 +210,9 @@ for episode in all_data:
         for key, value in action_values.items():
             chunk.extend([key, [key,value]])
         drop.append(chunk)
+
+        if include_fc:
+            chunk.extend(['fc',['fc',step['fc']]])
 
     print("episode complete")
 memory = [*nav, *drop]
