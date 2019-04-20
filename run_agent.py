@@ -42,7 +42,7 @@ flags.DEFINE_bool("visualize", False, "Whether to render with pygame.")
 flags.DEFINE_integer("resolution", 32, "Resolution for screen and minimap feature layers.")
 flags.DEFINE_integer("step_mul", 100, "Game steps per agent step.")
 flags.DEFINE_integer("n_envs", 20, "Number of environments to run in parallel")
-flags.DEFINE_integer("episodes", 100, "Number of complete episodes")
+flags.DEFINE_integer("episodes", 10, "Number of complete episodes")
 flags.DEFINE_integer("n_steps_per_batch", 32,
     "Number of steps per batch, if None use 8 for a2c and 128 for ppo")  # (MINE) TIMESTEPS HERE!!! You need them cauz you dont want to run till it finds the beacon especially at first episodes - will take forever
 flags.DEFINE_integer("all_summary_freq", 50, "Record all summaries every n batch")
@@ -110,7 +110,13 @@ flags.DEFINE_bool("save_replay", False, "Whether to save a replay at the end.")
 #flags.DEFINE_string("map", None, "Name of a map to use.")
 
 
+
+
 #ADD some global stuff for ACT-R
+
+#stats
+stats = {'crashes':0,'successes':0}
+
 min_max = {'ego_left':[],
            'ego_diagonal_left':[],
            'ego_diagonal_right':[],
@@ -890,6 +896,15 @@ def main():
                     nav_runner.envs.step(action)
                     reset_actr()
 
+                    if nav_runner.envs.check_for_crash():
+                        done = True
+                        done2 = True
+                        stats['crashes'] += 1
+                    if nav_runner.envs.check_for_hiker():
+                        done = True
+                        done2 = True
+                        stats['successes'] += 1
+
                     #angle test code
                     # x1,x2 = step_data['drone'][-2:]
                     # y1,y2 = step_data['hiker'][-2:]
@@ -1119,3 +1134,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    print(stats)
