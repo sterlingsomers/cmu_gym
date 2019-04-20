@@ -481,7 +481,7 @@ def main():
                     # masked_map_alt = map_alt
                     # masked_map_alt[mask_ego == 0] = 0
                     # process_img(masked_map_alt, 800, 400)
-                    event = pygame.event.wait() # PREVENTS FOR CONSIDERING MORE THAN A KEY PRESS AT ONCE
+                    event = pygame.event.wait() # PREVENTS FOR CONSIDERING MORE THAN A KEY PRESS AT ONCE. CAREFUL
                     screen_mssg_variable("Value    : ", np.round(value,3), (168, 350))
                     screen_mssg_variable("Reward: ", np.round(reward,3), (168, 372))
                     pygame.display.update()

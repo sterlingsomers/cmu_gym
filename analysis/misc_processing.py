@@ -51,4 +51,6 @@ datab = np.reshape(data,[data.shape[0],data.shape[1]])
 df = pd.DataFrame(data,columns=columns)
 df.to_pickle('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/df_dataframe.df')
 print('...dataframe saved')
+# To load
+# df = pd.read_pickle('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/df_dataframe.df')
 
