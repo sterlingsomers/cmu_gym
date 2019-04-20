@@ -11,7 +11,7 @@ tf.__version__
 ''' CREATE ALL NECESSARY FILES FOR TENSORBOARD TSNE'''
 
 PATH = os.getcwd() #+ '/analysis/Tensorboard'
-FOLDER = '/embedding-images' # CHANGE HERE!!!
+FOLDER = '/embedding-everything' # CHANGE HERE!!!
 LOG_DIR = PATH + FOLDER
 # metadata = os.path.join(LOG_DIR, 'metadata2.tsv')
 filename = 'selected_traj' # CHANGE HERE!!! This is a file you WILL create!
@@ -20,7 +20,7 @@ filename = 'selected_traj' # CHANGE HERE!!! This is a file you WILL create!
 # data_dir_list = os.listdir(data_path)
 
 # Load and create the data
-pickle_in = open('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/selected_drop_traj_images.tj','rb') # CHANGE HERE!!!
+pickle_in = open('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/selected_drop_traj_everything.tj','rb') # CHANGE HERE!!!
 obs = pickle.load(pickle_in)
 dims = (len(obs),256)
 fc = np.zeros(dims)
@@ -61,7 +61,7 @@ for i in range(len(obs)):
     tstep = obs[i]['timestep']
     target = obs[i]['target']
     actions = obs[i]['actions']
-    values = obs[i]['values']
+    values = obs[i]['values'] # FIX DECIMALS ITS UGLY!
     action_label = obs[i]['action_label']
     metadata_file.write('{}\t{}\t{}\t{}\t{}\t{}\n'.format(epis, tstep, target, actions, round(values,3), action_label)) # round doesnt work in writing to a file
 metadata_file.close()

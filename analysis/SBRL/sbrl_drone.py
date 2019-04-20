@@ -34,8 +34,8 @@ y = df['actions'].values
 y = y.astype(int)
 
 x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.33, random_state=42)
-feature_names = ["Far Left object's altitude", "Left object's alt", "Central object's alt",
-                  "Right object's alt", "Far Right object's alt", "hiker present", "Drone's alt"]
+feature_names = ["Far Left object's altitude", "Left object's altitude", "Central object's altitude",
+                  "Right object's altitude", "Far Right object's altitude", "hiker present", "Drone's altitude"]
 
 
 rule_list = BayesianRuleList(seed=1, feature_names=feature_names, verbose=2)
