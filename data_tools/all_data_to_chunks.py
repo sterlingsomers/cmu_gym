@@ -3,6 +3,7 @@ import math
 import numpy as np
 import os
 import random
+import copy
 
 
 
@@ -39,6 +40,8 @@ action_to_category_map = {
     14: ['right', 'up'],
     15: ['drop']
 }
+
+
 
 def distance_to_hiker(drone_position,hiker_position):
     distance = np.linalg.norm(drone_position-hiker_position)
@@ -81,7 +84,87 @@ def heading_to_hiker(drone_heading, drone_position, hiker_position):
     return deg
 
 
+def convert_data_to_chunks(all_data):
+    nav = []
+    drop = []
+    for episode in all_data:
+        for step in episode['nav']:
+            action_values = {'drop': 0, 'left': 0, 'diagonal_left': 0,
+                             'center': 0, 'diagonal_right': 0, 'right': 0,
+                             'up': 0, 'down': 0, 'level': 0}
+            # angle to hiker: negative = left, positive right
+            egocentric_angle_to_hiker = heading_to_hiker(step['heading'], step['drone'], step['hiker'])
+            angle_categories_to_hiker = angle_categories(egocentric_angle_to_hiker)
+            egocentric_slice = egocentric_representation(step['drone'], step['heading'], step['volume'])
+            # compile all that into chunks [slot, value, slot, value]
+            chunk = []
+            for key, value in angle_categories_to_hiker.items():
+                chunk.extend([key, [key, value]])
+            # need the altitudes from the slice
+            altitudes = altitudes_from_egocentric_slice(egocentric_slice)
+            altitudes = [x - 1 for x in altitudes]
+            alt = step['altitude']
+            chunk.extend(['altitude', ['altitude', int(alt)]])
+            chunk.extend(['ego_left', ['ego_left', altitudes[0] - alt],
+                          'ego_diagonal_left', ['ego_diagonal_left', altitudes[1] - alt],
+                          'ego_center', ['ego_center', altitudes[2] - alt],
+                          'ego_diagonal_right', ['ego_diagonal_right', altitudes[3] - alt],
+                          'ego_right', ['ego_right', altitudes[4] - alt]])
+            chunk.extend(['type', 'nav'])
+            # also want distance  to hiker
+            chunk.extend(['distance_to_hiker',
+                          ['distance_to_hiker', distance_to_hiker(np.array(step['drone']), np.array(step['hiker']))]])
+            # split action into components [up, level, down, left, right, etc]
+            components = action_to_category_map[step['action']]
+            for component in components:
+                action_values[component] = 1
+            for key, value in action_values.items():
+                chunk.extend([key, [key, value]])
 
+            if include_fc:
+                chunk.extend(['fc', ['fc', step['fc']]])
+
+            nav.append(chunk)
+            print('step')
+        for step in episode['drop']:
+            action_values = {'drop': 0, 'left': 0, 'diagonal_left': 0,
+                             'center': 0, 'diagonal_right': 0, 'right': 0,
+                             'up': 0, 'down': 0, 'level': 0}
+            # angle to hiker: negative = left, positive right
+            egocentric_angle_to_hiker = heading_to_hiker(step['heading'], step['drone'], step['hiker'])
+            angle_categories_to_hiker = angle_categories(egocentric_angle_to_hiker)
+            egocentric_slice = egocentric_representation(step['drone'], step['heading'], step['volume'])
+            # compile all that into chunks [slot, value, slot, value]
+            chunk = []
+            for key, value in angle_categories_to_hiker.items():
+                chunk.extend([key, [key, value]])
+            # need the altitudes from the slice
+            altitudes = altitudes_from_egocentric_slice(egocentric_slice)
+            altitudes = [x - 1 for x in altitudes]
+            alt = step['altitude']  # to be consistant with the numpy
+            chunk.extend(['altitude', ['altitude', int(alt)]])
+            chunk.extend(['ego_left', ['ego_left', altitudes[0] - alt],
+                          'ego_diagonal_left', ['ego_diagonal_left', altitudes[1] - alt],
+                          'ego_center', ['ego_center', altitudes[2] - alt],
+                          'ego_diagonal_right', ['ego_diagonal_right', altitudes[3] - alt],
+                          'ego_right', ['ego_right', altitudes[4] - alt]])
+            chunk.extend(['type', 'drop'])
+            chunk.extend(['distance_to_hiker',
+                          ['distance_to_hiker', distance_to_hiker(np.array(step['drone']), np.array(step['hiker']))]])
+            # split action into components [up, level, down, left, right, etc]
+            components = action_to_category_map[step['action']]
+            for component in components:
+                action_values[component] = 1
+            for key, value in action_values.items():
+                chunk.extend([key, [key, value]])
+            drop.append(chunk)
+
+            if include_fc:
+                chunk.extend(['fc', ['fc', step['fc']]])
+
+        print("episode complete")
+    memory = [nav, drop]
+    return memory
 
 def angle_categories(angle):
     '''Values -180 to +180. Returns a fuzzy set dictionary.'''
@@ -136,6 +219,13 @@ def angle_categories(angle):
     #
     # return returndict
 
+def average_distance_between_vectors(numpyArray):
+    tot = 0
+
+    for i in range(numpyArray.shape[0]-1):
+        tot += ((((numpyArray[i+1:])**2).sum(1))**.5).sum()
+    average = tot/((numpyArray.shape[0]-1)*(numpyArray.shape[0])/2.)
+    return average
 
 
 def bin_chunks_by_action(allchunks):
@@ -184,95 +274,283 @@ def bin_chunks_by_action(allchunks):
 
     return [{'nav':all_navs,'drop':[]}]#to mimic what's expected in the loop
 
+def convert_data_to_ndarray(data):
+    '''Converts the list of steps into ndarray'''
+    ndarray = np.zeros((len(data),int(len(data[0])/2)))
+
+    pass
+
+def pick_two_from_each_group(dict_by_action,dist,step=0.1):
+    #first, remove all empty actions
+    new_dict = {}
+    combos_to_actions = {('down', 'left'): [], ('down', 'diagonal_left'): [], ('down', 'center'): [],
+                         ('down', 'diagonal_right'): [], ('down', 'right'): [],
+                         ('level', 'left'): [], ('level', 'diagonal_left'): [], ('level', 'center'): [],
+                         ('level', 'diagonal_right'): [], ('level', 'right'): [],
+                         ('up', 'left'): [], ('up', 'diagonal_left'): [], ('up', 'center'): [],
+                         ('up', 'diagonal_right'): [], ('up', 'right'): [], ('drop'): []}
+    #don't copy the dict, edit it in-i
+    # for key,value in dict_by_action.items():
+    #     if value:
+    #         new_dict[key] = [x for x in value]
+    for key in dict_by_action:
+        chunks = dict_by_action[key]
+        if not chunks:
+            continue
+        random.shuffle(chunks)
+        #pick one randomly
+        achunk = chunks[0]
+        remove_index = 0
+        combos_to_actions[key].append(chunks)
+        for i in range(1,len(chunks)):
+            if euclidean_between_chunks(chunks[i],achunk) > dist:
+                remove_index = i
+                combos_to_actions[key].append(chunks[i])
+                break
+        if remove_index:
+            del combos_to_actions[key][remove_index]
+
+
+    return combos_to_actions
+
+def index_of_most_distal_chunks(chunksList):
+    distance = 0
+    indexes = []
+    for i in range(len(chunksList)):
+        for j in range(i + 1, len(chunksList)):
+            if euclidean_between_chunks(chunksList[i],chunksList[j]) > distance:
+                distance = euclidean_between_chunks(chunksList[i],chunksList[j])
+                c1 = chunksList[i]
+                c2 = chunksList[j]
+                indexes = [i,j+i]
+    return indexes,distance
+
+
+
+def random_distal_chunks(dict_by_action):
+    combos_to_actions = {('down', 'left'): [], ('down', 'diagonal_left'): [], ('down', 'center'): [],
+                         ('down', 'diagonal_right'): [], ('down', 'right'): [],
+                         ('level', 'left'): [], ('level', 'diagonal_left'): [], ('level', 'center'): [],
+                         ('level', 'diagonal_right'): [], ('level', 'right'): [],
+                         ('up', 'left'): [], ('up', 'diagonal_left'): [], ('up', 'center'): [],
+                         ('up', 'diagonal_right'): [], ('up', 'right'): [], ('drop'): []}
+    change = False
+    for key in dict_by_action:
+        greater_than_average = []
+        chunks = copy.deepcopy(dict_by_action[key])
+        if not chunks:
+            continue
+        min_distance = average_euclidean(chunks)
+        random.shuffle(chunks)
+        achunk = chunks[0]
+        remove_index = 0#can't be a chosen index, since it starts at 1, so use as T/F
+        for i in range(1,len(chunks)):
+            if euclidean_between_chunks(achunk,chunks[i]) > min_distance:
+                change = True
+                remove_index = i
+                combos_to_actions[key].append(chunks[i])
+                combos_to_actions[key].append(achunk)
+                break
+        if remove_index:
+            del dict_by_action[key][remove_index]
+
+    return combos_to_actions, change
+
+
+
+
+
+def get_data_of_one_kind(data,keyword='nav'):
+    kind = []
+    for episode in data:
+        for step in episode[keyword]:
+            kind.append(copy.deepcopy(step))
+    return kind
+
+def average_euclidean(chunks):
+    tot = 0
+    for i in range(len(chunks)-1):
+        tot += euclidean_between_chunks(chunks[i],chunks[i+1])
+    return tot/len(chunks)/2.
+
+def euclidean_between_chunks(chunk1,chunk2):
+    distance = (chunk1[1][1]-chunk2[1][1])**2     \
+                + (chunk1[3][1]-chunk2[3][1])**2  \
+                + (chunk1[5][1]-chunk2[5][1])**2  \
+                + (chunk1[7][1]-chunk2[7][1])**2  \
+                + (chunk1[9][1]-chunk2[9][1])**2    \
+                + (chunk1[11][1] - chunk2[11][1])**2    \
+                + (chunk1[13][1] - chunk2[13][1])**2    \
+                + (chunk1[15][1] - chunk2[15][1])**2    \
+                + (chunk1[17][1] - chunk2[17][1])**2    \
+                + (chunk1[19][1] - chunk2[19][1])**2    \
+                + (chunk1[21][1] - chunk2[21][1])**2    \
+                + (chunk1[25][1] - chunk2[25][1])**2
+    return math.sqrt(distance)
+
+def access_by_key(key, list):
+    '''Assumes key,vallue pairs and returns the value'''
+
+    if not key in list:
+        raise KeyError(f'Key {key} not in list {list}.')
+
+    return list[list.index(key)+1]
+
+def remap( x, oMin, oMax, nMin, nMax ):
+    #https://stackoverflow.com/questions/929103/convert-a-number-range-to-another-range-maintaining-ratio
+    #range check
+    if oMin == oMax:
+        print("Warning: Zero input range")
+        return None
+
+    if nMin == nMax:
+        print("Warning: Zero output range")
+        return None
+
+    #check reversed input range
+    reverseInput = False
+    oldMin = min( oMin, oMax )
+    oldMax = max( oMin, oMax )
+    if not oldMin == oMin:
+        reverseInput = True
+
+    #check reversed output range
+    reverseOutput = False
+    newMin = min( nMin, nMax )
+    newMax = max( nMin, nMax )
+    if not newMin == nMin :
+        reverseOutput = True
+
+    portion = (x-oldMin)*(newMax-newMin)/(oldMax-oldMin)
+    if reverseInput:
+        portion = (oldMax-x)*(newMax-newMin)/(oldMax-oldMin)
+
+    result = portion + newMin
+    if reverseOutput:
+        result = newMax - portion
+
+    return result
+
+def get_chunks_with_action(chunks,action_key1,action_key2):
+    '''Returns a list to subdivide the chunks'''
+    #rList = []
+    # for chunk in chunks:
+    #     if access_by_key(action_key1,chunk)
+    rList = [x for x in chunks if access_by_key(action_key1,x)[1] and access_by_key(action_key2,x)[1]]
+    return rList
+
+def sort_chunks_by_action(chunksList,drop=False):
+    combos_to_actions = {('down', 'left'): 0, ('down', 'diagonal_left'): 1, ('down', 'center'): 2,
+                         ('down', 'diagonal_right'): 3, ('down', 'right'): 4,
+                         ('level', 'left'): 5, ('level', 'diagonal_left'): 6, ('level', 'center'): 7,
+                         ('level', 'diagonal_right'): 8, ('level', 'right'): 9,
+                         ('up', 'left'): 10, ('up', 'diagonal_left'): 11, ('up', 'center'): 12,
+                         ('up', 'diagonal_right'): 13, ('up', 'right'): 14, ('drop'): 15}
+
+    if not drop:
+        del combos_to_actions['drop']
+    for key in combos_to_actions:
+        combos_to_actions[key] = get_chunks_with_action(chunksList,key[0],key[1])
+    return combos_to_actions
 
 #bin_chunks_by_action(all_data)
 
 #each of the entries in all data is an episode, comprised of nav and drop steps.
 #dumped into two types of memories, nav and drop
-nav = []
-drop = []
+#nav = []
+#drop = []
 
-all_data = bin_chunks_by_action(all_data)
+#all_navs = get_data_of_one_kind(all_data,keyword='nav')
+#all_drops = get_data_of_one_kind(all_data,keyword='drop')
 
-for episode in all_data:
-    for step in episode['nav']:
-        action_values = {'drop':0,'left': 0, 'diagonal_left': 0,
-                         'center': 0, 'diagonal_right': 0, 'right': 0,
-                         'up':0,'down':0,'level':0}
-        #angle to hiker: negative = left, positive right
-        egocentric_angle_to_hiker = heading_to_hiker(step['heading'],step['drone'],step['hiker'])
-        angle_categories_to_hiker = angle_categories(egocentric_angle_to_hiker)
-        egocentric_slice = egocentric_representation(step['drone'],step['heading'],step['volume'])
-        #compile all that into chunks [slot, value, slot, value]
-        chunk = []
-        for key,value in angle_categories_to_hiker.items():
-            chunk.extend([key,[key,value]])
-        #need the altitudes from the slice
-        altitudes = altitudes_from_egocentric_slice(egocentric_slice)
-        altitudes = [x -1 for x in altitudes]
-        alt = step['altitude']
-        chunk.extend(['current_altitude',['current_altitude',int(alt)]])
-        chunk.extend(['ego_left',['ego_left',altitudes[0] - alt],
-                      'ego_diagonal_left', ['ego_diagonal_left',altitudes[1] - alt],
-                      'ego_center', ['ego_center',altitudes[2] - alt],
-                      'ego_diagonal_right', ['ego_diagonal_right',altitudes[3] - alt],
-                      'ego_right', ['ego_right',altitudes[4] - alt]])
-        chunk.extend(['type','nav'])
-        #also want distance  to hiker
-        chunk.extend(['distance_to_hiker',['distance_to_hiker',distance_to_hiker(np.array(step['drone']),np.array(step['hiker']))]])
-        #split action into components [up, level, down, left, right, etc]
-        components = action_to_category_map[step['action']]
-        for component in components:
-            action_values[component] = 1
-        for key,value in action_values.items():
-            chunk.extend([key,[key,value]])
+#navs_memory = convert_data_to_chunks(all_navs)
+#sort  by action
+#navs_by_action = sort_chunks_by_action(all_navs)
+#drops_by_action = sort_chunks_by_action(all_drops)
 
-        if include_fc:
-            chunk.extend(['fc',['fc',step['fc']]])
 
-        nav.append(chunk)
-        print('step')
-    for step in episode['drop']:
-        action_values = {'drop': 0, 'left': 0, 'diagonal_left': 0,
-                         'center': 0, 'diagonal_right': 0, 'right': 0,
-                         'up':0,'down':0,'level':0}
-        # angle to hiker: negative = left, positive right
-        egocentric_angle_to_hiker = heading_to_hiker(step['heading'], step['drone'], step['hiker'])
-        angle_categories_to_hiker = angle_categories(egocentric_angle_to_hiker)
-        egocentric_slice = egocentric_representation(step['drone'], step['heading'], step['volume'])
-        # compile all that into chunks [slot, value, slot, value]
-        chunk = []
-        for key, value in angle_categories_to_hiker.items():
-            chunk.extend([key, [key,value]])
-        # need the altitudes from the slice
-        altitudes = altitudes_from_egocentric_slice(egocentric_slice)
-        altitudes = [x - 1 for x in altitudes]
-        alt = step['altitude'] #to be consistant with the numpy
-        chunk.extend(['current_altitude', ['current_altitude',int(alt)]])
-        chunk.extend(['ego_left', ['ego_left',altitudes[0] - alt],
-                      'ego_diagonal_left', ['ego_diagonal_left',altitudes[1] - alt],
-                      'ego_center', ['ego_center',altitudes[2] - alt],
-                      'ego_diagonal_right',  ['ego_diagonal_right',altitudes[3] - alt],
-                      'ego_right', ['ego_right',altitudes[4] - alt]])
-        chunk.extend(['type', 'drop'])
-        chunk.extend(['distance_to_hiker',['distance_to_hiker',distance_to_hiker(np.array(step['drone']),np.array(step['hiker']))]])
-        # split action into components [up, level, down, left, right, etc]
-        components = action_to_category_map[step['action']]
-        for component in components:
-            action_values[component] = 1
-        for key, value in action_values.items():
-            chunk.extend([key, [key,value]])
-        drop.append(chunk)
+#all_data = bin_chunks_by_action(all_data)
 
-        if include_fc:
-            chunk.extend(['fc',['fc',step['fc']]])
+#convert_data_to_ndarray(all_navs)
+#memory = convert_data_to_chunks(all_data) #[[nav list,drop list]]
 
-    print("episode complete")
-memory = [*nav, *drop]
+#nav_avg = average_euclidean(memory[0])
+#tt = access_by_key('down',memory[0][0])
+
+#down_left = get_chunks_with_action(memory[0], 'down', 'left')
+memory = convert_data_to_chunks(all_data)#[[nav list,drop list]]
+navs_by_action = sort_chunks_by_action(memory[0])
+drops_by_action = sort_chunks_by_action(memory[1])
+
+
+reduced_navs = {('down', 'left'): [], ('down', 'diagonal_left'): [], ('down', 'center'): [],
+                         ('down', 'diagonal_right'): [], ('down', 'right'): [],
+                         ('level', 'left'): [], ('level', 'diagonal_left'): [], ('level', 'center'): [],
+                         ('level', 'diagonal_right'): [], ('level', 'right'): [],
+                         ('up', 'left'): [], ('up', 'diagonal_left'): [], ('up', 'center'): [],
+                         ('up', 'diagonal_right'): [], ('up', 'right'): [], ('drop'): []}
+# change = True
+# while change:
+#     one_pass,change = random_distal_chunks(navs_by_action)
+#     if change:
+#         for key in one_pass:
+#             reduced_navs[key].extend(one_pass[key])
+
+#beore I can do a distance measure, I have to transpose the distances to 0-1,
+#otherwise, they dominate the distance measure
+#same with altitudes
+nav_distances = []
+nav_altitudes = []
+nav_egos = []
+egoses = ['ego_left', 'ego_diagonal_left','ego_center','ego_diagonal_right','ego_right']
+for key in navs_by_action:
+    dists = [float(access_by_key('distance_to_hiker',x)[1]) for x in navs_by_action[key]]
+    alts = [int(access_by_key('altitude',x)[1]) for x in navs_by_action[key]]
+    for egotype in egoses:
+        print('egotype:',egotype)
+        nav_egos.extend([int(access_by_key(egotype,x)[1]) for x in navs_by_action[key]])
+    nav_distances.extend(dists)
+    nav_altitudes.extend(alts)
+max_nav_distance = max(nav_distances)
+min_nav_distances = min(nav_distances)
+max_nav_alt = max(nav_altitudes)
+min_nav_alt = min(nav_altitudes)
+max_nav_ego = max(nav_egos)
+min_nav_ego = min(nav_egos)
+
+#modify the by_actions to the new transponsed values
+for key in navs_by_action:
+    for chunk in navs_by_action[key]:
+        for i in range(len(chunk)):
+            if chunk[i] == 'distance_to_hiker':
+                chunk[i+1][1] = remap(chunk[i+1][1], min_nav_distances, max_nav_distance, 0, 1)
+            if chunk[i] == 'altitude':
+                chunk[i+1][1] = remap(chunk[i+1][1], min_nav_alt, max_nav_alt, 0, 1)
+            if chunk[i] in egoses:
+                chunk[i+1][1] = remap(chunk[i+1][1], min_nav_ego, max_nav_ego, 0, 1)
+
+
+
+indexes = {}
+for key in navs_by_action:
+    chunks = navs_by_action[key]
+    indexes[key],dist = index_of_most_distal_chunks(chunks)
+    print("ok")
+
+#HERE - now that I have the index - add it to a new list, and clear out the old, n times untiles the first combination (up left) gives up
+
+
+
+#average_distance_navs = average_euclidean(memory[0])
+#average_distance_drops = average_euclidean(memory[0])
+
+#the aim here will be to pick two items from each action category
+#first pick a random one, then find one greater than average distance away
+
 
 
 #file_path = os.path.join(data_path,filename)
-with open('chunks.pkl','wb') as handle:
-    pickle.dump(memory,handle)
+#with open('chunks.pkl','wb') as handle:
+#    pickle.dump(memory,handle)
 
 print("done.")
