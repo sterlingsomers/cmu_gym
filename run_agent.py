@@ -32,10 +32,11 @@ import gym_gridworld
 
 FLAGS = flags.FLAGS
 flags.DEFINE_bool("visualize", True, "Whether to render with pygame.")
+flags.DEFINE_float("sleep_time", 1.0, "Time-delay in the demo")
 flags.DEFINE_integer("resolution", 32, "Resolution for screen and minimap feature layers.")
 flags.DEFINE_integer("step_mul", 100, "Game steps per agent step.")
 flags.DEFINE_integer("n_envs", 20, "Number of environments to run in parallel")
-flags.DEFINE_integer("episodes", 500, "Number of complete episodes")
+flags.DEFINE_integer("episodes", 10, "Number of complete episodes")
 flags.DEFINE_integer("n_steps_per_batch", 32,
     "Number of steps per batch, if None use 8 for a2c and 128 for ppo")  # (MINE) TIMESTEPS HERE!!! You need them cauz you dont want to run till it finds the beacon especially at first episodes - will take forever
 flags.DEFINE_integer("all_summary_freq", 50, "Record all summaries every n batch")
@@ -346,7 +347,7 @@ def main():
             BLACK = (0, 0, 0)
             WHITE = (255, 255, 255)
 
-            sleep_time = 0.0
+            sleep_time = FLAGS.sleep_time
 
             pygame.init()
             gameDisplay = pygame.display.set_mode((display_w, display_h))
@@ -485,7 +486,8 @@ def main():
                     # Dropping Agent
                     if done==1:
                         print('=== DROPPING AGENT IN CHARGE ===')
-                        drop_runner.latest_obs = nav_runner.latest_obs
+                        # Below you can switch to reset nav so you start the drop in different location (and map as it resets) in order to check if it learns to go close to the hiker
+                        drop_runner.latest_obs = nav_runner.latest_obs# drop_runner.reset_demo()#  # You dont need to reset the drop runner as you take as obs the last obs ofr the nav
                         done2 = 0
                         drop_flag = 1
                         # Store
