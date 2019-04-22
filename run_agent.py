@@ -129,14 +129,16 @@ def main():
         check_and_handle_existing_folder(full_summary_path)
 
     #(MINE) Create multiple parallel environements (or a single instance for testing agent)
-    if FLAGS.training and FLAGS.n_envs != 1:
+    if FLAGS.training and FLAGS.visualize==False:
         #envs = SubprocVecEnv((partial(make_sc2env, **env_args),) * FLAGS.n_envs)
         #envs = SubprocVecEnv([make_env(i,**env_args) for i in range(FLAGS.n_envs)])
         envs = make_custom_env('gridworld{}-v0'.format('visualize' if FLAGS.visualize else ''), FLAGS.n_envs, 1)
-    else:
+    elif FLAGS.training==False and FLAGS.visualize==True:
         #envs = make_custom_env('gridworld-v0', 1, 1)
         envs = gym.make('gridworld{}-v0'.format('visualize' if FLAGS.visualize else ''))
-        # envs = gym.make('gridworld-v0')
+    else:
+        print('Wrong choices in FLAGS training and visualization')
+
 
         #envs = SingleEnv(make_sc2env(**env_args))
     #envs = gym.make('gridworld-v0')
