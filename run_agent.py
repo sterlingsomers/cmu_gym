@@ -31,7 +31,7 @@ import gym
 import gym_gridworld
 
 FLAGS = flags.FLAGS
-flags.DEFINE_bool("visualize", False, "Whether to render with pygame.")
+flags.DEFINE_bool("visualize", True, "Whether to render with pygame.")
 flags.DEFINE_integer("resolution", 32, "Resolution for screen and minimap feature layers.")
 flags.DEFINE_integer("step_mul", 100, "Game steps per agent step.")
 flags.DEFINE_integer("n_envs", 20, "Number of environments to run in parallel")
@@ -42,14 +42,14 @@ flags.DEFINE_integer("all_summary_freq", 50, "Record all summaries every n batch
 flags.DEFINE_integer("scalar_summary_freq", 5, "Record scalar summaries every n batch")
 flags.DEFINE_string("checkpoint_path", "_files/models", "Path for agent checkpoints")
 flags.DEFINE_string("summary_path", "_files/summaries", "Path for tensorboard summaries")
-flags.DEFINE_string("model_name", "Drop_2020", "Name for checkpoints and tensorboard summaries") # Last best Drop_2020_new_terrain_new_reward_2
+flags.DEFINE_string("model_name", "Drop_2020_mountains", "Name for checkpoints and tensorboard summaries") # Last best Drop_2020_new_terrain_new_reward_2
 flags.DEFINE_integer("K_batches", 10000, # Batch is like a training epoch!
     "Number of training batches to run in thousands, use -1 to run forever") #(MINE) not for now
 flags.DEFINE_string("map_name", "DefeatRoaches", "Name of a map to use.")
 flags.DEFINE_float("discount", 0.95, "Reward-discount for the agent")
 flags.DEFINE_boolean("training", False,
     "if should train the model, if false then save only episode score summaries")
-flags.DEFINE_enum("if_output_exists", "overwrite", ["fail", "overwrite", "continue"],
+flags.DEFINE_enum("if_output_exists", "continue", ["fail", "overwrite", "continue"],
     "What to do if summary and model output exists, only for training, is ignored if notraining")
 flags.DEFINE_float("max_gradient_norm", 500.0, "good value might depend on the environment")
 flags.DEFINE_float("loss_value_weight", 0.5, "good value might depend on the environment") # orig:1.0
