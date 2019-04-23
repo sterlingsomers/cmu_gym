@@ -47,7 +47,7 @@ flags.DEFINE_integer("K_batches", 15000, # Batch is like a training epoch!
     "Number of training batches to run in thousands, use -1 to run forever") #(MINE) not for now
 flags.DEFINE_string("map_name", "DefeatRoaches", "Name of a map to use.")
 flags.DEFINE_float("discount", 0.95, "Reward-discount for the agent")
-flags.DEFINE_boolean("training", True,
+flags.DEFINE_boolean("training", False,
     "if should train the model, if false then save only episode score summaries"
 )
 flags.DEFINE_enum("if_output_exists", "continue", ["fail", "overwrite", "continue"],
@@ -133,7 +133,7 @@ def main():
         #envs = SubprocVecEnv((partial(make_sc2env, **env_args),) * FLAGS.n_envs)
         #envs = SubprocVecEnv([make_env(i,**env_args) for i in range(FLAGS.n_envs)])
         envs = make_custom_env('gridworld{}-v0'.format('visualize' if FLAGS.visualize else ''), FLAGS.n_envs, 1)
-    elif FLAGS.training==False and FLAGS.visualize==True:
+    elif FLAGS.training==False:
         #envs = make_custom_env('gridworld-v0', 1, 1)
         envs = gym.make('gridworld{}-v0'.format('visualize' if FLAGS.visualize else ''))
     else:
