@@ -373,6 +373,8 @@ def main():
             while nav_runner.episode_counter <= (FLAGS.episodes - 1) and running==True:
                 print('Episode: ', nav_runner.episode_counter)
                 episode_name = run_name + str(nav_runner.episode_counter) + ".pptx"
+                mission_file_name = os.path.join(rootname, 'images', run_name + str(nav_runner.episode_counter)  + '.json')
+                mission_json = studyresources.Mission(mission_file_name)
                 ppt = Presentation(dirname, episode_name)
                 ppt.add_title_slide(
                     'Provision a Hiker',
@@ -494,6 +496,19 @@ def main():
                     print(str(t), end=",")
                     pygame.image.save(gameDisplay, image_file_name)
                     slide = ppt.add_image_slide(image_file_name, ppt.image_title(t, info))
+                    mission_json.add(
+                        t,
+                        'common_ground',
+                        {'terms': ppt.image_title(t, info)})
+                    mission_json.add(
+                        t,
+                        'allocentric',
+                        {'data': obs[0]['allocentric']})
+                    mission_json.add(
+                        t,
+                        'egocentric',
+                        {'data': obs[0]['nextstepdata']})
+
                     this_action_probability_matrix = studyresources.action_probability_matrix(action_probs)
                     last_action_probability_matrix = studyresources.action_probability_matrix(last_action_probs)
                     if t==0:
@@ -503,6 +518,12 @@ def main():
                             slide,
                             "Starting Position",
                             None)
+                        mission_json.add(
+                            t,
+                            'Mission',
+                            {'hiker': studyresources.get_hiker(),
+                             'drone': studyresources.get_drone(),
+                             'map': studyresources.get_map_object_by_name(FLAGS.map)})
                     else:
                         add_table_to_slide(
                             DEFAULT_TABLE_TOP_TITLE_LAST,
@@ -510,6 +531,11 @@ def main():
                             slide,
                             "Action Choice %",
                             this_action_probability_matrix)
+                        mission_json.add(
+                            t,
+                            'action_probability',
+                            {'matrix': this_action_probability_matrix})
+
                     '''
                     add_table_to_slide(
                         DEFAULT_TABLE_TOP_TITLE_NEXT,
@@ -646,6 +672,18 @@ def main():
                             slide = ppt.add_image_slide(image_file_name, ppt.image_title(t, info))
                             this_action_probability_matrix = studyresources.action_probability_matrix(action_probs)
                             last_action_probability_matrix = studyresources.action_probability_matrix(last_action_probs)
+                            mission_json.add(
+                                t,
+                                'common_ground',
+                                {'terms': ppt.image_title(t, info)})
+                            mission_json.add(
+                                t,
+                                'allocentric',
+                                {'data': obs[0]['allocentric']})
+                            mission_json.add(
+                                t,
+                                'egocentric',
+                                {'data': obs[0]['nextstepdata']})
                             if t == 0:
                                 add_table_to_slide(
                                     DEFAULT_TABLE_TOP_TITLE_LAST,
@@ -660,6 +698,11 @@ def main():
                                     slide,
                                     "Action Choice %",
                                     this_action_probability_matrix)
+                                mission_json.add(
+                                    t,
+                                    'action_probability',
+                                    {'matrix': this_action_probability_matrix})
+
                             '''
                             add_table_to_slide(
                                 DEFAULT_TABLE_TOP_TITLE_NEXT,
@@ -710,7 +753,7 @@ def main():
                 if ok_to_save_run:
                     print ("Maximum run steps exceeded, not output saved")
                     ppt.save()
-
+                    mission_json.export_json()
 
             print("...saving dictionary.")
             with open('./data/test.tj', 'wb') as handle:

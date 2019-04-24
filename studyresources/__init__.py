@@ -191,6 +191,12 @@ def get_map_names():
      return dump_as_json_string(list(map_dictionary.keys()))
 
 
+def get_map_object_by_name(name):
+     if name in map_dictionary:
+          return map_dictionary[name]
+     return {}
+
+
 def get_map_by_name(name):
      col_width = 3
      if name in map_dictionary:
@@ -246,12 +252,21 @@ def action_probability_matrix(action_probs):
 
 class Mission:
      def __init__(self, mission_file_name):
-           self.mission_file_name = mission_file_name
-           self.mission_dictionary = {}
+          self.mission_file_name = mission_file_name
+          self.mission_dictionary = {}
+          return
 
-     def add_to_mission(self, step, label, data):
+     def show(self):
+          return dump_as_json_string(self.mission_dictionary)
+
+     def add(self, step, label, data):
+          if step not in self.mission_dictionary:
+               self.mission_dictionary[step] = {}
           self.mission_dictionary[step][label] = data
+          return
 
      def export_json(self):
-           with open(self.mission_file_name, 'w') as outfile:
-                dump(self.mission_dictionary, outfile)
+          with open(self.mission_file_name, 'w') as outfile:
+               print('Saving ' + self.mission_file_name)
+               dump(self.mission_dictionary, outfile)
+          return

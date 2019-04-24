@@ -857,7 +857,9 @@ class GridworldEnv(gym.Env):
                 canvas[x, y, :] = self.map_volume['value_feature_map'][slice[x, y]]['color']
                 data['labels'][x][y] = self.map_volume['value_feature_map'][slice[x, y]]['feature']
 
-        data['canvas'] = canvas
+        print ('DEBUG  ************************** dump egocentric')
+        print(canvas.tolist())
+        data['canvas'] = canvas.tolist()
         return data
 
     def generate_observation(self):
@@ -868,12 +870,11 @@ class GridworldEnv(gym.Env):
 
         normalized_map = copy.deepcopy(self.original_map_volume['img'])
         normalized_hiker_position = get_hiker()
-        normalized_drone_position = np.where(
-            self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
 
         # put the drone in the image layer
         drone_position = np.where(
             self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
+        normalized_drone_position = (int(drone_position[1]), int(drone_position[2]) )
         drone_position = (int(drone_position[1]) * self.factor, int(drone_position[2]) * self.factor)
         for point in self.planes[self.heading][0]:
             image_layers[self.altitude][drone_position[0] + point[0], drone_position[1] + point[1], :] = \
@@ -939,8 +940,7 @@ class GridworldEnv(gym.Env):
         obs['image_layers'] = image_layers
         # Add some Study-specific views
         # Provide the 'Allocentric' map view as a data structure, not an image
-        obs['allocentric'] = {'hiker_position': normalized_hiker_position, 'drone_position':normalized_drone_position,
-                              'map': normalized_map}
+        obs['allocentric'] = {'hiker_position': normalized_hiker_position, 'drone_position':normalized_drone_position}
         # Provide the 'Egocentric' looking forward view as a data structure, not an image
         obs['nextstepdata'] = self.create_nextstep_data()
         return obs
