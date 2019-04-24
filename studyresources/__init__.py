@@ -1,5 +1,6 @@
 from absl import flags
 from json import dumps as dump_as_json_string
+from json import dump
 from pprint import pformat
 
 FLAGS = flags.FLAGS
@@ -245,10 +246,12 @@ def action_probability_matrix(action_probs):
 
 class Mission:
      def __init__(self, mission_file_name):
-          self.mission_file_name = mission_file_name
-          self.mission_dictionary = {}
+           self.mission_file_name = mission_file_name
+           self.mission_dictionary = {}
 
-     def export_json():
-          r = dump_as_json_string(mission_dictionary)
-          with open(self.mission_file_name, 'w') as outfile:
-               json.dump(self.mission_dictionary, outfile)
+     def add_to_mission(self, step, label, data):
+          self.mission_dictionary[step][label] = data
+
+     def export_json(self):
+           with open(self.mission_file_name, 'w') as outfile:
+                dump(self.mission_dictionary, outfile)
