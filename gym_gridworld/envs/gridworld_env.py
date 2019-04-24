@@ -810,11 +810,66 @@ class GridworldEnv(gym.Env):
 
         return imresize(np.flip(canvas, 0), 20*self.map_volume['vol'].shape[2], interp='nearest')
 
+    def create_nextstep_data(self):
+        data = {'canvas': [],'labels': [ ['','','','',''],['','','','',''],['','','','',''],['','','','',''],['','','','','']]}
+        canvas = np.zeros((5, 5, 3), dtype=np.uint8)
+        slice = np.zeros((5, 5))
+        drone_position = np.where(
+            self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
+        drone_position_flat = [int(drone_position[1]), int(drone_position[2])]
+        # hiker_found = False
+        # hiker_point = [0, 0]
+        # hiker_background_color = None
+        column_number = 0
+        for xy in self.possible_actions_map[self.heading]:
+            try:
+                # no hiker if using original
+                column = self.map_volume['vol'][:, drone_position_flat[0] + xy[0], drone_position_flat[1] + xy[1]]
+                # for p in column:
+                #     #print(p)
+                #     #print(p == 50.0)
+                #     if p == 50.0: # Hiker representation in the volume
+                #         #print("setting hiker_found to True")
+                #         hiker_found = True
+                #
+                # if hiker_found:
+                #     val = self.original_map_volume['vol'][0][
+                #         drone_position_flat[0] + xy[0], drone_position_flat[1] + xy[1]]
+                #     hiker_background_color = self.original_map_volume['value_feature_map'][val]['color']
+                #     # column = self.original_map_volume['vol'][:,drone_position_flat[0]+xy[0],drone_position_flat[1]+xy[1]]
+            except IndexError:
+                column = [1., 1., 1., 1., 1.]
+            slice[:, column_number] = column
+            column_number += 1
+            #print("ok")
+        # put the drone in
+        # cheat
+        slice[self.altitude, 2] = int(self.map_volume['vol'][drone_position])
+        combinations = list(itertools.product(range(0, canvas.shape[0]), range(0, canvas.shape[0])))
+        for x, y in combinations:
+            if slice[x, y] == 0.0:
+                canvas[x, y, :] = [255, 255, 255]
+                data['labels'][x][y] = ""
+            # elif slice[x, y] == 50.0:
+            #     canvas[x, y, :] = hiker_background_color
+            #     hiker_point = [x, y]
+            else:
+                canvas[x, y, :] = self.map_volume['value_feature_map'][slice[x, y]]['color']
+                data['labels'][x][y] = self.map_volume['value_feature_map'][slice[x, y]]['feature']
+
+        data['canvas'] = canvas
+        return data
+
     def generate_observation(self):
         obs = {}
         obs['volume'] = self.map_volume
         image_layers = copy.deepcopy(self.image_layers)
         map = copy.deepcopy(self.original_map_volume['img'])
+
+        normalized_map = copy.deepcopy(self.original_map_volume['img'])
+        normalized_hiker_position = get_hiker()
+        normalized_drone_position = np.where(
+            self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
 
         # put the drone in the image layer
         drone_position = np.where(
@@ -882,6 +937,12 @@ class GridworldEnv(gym.Env):
         obs['nextstepimage'] = nextstepimage
         obs['img'] = map
         obs['image_layers'] = image_layers
+        # Add some Study-specific views
+        # Provide the 'Allocentric' map view as a data structure, not an image
+        obs['allocentric'] = {'hiker_position': normalized_hiker_position, 'drone_position':normalized_drone_position,
+                              'map': normalized_map}
+        # Provide the 'Egocentric' looking forward view as a data structure, not an image
+        obs['nextstepdata'] = self.create_nextstep_data()
         return obs
 
     def render(self, mode='human', close=False):

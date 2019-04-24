@@ -241,3 +241,14 @@ def action_probability_matrix(action_probs):
           return matrix
      except Exception as e:
           return [[str(e)]]
+
+
+class Mission:
+     def __init__(self, mission_file_name):
+          self.mission_file_name = mission_file_name
+          self.mission_dictionary = {}
+
+     def export_json():
+          r = dump_as_json_string(mission_dictionary)
+          with open(self.mission_file_name, 'w') as outfile:
+               json.dump(self.mission_dictionary, outfile)
