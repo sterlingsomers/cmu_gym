@@ -9,8 +9,8 @@ from tensorflow.contrib.layers.python.layers.optimizers import OPTIMIZER_SUMMARI
 from actorcritic.policy import FullyConvPolicy
 from common.preprocess import ObsProcesser, FEATURE_KEYS, AgentInputTuple
 from common.util import weighted_random_sample, select_from_each_row, ravel_index_pairs
-import tensorboard.plugins.beholder as beholder_lib
-import saliency
+#import tensorboard.plugins.beholder as beholder_lib
+#import saliency
 
 #LOG_DIRECTORY = '/tmp/beholder-demo/SCII'
 LOG_DIRECTORY = '_files/summaries/Test'
