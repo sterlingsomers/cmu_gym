@@ -411,6 +411,7 @@ def main():
 
                 drop_flag = 0
                 done = 0
+                pygame.event.clear()
                 while done==0:
 
                     # mb_obs.append(nav_runner.latest_obs)
@@ -422,7 +423,7 @@ def main():
                     # mb_map_volume.append(nav_runner.envs.map_volume)
                     # mb_ego.append(nav_runner.envs.ego)
                     action= -1
-                    pygame.event.clear()
+                    #ignore mouse actions!!!
                     event = pygame.event.wait()
                     if event.type == pygame.QUIT:
                         pygame.quit()
@@ -460,6 +461,7 @@ def main():
                             action = 14
                         elif (event.key == pygame.K_SPACE):
                             action = 15
+
 
                     # action stays till renewed no matter what key you press!!! So whichever key will do the last action
                     pygame.event.clear()
