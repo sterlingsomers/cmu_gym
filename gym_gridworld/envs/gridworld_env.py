@@ -81,6 +81,8 @@ class GridworldEnv(gym.Env):
         self.observation_space = spaces.Box(low=0, high=255, shape=self.obs_shape)
         self.real_actions = False
         self.crash = 0
+        self.package_dropped = 0
+        self.package_position = ()
 
         if self.real_actions:
             self.mavsimhandler = MavsimHandler()
@@ -104,7 +106,12 @@ class GridworldEnv(gym.Env):
         self.hikers[0] = [[(0, 2), (1, 2), (2, 2), (3, 2), (4, 2), (2, 0), (2, 1), (2, 2), (2, 3), (2, 4)],
                           np.zeros((5, 5, 3))]
         self.hiker_image = np.zeros((5, 5, 3))
+
         # self.hiker_image[:,:,:] = self.map_volume['feature_value_map']['hiker']['color']
+
+        #package description
+        self.package = {}
+        self.package[0] = [[(1,1),(1,2),(1,3),(2,1),(2,2),(2,3),(3,1),(3,2),(3,3)],np.zeros((5, 5, 3))]
 
         self.drop_probabilities = {"damage_probability": {0: 0.00, 1: 0.01, 2: 0.40, 3: 0.80},
                                    "stuck_probability": {"pine trees": 0.50, "pine tree": 0.25, "cabin": 0.50,
@@ -359,6 +366,8 @@ class GridworldEnv(gym.Env):
         #reward = reward*(1/(self.pack_dist+1e-7))*0.1
         self.reward = reward*is_hiker_in_neighbors # YOU CANNOT DO THAT EVEN IF IT WORKS FOR THAT MAP AS IT DOESNT GET PENALTY FOR DAMAGING THE PACK!
         #print(terrain, reward)
+        self.package_position = pack_world_coords
+        self.package_dropped = True
         x = eval(self.actionvalue_heading_action[7][self.heading])
 
     def take_action(self, delta_alt=0, delta_x=0, delta_y=0, new_heading=1):
@@ -812,9 +821,20 @@ class GridworldEnv(gym.Env):
         for point in self.planes[self.heading][0]:
             map[drone_position[0] + point[0], drone_position[1] + point[1], :] = \
             self.map_volume['feature_value_map']['drone'][self.altitude]['color']
+
+        #maybe put the package in
+
+        if self.package_dropped:
+            package_position = (int(self.package_position[0] * 5), int(self.package_position[1]) * 5)
+            for point in self.package[0][0]:
+                print(point, package_position)
+                map[package_position[0] + point[0], package_position[1] + point[1], :] = [94,249,242]
+
         # map[drone_position[0]:drone_position[0] + 5,drone_position[1]:drone_position[1] + 5] = self.plane_image(self.heading,self.map_volume['feature_value_map']['drone'][self.altitude]['color'])
 
         # map = imresize(map, (1000,1000), interp='nearest')
+
+
 
         '''vertical slices at drone's position'''
         drone_position = np.where(
