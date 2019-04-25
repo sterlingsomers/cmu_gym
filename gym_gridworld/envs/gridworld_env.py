@@ -750,11 +750,14 @@ class GridworldEnv(gym.Env):
         # hiker_background_color = None
         column_number = 0
         for xy in self.possible_actions_map[self.heading]:
-            try:
+            if drone_position_flat[0] + xy[0] >= 0 and drone_position_flat[1] + xy[1] >= 0 and drone_position_flat[0] + xy[0] <= self.map_volume['vol'].shape[1] -1  and drone_position_flat[1] + xy[1] <= self.map_volume['vol'].shape[2] -1:
+
+            #try:
                 # no hiker if using original
                 column = self.map_volume['vol'][:, drone_position_flat[0] + xy[0], drone_position_flat[1] + xy[1]]
 
-            except IndexError:
+            #except IndexError:
+            else:
                 column = [1., 1., 1., 1., 1.]
             slice[:, column_number] = column
             column_number += 1

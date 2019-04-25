@@ -152,6 +152,7 @@ def make_custom_env(env_id, num_env, seed, wrapper_kwargs=None, start_index=0):
     return SubprocVecEnv([make_env(i + start_index) for i in range(num_env)])
 
 def main():
+
     if FLAGS.training:
         check_and_handle_existing_folder(full_chekcpoint_path)
         check_and_handle_existing_folder(full_summary_path)
@@ -424,6 +425,7 @@ def main():
                     # mb_ego.append(nav_runner.envs.ego)
                     action= -1
                     #ignore mouse actions!!!
+                    pygame.event.set_blocked([pygame.MOUSEMOTION, pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP])
                     event = pygame.event.wait()
                     if event.type == pygame.QUIT:
                         pygame.quit()
