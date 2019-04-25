@@ -3,7 +3,7 @@ import pickle
 import numpy as np
 from gym_gridworld.envs.mapquery import terrain_request
 from pathlib import Path
-path='./gym_gridworld/'
+path='./gym_gridworld_custom/gym_gridworld/'
 
 
 def get_feature_value_maps(x,y,map):

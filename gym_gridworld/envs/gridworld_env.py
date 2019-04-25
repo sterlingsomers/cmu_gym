@@ -352,7 +352,7 @@ class GridworldEnv(gym.Env):
         if int(self.pack_dist) == 0: # pack lands on top of the hiker
             self.reward = reward + is_hiker_in_neighbors
         else:
-            self.reward = reward*is_hiker_in_neighbors + 1/self.pack_dist # if you are far away you get only the reward from the distance
+            self.reward = reward*is_hiker_in_neighbors + 1/self.pack_dist # if you are far away you get only the reward from the distance(which is big!)
         x = eval(self.actionvalue_heading_action[7][self.heading])
 
     def take_action(self, delta_alt=0, delta_x=0, delta_y=0, new_heading=1):
