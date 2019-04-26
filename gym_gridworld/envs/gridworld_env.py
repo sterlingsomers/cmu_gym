@@ -827,7 +827,7 @@ class GridworldEnv(gym.Env):
         if self.package_dropped:
             package_position = (int(self.package_position[0] * 5), int(self.package_position[1]) * 5)
             for point in self.package[0][0]:
-                print(point, package_position)
+                #print(point, package_position)
                 map[package_position[0] + point[0], package_position[1] + point[1], :] = [94,249,242]
 
         # map[drone_position[0]:drone_position[0] + 5,drone_position[1]:drone_position[1] + 5] = self.plane_image(self.heading,self.map_volume['feature_value_map']['drone'][self.altitude]['color'])
