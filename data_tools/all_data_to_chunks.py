@@ -532,9 +532,18 @@ for key in navs_by_action:
 
 
 indexes = {}
+index_list = []
+#before gathering the most distant, empty the bins
+garbage = []
+for key in navs_by_action:
+    if not navs_by_action[key]:
+        garbage.append(key)
+for key in garbage:
+    del navs_by_action[key]
 for key in navs_by_action:
     chunks = navs_by_action[key]
     indexes[key],dist = index_of_most_distal_chunks(chunks)
+
     print("ok")
 
 #HERE - now that I have the index - add it to a new list, and clear out the old, n times untiles the first combination (up left) gives up
