@@ -81,6 +81,8 @@ class GridworldEnv(gym.Env):
         self.observation_space = spaces.Box(low=0, high=255, shape=self.obs_shape)
         self.real_actions = False
         self.crash = 0
+        self.package_dropped = 0
+        self.package_position = ()
 
         if self.real_actions:
             self.mavsimhandler = MavsimHandler()
@@ -105,6 +107,11 @@ class GridworldEnv(gym.Env):
                           np.zeros((5, 5, 3))]
         self.hiker_image = np.zeros((5, 5, 3))
         # self.hiker_image[:,:,:] = self.map_volume['feature_value_map']['hiker']['color']
+
+        # package description
+        self.package = {}
+        self.package[0] = [[(1, 1), (1, 2), (1, 3), (2, 1), (2, 2), (2, 3), (3, 1), (3, 2), (3, 3)],
+                           np.zeros((5, 5, 3))]
 
         self.drop_probabilities = {"damage_probability": {0: 0.00, 1: 0.01, 2: 0.40, 3: 0.80},
                                    "stuck_probability": {"pine trees": 0.50, "pine tree": 0.25, "cabin": 0.50,
@@ -359,6 +366,8 @@ class GridworldEnv(gym.Env):
         #reward = reward*(1/(self.pack_dist+1e-7))*0.1
         self.reward = reward*is_hiker_in_neighbors # YOU CANNOT DO THAT EVEN IF IT WORKS FOR THAT MAP AS IT DOESNT GET PENALTY FOR DAMAGING THE PACK!
         #print(terrain, reward)
+        self.package_position = pack_world_coords
+        self.package_dropped = True
         x = eval(self.actionvalue_heading_action[7][self.heading])
 
     def take_action(self, delta_alt=0, delta_x=0, delta_y=0, new_heading=1):
@@ -593,7 +602,9 @@ class GridworldEnv(gym.Env):
         self.altitude = random.randint(1,3)
         self.reward = 0
         self.crash = 0
-        _map = random.choice(self.maps)
+        self.package_dropped = 0
+        self.package_position = ()
+        # _map = random.choice(self.maps)
         # start DRAWN world (Un)comment BELOW this part if you want a custom map
         # drawn_map = [[2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
         #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
@@ -615,8 +626,52 @@ class GridworldEnv(gym.Env):
         #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
         #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
         #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2], ]
-        # drawn_map = np.array(drawn_map)
-        # self.map_volume = CNP.create_custom_map(drawn_map)
+
+        # River
+        # drawn_map = [[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0, 15.0, 15.0, 2.0, 2.0, 2.0, 2.0, 2.0, 1.0, 2.0, 2.0, 2.0],
+        #  [2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0, 15.0, 15.0, 2.0, 2.0, 2.0, 2.0, 2.0, 1.0, 2.0, 2.0, 2.0],
+        #  [2.0, 2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0, 2.0, 15.0, 15.0, 2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0, 2.0],
+        #  [2.0, 2.0, 2.0, 1.0, 1.0, 1.0, 1.0, 2.0, 2.0, 15.0, 15.0, 2.0, 2.0, 2.0, 1.0, 1.0, 1.0, 2.0, 2.0, 2.0],
+        #  [2.0, 2.0, 1.0, 2.0, 2.0, 1.0, 2.0, 2.0, 2.0, 15.0, 15.0, 2.0, 2.0, 2.0, 1.0, 1.0, 1.0, 2.0, 2.0, 2.0],
+        #  [2.0, 2.0, 1.0, 2.0, 2.0, 1.0, 1.0, 2.0, 2.0, 15.0, 15.0, 2.0, 2.0, 2.0, 2.0, 2.0, 1.0, 2.0, 2.0, 2.0],
+        #  [2.0, 1.0, 1.0, 2.0, 1.0, 1.0, 2.0, 2.0, 2.0, 15.0, 15.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 1.0, 2.0, 2.0],
+        #  [2.0, 2.0, 2.0, 1.0, 1.0, 2.0, 2.0, 2.0, 15.0, 15.0, 15.0, 15.0, 2.0, 2.0, 1.0, 1.0, 2.0, 1.0, 1.0, 2.0],
+        #  [2.0, 1.0, 1.0, 1.0, 2.0, 2.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 2.0, 1.0, 1.0, 2.0, 2.0, 2.0],
+        #  [2.0, 1.0, 1.0, 2.0, 2.0, 2.0, 15.0, 15.0, 15.0, 2.0, 2.0, 15.0, 15.0, 15.0, 15.0, 2.0, 1.0, 2.0, 2.0, 2.0],
+        #  [2.0, 1.0, 1.0, 2.0, 2.0, 15.0, 15.0, 15.0, 2.0, 1.0, 2.0, 2.0, 15.0, 15.0, 15.0, 2.0, 1.0, 2.0, 1.0, 2.0],
+        #  [2.0, 1.0, 2.0, 2.0, 15.0, 15.0, 15.0, 15.0, 2.0, 1.0, 2.0, 2.0, 15.0, 15.0, 15.0, 2.0, 1.0, 2.0, 1.0, 2.0],
+        #  [2.0, 2.0, 2.0, 2.0, 15.0, 15.0, 15.0, 2.0, 2.0, 2.0, 2.0, 2.0, 15.0, 15.0, 15.0, 2.0, 2.0, 2.0, 2.0, 2.0],
+        #  [2.0, 2.0, 2.0, 15.0, 15.0, 15.0, 2.0, 2.0, 1.0, 2.0, 2.0, 2.0, 2.0, 15.0, 15.0, 15.0, 2.0, 2.0, 2.0, 2.0],
+        #  [2.0, 15.0, 15.0, 15.0, 15.0, 2.0, 2.0, 1.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 15.0, 15.0, 15.0, 2.0, 2.0, 2.0],
+        #  [15.0, 15.0, 15.0, 15.0, 2.0, 1.0, 1.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 15.0, 15.0, 15.0, 15.0, 15.0],
+        #  [15.0, 15.0, 2.0, 2.0, 2.0, 1.0, 1.0, 1.0, 1.0, 2.0, 1.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 15.0, 15.0, 15.0],
+        #  [2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 1.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0],
+        #  [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 2.0, 2.0, 1.0, 2.0, 2.0, 2.0, 2.0],
+        #  [2.0, 2.0, 2.0, 2.0, 1.0, 1.0, 2.0, 1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 1.0, 2.0]
+        #  ]
+        drawn_map = [[1.0, 1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 1.0, 2.0, 2.0, 2.0, 1.0, 2.0, 2.0, 1.0, 2.0, 2.0, 2.0, 2.0, 2.0],
+                    [1.0, 1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 25.0, 25.0, 25.0, 25.0, 2.0, 2.0, 2.0, 1.0, 2.0, 2.0, 1.0, 2.0, 2.0],
+                    [2.0, 1.0, 2.0, 2.0, 2.0, 2.0, 25.0, 25.0, 25.0, 25.0, 25.0, 25.0, 25.0, 25.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0],
+                    [2.0, 1.0, 1.0, 1.0, 2.0, 25.0, 25.0, 25.0, 25.0, 26.0, 26.0, 25.0, 25.0, 25.0, 25.0, 25.0, 2.0, 2.0, 1.0, 2.0],
+                    [2.0, 2.0, 1.0, 2.0, 2.0, 25.0, 25.0, 25.0, 25.0, 26.0, 26.0, 26.0, 25.0, 25.0, 25.0, 25.0, 2.0, 2.0, 1.0, 2.0],
+                    [2.0, 2.0, 1.0, 2.0, 2.0, 25.0, 25.0, 25.0, 25.0, 2.0, 25.0, 25.0, 25.0, 25.0, 25.0, 25.0, 2.0, 1.0, 2.0, 2.0],
+                    [2.0, 2.0, 1.0, 2.0, 2.0, 25.0, 26.0, 25.0, 25.0, 2.0, 2.0, 25.0, 25.0, 25.0, 25.0, 25.0, 2.0, 1.0, 2.0, 2.0],
+                    [2.0, 2.0, 1.0, 2.0, 2.0, 25.0, 26.0, 25.0, 25.0, 2.0, 2.0, 25.0, 26.0, 25.0, 25.0, 25.0, 2.0, 2.0, 1.0, 2.0],
+                    [1.0, 1.0, 2.0, 2.0, 2.0, 25.0, 26.0, 25.0, 25.0, 2.0, 1.0, 25.0, 26.0, 25.0, 25.0, 25.0, 2.0, 2.0, 2.0, 2.0],
+                    [1.0, 2.0, 1.0, 2.0, 25.0, 25.0, 25.0, 25.0, 25.0, 24.0, 24.0, 25.0, 26.0, 25.0, 25.0, 25.0, 2.0, 2.0, 1.0, 2.0],
+                    [2.0, 2.0, 1.0, 2.0, 25.0, 25.0, 25.0, 25.0, 25.0, 24.0, 24.0, 25.0, 26.0, 25.0, 25.0, 25.0, 2.0, 1.0, 1.0, 2.0],
+                    [2.0, 2.0, 1.0, 2.0, 25.0, 25.0, 25.0, 25.0, 25.0, 24.0, 24.0, 25.0, 26.0, 25.0, 25.0, 25.0, 2.0, 1.0, 2.0, 2.0],
+                    [1.0, 1.0, 1.0, 2.0, 2.0, 25.0, 25.0, 25.0, 25.0, 2.0, 2.0, 25.0, 25.0, 25.0, 25.0, 25.0, 2.0, 2.0, 2.0, 2.0],
+                    [1.0, 1.0, 2.0, 2.0, 2.0, 25.0, 25.0, 25.0, 25.0, 2.0, 2.0, 25.0, 25.0, 25.0, 25.0, 25.0, 2.0, 2.0, 2.0, 2.0],
+                    [2.0, 1.0, 1.0, 2.0, 2.0, 2.0, 25.0, 25.0, 25.0, 2.0, 2.0, 25.0, 25.0, 25.0, 25.0, 25.0, 2.0, 2.0, 1.0, 2.0],
+                    [2.0, 2.0, 2.0, 2.0, 22.0, 22.0, 22.0, 22.0, 22.0, 2.0, 2.0, 2.0, 25.0, 25.0, 25.0, 2.0, 2.0, 2.0, 2.0, 2.0],
+                    [2.0, 1.0, 1.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 1.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0],
+                    [2.0, 2.0, 2.0, 1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 1.0, 1.0, 1.0, 2.0, 2.0, 1.0, 1.0, 2.0, 1.0, 2.0, 2.0],
+                    [2.0, 2.0, 2.0, 2.0, 2.0, 1.0, 1.0, 1.0, 1.0, 2.0, 2.0, 1.0, 1.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0],
+                    [2.0, 1.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 1.0, 1.0, 2.0]
+                    ]
+        drawn_map = np.array(drawn_map)
+        self.map_volume = CNP.create_custom_map(drawn_map)
         # hiker = (8, 5)
         # drone = (17, 17)
         # self.altitude = 1
@@ -680,9 +735,11 @@ class GridworldEnv(gym.Env):
         ##################
 
         ####actual maps### (Un)comment below if you DONT want to use custom maps
-        _map = random.choice(self.maps)
-        self.map_volume = CNP.map_to_volume_dict(_map[0],_map[1], self.mapw, self.maph)
-        drone = (random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))#(6,5)#(2,6)#(random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2)) #(1,8)
+        # _map = random.choice(self.maps)
+
+        # self.map_volume = CNP.map_to_volume_dict(_map[0],_map[1], self.mapw, self.maph)
+        # drone = (random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))#(6,5)#(2,6)#(random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2)) #(1,8)
+        drone = (18,10)
         # drone = (random.randint(2, self.map_volume['vol'].shape[1] - 4), random.randint(2, self.map_volume['vol'].shape[1] - 4))
         hiker = (10,10)#(random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))
         ##################
@@ -750,11 +807,16 @@ class GridworldEnv(gym.Env):
         # hiker_background_color = None
         column_number = 0
         for xy in self.possible_actions_map[self.heading]:
-            try:
+            if drone_position_flat[0] + xy[0] >= 0 and drone_position_flat[1] + xy[1] >= 0 and drone_position_flat[0] + \
+                    xy[0] <= self.map_volume['vol'].shape[1] - 1 and drone_position_flat[1] + xy[1] <= \
+                    self.map_volume['vol'].shape[2] - 1:
+
+                # try:
                 # no hiker if using original
                 column = self.map_volume['vol'][:, drone_position_flat[0] + xy[0], drone_position_flat[1] + xy[1]]
 
-            except IndexError:
+            # except IndexError:
+            else:
                 column = [1., 1., 1., 1., 1.]
             slice[:, column_number] = column
             column_number += 1
@@ -808,7 +870,16 @@ class GridworldEnv(gym.Env):
         drone_position = (int(drone_position[1]) * 5, int(drone_position[2]) * 5)
         for point in self.planes[self.heading][0]:
             map[drone_position[0] + point[0], drone_position[1] + point[1], :] = \
-            self.map_volume['feature_value_map']['drone'][self.altitude]['color']
+                self.map_volume['feature_value_map']['drone'][self.altitude]['color']
+
+        # maybe put the package in
+
+        if self.package_dropped:
+            package_position = (int(self.package_position[0] * 5), int(self.package_position[1]) * 5)
+            for point in self.package[0][0]:
+                print(point, package_position)
+                map[package_position[0] + point[0], package_position[1] + point[1], :] = [94, 249, 242]
+
         # map[drone_position[0]:drone_position[0] + 5,drone_position[1]:drone_position[1] + 5] = self.plane_image(self.heading,self.map_volume['feature_value_map']['drone'][self.altitude]['color'])
 
         # map = imresize(map, (1000,1000), interp='nearest')

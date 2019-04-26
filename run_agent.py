@@ -32,18 +32,18 @@ import gym_gridworld
 
 FLAGS = flags.FLAGS
 flags.DEFINE_bool("visualize", True, "Whether to render with pygame.")
-flags.DEFINE_float("sleep_time", 1.0, "Time-delay in the demo")
+flags.DEFINE_float("sleep_time", 0, "Time-delay in the demo")
 flags.DEFINE_integer("resolution", 32, "Resolution for screen and minimap feature layers.")
 flags.DEFINE_integer("step_mul", 100, "Game steps per agent step.")
 flags.DEFINE_integer("n_envs", 20, "Number of environments to run in parallel")
-flags.DEFINE_integer("episodes", 10, "Number of complete episodes")
+flags.DEFINE_integer("episodes", 200, "Number of complete episodes")
 flags.DEFINE_integer("n_steps_per_batch", 32,
     "Number of steps per batch, if None use 8 for a2c and 128 for ppo")  # (MINE) TIMESTEPS HERE!!! You need them cauz you dont want to run till it finds the beacon especially at first episodes - will take forever
 flags.DEFINE_integer("all_summary_freq", 50, "Record all summaries every n batch")
 flags.DEFINE_integer("scalar_summary_freq", 5, "Record scalar summaries every n batch")
 flags.DEFINE_string("checkpoint_path", "_files/models", "Path for agent checkpoints")
 flags.DEFINE_string("summary_path", "_files/summaries", "Path for tensorboard summaries")
-flags.DEFINE_string("model_name", "Drop_2020_mountains", "Name for checkpoints and tensorboard summaries") # Last best Drop_2020_new_terrain_new_reward_2
+flags.DEFINE_string("model_name", "Drop_2020_new_terrain_new_reward_2", "Name for checkpoints and tensorboard summaries") # Last best Drop_2020_new_terrain_new_reward_2
 flags.DEFINE_integer("K_batches", 10000, # Batch is like a training epoch!
     "Number of training batches to run in thousands, use -1 to run forever") #(MINE) not for now
 flags.DEFINE_string("map_name", "DefeatRoaches", "Name of a map to use.")
@@ -573,7 +573,7 @@ def main():
                             pygame.display.update()  # Updates only the blitted parts of the screen, pygame.display.flip() updates the whole screen
                             pygame.event.get()  # Show the last state and then reset
                             sleep(sleep_time)
-                            t = t +1
+                            t = t +1 # Continue counting
                             if t==70:
                                 break
 
@@ -598,7 +598,7 @@ def main():
                 clock.tick(15)
 
             print("...saving dictionary.")
-            pickle_in = open('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/All_maps_20x20_500_images_volume_ego.tj','wb')
+            pickle_in = open('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/BoxCanyon_D1910_H1010_100.tj','wb')
             pickle.dump(dictionary, pickle_in)
             # with open('./data/All_maps_20x20_500.tj', 'wb') as handle:
             #     pickle.dump(dictionary, handle)

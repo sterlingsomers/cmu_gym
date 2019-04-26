@@ -421,19 +421,48 @@ def main():
                     # mb_drone_pos.append(drone_pos)
                     # mb_map_volume.append(nav_runner.envs.map_volume)
                     # mb_ego.append(nav_runner.envs.ego)
-                    # action= -1
-                    pygame.event.clear()
+                    action= -1
+                    #ignore mouse actions!!!
+                    pygame.event.set_blocked([pygame.MOUSEMOTION, pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP])
                     event = pygame.event.wait()
                     if event.type == pygame.QUIT:
                         pygame.quit()
                         sys.exit()
                     elif event.type == pygame.KEYDOWN:
-                        if (event.key == pygame.K_LEFT):
+                        if (event.key == pygame.K_z):
+                            action = 0
+                        elif (event.key == pygame.K_x):
+                            action = 1
+                        elif (event.key == pygame.K_c):
+                            action = 2
+                        elif (event.key == pygame.K_v):
+                            action = 3
+                        elif (event.key == pygame.K_b):
+                            action = 4
+                        elif (event.key == pygame.K_a):
                             action = 5
-                        elif (event.key == pygame.K_RIGHT):
-                            action = 9
-                        elif (event.key == pygame.K_UP):
+                        elif (event.key == pygame.K_s):
+                            action = 6
+                        elif (event.key == pygame.K_d):
                             action = 7
+                        elif (event.key == pygame.K_f):
+                            action = 8
+                        elif (event.key == pygame.K_g):
+                            action = 9
+                        elif (event.key == pygame.K_q):
+                            action = 10
+                        elif (event.key == pygame.K_w):
+                            action = 11
+                        elif (event.key == pygame.K_e):
+                            action = 12
+                        elif (event.key == pygame.K_r):
+                            action = 13
+                        elif (event.key == pygame.K_t):
+                            action = 14
+                        elif (event.key == pygame.K_SPACE):
+                            action = 15
+
+
                     # action stays till renewed no matter what key you press!!! So whichever key will do the last action
                     pygame.event.clear()
                     # dictionary[nav_runner.episode_counter]['observations'].append(nav_runner.latest_obs)
@@ -481,6 +510,7 @@ def main():
                     # masked_map_alt = map_alt
                     # masked_map_alt[mask_ego == 0] = 0
                     # process_img(masked_map_alt, 800, 400)
+                    pygame.event.set_blocked([pygame.MOUSEMOTION, pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP])
                     event = pygame.event.wait() # PREVENTS FOR CONSIDERING MORE THAN A KEY PRESS AT ONCE. CAREFUL
                     screen_mssg_variable("Value    : ", np.round(value,3), (168, 350))
                     screen_mssg_variable("Reward: ", np.round(reward,3), (168, 372))
