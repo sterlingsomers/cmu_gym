@@ -111,7 +111,8 @@ class GridworldEnv(gym.Env):
 
         #package description
         self.package = {}
-        self.package[0] = [[(1,1),(1,2),(1,3),(2,1),(2,2),(2,3),(3,1),(3,2),(3,3)],np.zeros((5, 5, 3))]
+        self.package['OK'] = [[(1,1),(1,2),(1,3),(2,1),(2,2),(2,3),(3,1),(3,2),(3,3)],np.zeros((5, 5, 3))]
+        self.package['DAMAGED'] = [[(0,0),(1,1),(2,2),(3,3),(4,4),(4,0),(3,1),(1,3),(0,4)],np.zeros((5,5,3))]
 
         self.drop_probabilities = {"damage_probability": {0: 0.00, 1: 0.01, 2: 0.40, 3: 0.80},
                                    "stuck_probability": {"pine trees": 0.50, "pine tree": 0.25, "cabin": 0.50,
@@ -826,7 +827,7 @@ class GridworldEnv(gym.Env):
 
         if self.package_dropped:
             package_position = (int(self.package_position[0] * 5), int(self.package_position[1]) * 5)
-            for point in self.package[0][0]:
+            for point in self.package[self.package_state][0]:
                 #print(point, package_position)
                 map[package_position[0] + point[0], package_position[1] + point[1], :] = [94,249,242]
 
