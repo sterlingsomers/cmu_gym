@@ -539,13 +539,33 @@ for key in navs_by_action:
     if not navs_by_action[key]:
         garbage.append(key)
 for key in garbage:
+
     del navs_by_action[key]
-for key in navs_by_action:
-    chunks = navs_by_action[key]
-    indexes[key],dist = index_of_most_distal_chunks(chunks)
+find_fail = False
+new_navs_by_action = copy.deepcopy(navs_by_action)
+while True:
+    for key in new_navs_by_action:
+        new_indexes = []
+        chunks = new_navs_by_action[key]
+        new_indexes,dist = index_of_most_distal_chunks(chunks)
+        if not new_indexes:
+            find_fail = True
+            continue
+        if not key in indexes:
+            indexes[key] = new_indexes
+        else:
+            indexes[key].extend(new_indexes)
+        for ind in new_indexes:
+            new_navs_by_action[key] = [i for j, i in enumerate(new_navs_by_action[key]) if j not in new_indexes]
+    if find_fail:
+        break
+
+
+
+
 
     print("ok")
-
+print("done")
 #HERE - now that I have the index - add it to a new list, and clear out the old, n times untiles the first combination (up left) gives up
 
 
