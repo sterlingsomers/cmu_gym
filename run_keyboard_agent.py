@@ -463,6 +463,10 @@ def main():
                             action = 14
                         elif (event.key == pygame.K_SPACE):
                             action = 15
+                        #should also include a way just to reset
+                        #elif (event.key == pygame.K_n):
+                        #    action = 1
+
 
 
                     # action stays till renewed no matter what key you press!!! So whichever key will do the last action
