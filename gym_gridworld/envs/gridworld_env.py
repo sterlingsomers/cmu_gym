@@ -688,7 +688,7 @@ class GridworldEnv(gym.Env):
         for val in self.masks['hiker']:
             where_array = np.where(updated_map == val)
             hiker_safe_points = hiker_safe_points + [(x,y) for x,y in zip(where_array[0],where_array[1])]
-            print('stpo')
+            #print('stpo')
         hiker = random.choice(hiker_safe_points)
 
         #place the drone
@@ -697,7 +697,7 @@ class GridworldEnv(gym.Env):
         for val in self.masks['hiker']:
             where_array = np.where(updated_map == val)
             drone_safe_points = drone_safe_points + [(x,y) for x,y in zip(where_array[0],where_array[1])]
-            print('stpo')
+            #print('stpo')
         drone = random.choice(drone_safe_points)
 
 
