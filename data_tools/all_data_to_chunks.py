@@ -357,6 +357,50 @@ def random_distal_chunks(dict_by_action):
     return combos_to_actions, change
 
 
+def virtual_center(bin):
+    observation_dimensions = {'hiker_left':[],'hiker_diagonal_left':[],'hiker_center':[],
+                        'hiker_diagonal_right':[],'hiker_right':[],'altitude':[],
+                        'ego_left':[], 'ego_diagonal_left':[], 'ego_center':[],
+                        'ego_diagonal_right':[], 'ego_right':[], 'distance_to_hiker':[]}
+    virtual_centers = {'hiker_left':0,'hiker_diagonal_left':0,'hiker_center':0,
+                        'hiker_diagonal_right':0,'hiker_right':0,'altitude':0,
+                        'ego_left':0, 'ego_diagonal_left':0, 'ego_center':0,
+                        'ego_diagonal_right':0, 'ego_right':0, 'distance_to_hiker':0}
+    for key in observation_dimensions:
+        for obs in bin:
+            observation_dimensions[key].append(access_by_key(key,obs)[1])
+
+    for key in virtual_centers:
+        virtual_centers[key] = sum(observation_dimensions[key]) / float(len(observation_dimensions[key]))
+
+    return virtual_centers
+
+def get_furthest_index(center,data,exclusion):
+
+    center_chunk = []
+    #build the center chunk
+    for key,val in center.items():
+        slv = [key,[key,val]]
+        center_chunk.extend(slv)
+        #quick fix to make it the same format as other chunks
+        if key == 'ego_right':
+            center_chunk.extend(['type',['type','nav']])
+    furthest_chunk_index = -1
+    distance = 0
+    for i in range(len(data)):
+        distance_from_center = euclidean_between_chunks(center_chunk,data[i])
+        if distance_from_center > distance and i not in exclusion:
+            furthest_chunk_index = i
+            distance = distance_from_center
+
+    # for chunk in data:
+    #     distance_from_center = euclidean_between_chunks(center_chunk,chunk)
+    #     if distance_from_center > distance:
+    #         furthest_chunk = chunk
+    return furthest_chunk_index
+
+
+
 
 
 
@@ -541,31 +585,75 @@ for key in navs_by_action:
 for key in garbage:
 
     del navs_by_action[key]
-find_fail = False
-new_navs_by_action = copy.deepcopy(navs_by_action)
-while True:
-    for key in new_navs_by_action:
-        new_indexes = []
-        chunks = new_navs_by_action[key]
-        new_indexes,dist = index_of_most_distal_chunks(chunks)
-        if not new_indexes:
-            find_fail = True
-            continue
-        if not key in indexes:
-            indexes[key] = new_indexes
-        else:
-            indexes[key].extend(new_indexes)
-        for ind in new_indexes:
-            new_navs_by_action[key] = [i for j, i in enumerate(new_navs_by_action[key]) if j not in new_indexes]
-    if find_fail:
-        break
+#Now we have no empty bins
+#find the virtual center of each bin, then find the farthest n points
+ran_out = False
+#first convert the data structure so it's a dictionary that stores the center
+#so it doesn't have to be calculated multiple times
+new_navs_by_action = {}
+for key in navs_by_action:
+    new_navs_by_action[key] = {'vals':navs_by_action[key],'center':{},'ordered_indicies':[]}
+
+for key in new_navs_by_action:
+    new_navs_by_action[key]['center'] = virtual_center(new_navs_by_action[key]['vals'])
+
+furthest_nav_indexs_ordered = {'hiker_left':[],'hiker_diagonal_left':[],'hiker_center':[],
+                        'hiker_diagonal_right':[],'hiker_right':[],'altitude':[],
+                        'ego_left':[], 'ego_diagonal_left':[], 'ego_center':[],
+                        'ego_diagonal_right':[], 'ego_right':[], 'distance_to_hiker':[]}
+
+for key in new_navs_by_action:
+    for i in range(len(new_navs_by_action[key]['vals'])):
+        new_navs_by_action[key]['ordered_indicies'].append(get_furthest_index(new_navs_by_action[key]['center'],new_navs_by_action[key]['vals'],new_navs_by_action[key]['ordered_indicies']))
+
+
+#find smallest 'vals' size
+vals_len = -1
+smallest_list = 1000000000000
+for key in new_navs_by_action:
+    if len(new_navs_by_action[key]['vals']) < smallest_list:
+        smallest_list = len(new_navs_by_action[key]['vals'])
+#create the final set
+nav_complete_list = []
+for key in new_navs_by_action:
+    for i in range(smallest_list):
+        index_of_chunk = new_navs_by_action[key]['ordered_indicies'][i]
+        nav_complete_list.append(new_navs_by_action[key]['vals'][index_of_chunk])
+        #nav_complete_list.append(new_navs_by_action[key]['vals'][new_navs_by_action[key]['ordered_indicies'][i]])
 
 
 
 
+print("ok")
 
-    print("ok")
-print("done")
+
+
+
+# find_fail = False
+# new_navs_by_action = copy.deepcopy(navs_by_action)
+# while True:
+#     for key in new_navs_by_action:
+#         new_indexes = []
+#         chunks = new_navs_by_action[key]
+#         new_indexes,dist = index_of_most_distal_chunks(chunks)
+#         if not new_indexes:
+#             find_fail = True
+#             continue
+#         if not key in indexes:
+#             indexes[key] = new_indexes
+#         else:
+#             indexes[key].extend(new_indexes)
+#         for ind in new_indexes:
+#             new_navs_by_action[key] = [i for j, i in enumerate(new_navs_by_action[key]) if j not in new_indexes]
+#     if find_fail:
+#         break
+#
+#
+#
+#
+#
+#     print("ok")
+# print("done")
 #HERE - now that I have the index - add it to a new list, and clear out the old, n times untiles the first combination (up left) gives up
 
 
@@ -579,7 +667,7 @@ print("done")
 
 
 #file_path = os.path.join(data_path,filename)
-#with open('chunks.pkl','wb') as handle:
-#    pickle.dump(memory,handle)
+with open('chunks_maxdistance.pkl','wb') as handle:
+    pickle.dump(nav_complete_list,handle)
 
 print("done.")
