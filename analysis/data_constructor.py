@@ -133,7 +133,7 @@ def create_dataframe(obs, value_feature_map):
             ''' DRONE X,Y POSITION (NUMPY) '''
             drone_pos = np.array(obs[epis]['drone_pos'][timestep]).transpose()[0][-2:]
             ''' DRONE Z ALTITUDE (INT) '''
-            drone_alt = np.array(obs[epis]['drone_pos'][timestep]).transpose()[0][0][0]
+            drone_alt = np.array(obs[epis]['drone_pos'][timestep]).transpose()[0][0]
             ''' DRONE HEADING (INT) '''
             headings = obs[epis]['headings'][timestep]
             ''' DRONE CRASH (BOOLEAN) '''
@@ -167,6 +167,9 @@ def create_dataframe(obs, value_feature_map):
     # df = pd.read_pickle('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/df_dataframe.df')
 
 obs = load_data()
+# value_feature = load_feat2value()
+# create_dataframe(obs,value_feature)
+
 img = obs[0]['map_volume'][0]['img']
 df = pd.read_pickle('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/BoxCanyon_D1910_H1010_100_df.df')
 ''' DROP LOCATIONS '''
@@ -174,11 +177,11 @@ data = df['drone_position'].loc[(df['agent_type'] == 'drop_agent') & (df['action
 data = data.values
 event_heatmap(data, img)
 ''' DROP AGENT CRASHES '''
-data = df['drone_position'].loc[(df['agent_type'] == 'drop_agent') & (df['crash'] == 1)]
+data = df['drone_position'].loc[(df['agent_type'] == 'drop_agent') & (df['crash'] > 0)]
 data = data.values
 event_heatmap(data, img)
 ''' NAV AGENT CRASHES '''
-data = df['drone_position'].loc[(df['agent_type'] == 'nav_agent') & (df['crash'] == 1)]
+data = df['drone_position'].loc[(df['agent_type'] == 'nav_agent') & (df['crash'] > 0)]
 data = data.values
 event_heatmap(data, img)
 ''' NAV AGENT TRAJ '''
@@ -189,4 +192,3 @@ event_heatmap(data, img)
 data = df['drone_position'].loc[(df['agent_type'] == 'drop_agent') ]
 data = data.values
 event_heatmap(data, img)
-
