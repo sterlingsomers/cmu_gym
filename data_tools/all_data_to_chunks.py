@@ -673,7 +673,7 @@ max_mins = {'distance':[max_nav_distance,min_nav_distances],
 with open('chunks_maxdistance.pkl','wb') as handle:
     pickle.dump(nav_complete_list,handle)
 
-with open('max_mins_from_data.pkl','wb') as handle:
-    pickle.dump(max_mins,handle)
+with open('max_mins_from_data.pkl','wb') as handle2:
+    pickle.dump(max_mins,handle2)
 
 print("done.")
