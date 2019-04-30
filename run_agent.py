@@ -129,7 +129,7 @@ min_max = {'ego_left':[],
            'hiker_diagonal_right':[],
            'hiker_right':[],
            'distance_to_hiker':[],
-           'current_altitude':[],}
+           'altitude':[],}
 
 
 possible_actions_map = {
@@ -211,7 +211,40 @@ def heading_to_hiker(drone_heading, drone_position, hiker_position):
     return deg
 
 
+def remap( x, oMin, oMax, nMin, nMax ):
+    #https://stackoverflow.com/questions/929103/convert-a-number-range-to-another-range-maintaining-ratio
+    #range check
+    if oMin == oMax:
+        print("Warning: Zero input range")
+        return None
 
+    if nMin == nMax:
+        print("Warning: Zero output range")
+        return None
+
+    #check reversed input range
+    reverseInput = False
+    oldMin = min( oMin, oMax )
+    oldMax = max( oMin, oMax )
+    if not oldMin == oMin:
+        reverseInput = True
+
+    #check reversed output range
+    reverseOutput = False
+    newMin = min( nMin, nMax )
+    newMax = max( nMin, nMax )
+    if not newMin == nMin :
+        reverseOutput = True
+
+    portion = (x-oldMin)*(newMax-newMin)/(oldMax-oldMin)
+    if reverseInput:
+        portion = (oldMax-x)*(newMax-newMin)/(oldMax-oldMin)
+
+    result = portion + newMin
+    if reverseOutput:
+        result = newMax - portion
+
+    return result
 
 def angle_categories(angle):
     '''Values -180 to +180. Returns a fuzzy set dictionary.'''
@@ -395,7 +428,7 @@ def reset_actr():
     model_name = 'egocentric-salience.lisp'
     model_path = '/Users/paulsomers/COGLE/gym-gridworld/'
 
-    chunk_file_name = 'chunks.pkl'
+    chunk_file_name = 'chunks_maxdistance.pkl'
     #chunk_path = os.path.join(model_path,'data')
     chunk_path = ''
     actr.add_command('similarity_function',similarity)
@@ -430,9 +463,9 @@ def reset_actr():
     print("reset done.")
 
 def create_actr_observation(step):
-    action_values = {'drop': 0, 'left': 0, 'diagonal_left': 0,
-                     'center': 0, 'diagonal_right': 0, 'right': 0,
-                     'up': 0, 'down': 0, 'level': 0}
+    transposes = ['ego_left', 'ego_diagonal_left', 'ego_center', 'ego_diagonal_right', 'ego_right',
+                  'distance_to_hiker', 'altitude']
+
     # angle to hiker: negative = left, positive right
     egocentric_angle_to_hiker = heading_to_hiker(step['heading'], step['drone'], step['hiker'])
     angle_categories_to_hiker = angle_categories(egocentric_angle_to_hiker)
@@ -445,7 +478,7 @@ def create_actr_observation(step):
     altitudes = altitudes_from_egocentric_slice(egocentric_slice)
     altitudes = [x - 1 for x in altitudes]
     alt = step['altitude']  #to be consistant with numpy
-    chunk.extend(['current_altitude', ['current_altitude',int(alt)]])
+    chunk.extend(['altitude', ['altitude',int(alt)]])
     chunk.extend(['ego_left', ['ego_left',altitudes[0] - alt],
                   'ego_diagonal_left', ['ego_diagonal_left',altitudes[1] - alt],
                   'ego_center',  ['ego_center',altitudes[2] - alt],
@@ -463,12 +496,19 @@ def create_actr_observation(step):
     #json cannot serialize int64
     chunk = [float(x) if type(x) == np.float64 else x for x in chunk]
     chunk = [int(x) if type(x) == np.int64 else x for x in chunk]
+    for trans in transposes:
+        index_of_value = chunk.index(trans) + 1
+        chunk[index_of_value] = remap(chunk[index_of_value], min(min_max[trans]),max(min_max[trans]),0,1)
+    #transponse the transposes values to zero to 1 range
+
     return chunk
 
 def handle_observation(observation):
     '''observation should have chunk format'''
 
     chunk = actr.define_chunks(observation)
+
+    print("converting")
     # actr.schedule_simple_event_now("set-buffer-chunk",
     #                                ['imaginal', chunk[0]])
     actr.schedule_set_buffer_chunk('imaginal',chunk[0],0)
