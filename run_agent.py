@@ -435,6 +435,8 @@ def reset_actr():
     actr.load_act_r_model(os.path.join(model_path,model_name))
     actr.record_history("blending-trace")
 
+    max_mins = 'max_mins_from_data.pkl'
+    max_mins = pickle.load(open(os.path.join(chunk_path,chunk_file_name),'rb'))
 
     #load all the chunks
     allchunks = pickle.load(open(os.path.join(chunk_path,chunk_file_name),'rb'))
@@ -453,12 +455,16 @@ def reset_actr():
         actr.add_dm(chunk)
 
     ignore_list = ['left', 'diagonal_left', 'center', 'diagonal_right', 'right', 'type', 'drop', 'up', 'down', 'level']
+    #collecting the max mins
     for chunk in allchunks:
         for x, y in zip(*[iter(chunk)] * 2):
             #x, y[1]
             if not x in ignore_list and not x == 'isa':
                 if y[1] not in min_max[x]:
                     min_max[x].append(y[1])
+    #modifying the max_mins to include things from data collection, inorder to transponse
+    for key in max_mins:
+        print('test')
     #print('asf')
     print("reset done.")
 
