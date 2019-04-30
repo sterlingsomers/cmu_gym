@@ -627,6 +627,9 @@ for key in new_navs_by_action:
 print("ok")
 
 
+max_mins = {'distance':[max_nav_distance,min_nav_distances],
+            'ego':[max_nav_ego,min_nav_ego],
+            'altitude':[max_nav_alt,min_nav_alt]}
 
 
 # find_fail = False
@@ -669,5 +672,8 @@ print("ok")
 #file_path = os.path.join(data_path,filename)
 with open('chunks_maxdistance.pkl','wb') as handle:
     pickle.dump(nav_complete_list,handle)
+
+with open('max_mins_from_data.pkl','wb') as handle:
+    pickle.dump(max_mins,handle)
 
 print("done.")
