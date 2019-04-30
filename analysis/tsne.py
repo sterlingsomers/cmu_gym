@@ -133,11 +133,7 @@ for epis in range(len(obs)):
                 sub_dict['action_label'] = 'down-diag-left'
             elif sub_dict['actions'] == 0:
                 sub_dict['action_label'] = 'down-left'
-            
-            # if epis==0:
-            #     sub_dict['colorc'] = 'green'
-            # else:
-            #     sub_dict['colorc'] = 'blue'
+
 
             if (indx+i)== (traj_length-1): # if obs at current timestep is a drop (YOU CAN DO THAT WITH THE ACTION=15)
                 sub_dict['color_drop'] = 'green'

@@ -8,15 +8,15 @@ import pickle
 # from pylab import ogrid
 
 # You dont need so many data for one static case.
-pickle_in = open('/Users/paulsomers/COGLE/gym-gridworld/data/tree_grass_trees_500.tj','rb')
+pickle_in = open('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/230_70_static_500.tj','rb')
 obs = pickle.load(pickle_in)
-
+mapw = maph = 10
 ''' Dropping locations heatmap '''
-def dropping_heat(obs):
-    counts = np.zeros([20,20])
+def dropping_heatmap(obs):
+    counts = np.zeros([mapw,maph])
     for i in range(len(obs)):
         #if obs[i]['headings'][0] == 6:
-        drop_pos = obs[i]['drone_pos'][-1][-2:]
+        drop_pos = obs[i]['drone_pos'][-1][-2:] # you select the last position of the episode's trajectory and you take the last two elements
         drop_pos = np.array(drop_pos).ravel()
         x = drop_pos[0]
         y = drop_pos[1]
@@ -32,7 +32,7 @@ def dropping_heat(obs):
 
 ''' Trajectories '''
 def trajectories_heatmap(obs):
-    counts = np.zeros([20,20])
+    counts = np.zeros([mapw,maph])
     for i in range(len(obs)):
         trace = np.array(obs[i]['drone_pos'][:-1]) # Take out the last one as you remain still when you drop
         for tr in trace:
@@ -52,5 +52,5 @@ def trajectories_heatmap(obs):
     plot.imshow(counts, interpolation='catrom',cmap='jet', alpha= 0.5, extent=extent)
     plt.show()
 
-dropping_heat(obs)
+dropping_heatmap(obs)
 # trajectories_heatmap(obs)

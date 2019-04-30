@@ -6,12 +6,13 @@ import pickle
 import os
 import pandas as pd
 
-# Load and create the data
 pickle_in = open('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/map_volume.feats','rb')
 map_volume = pickle.load(pickle_in)
 print('map_volume loaded')
 value_feature_map = map_volume['value_feature_map']
 
+# DATA HAVE ALREADY PASSED FROM THE TSNE PREPROCESSING FILE !!!
+# Load and create the data
 pickle_in = open('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/selected_drop_traj_everything.tj','rb')
 obs = pickle.load(pickle_in)
 # pickle_in = open('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/gym_gridworld/features/values_to_features.dict','rb')
@@ -45,6 +46,7 @@ for i in range(len(obs)):
     fc.append(obs[i]['fc'])
     slice.append(obs[i]['ego_vec'])
     data.append([epis, tstep, target, actions, round(values,3), action_label,fc_rep, alts, hiker, drone_alt, crash]) # round doesnt work in writing to a file
+
 data = np.array(data,dtype=object) # object helps to keep arbitary type of data
 columns = ['episode','timestep','target','actions','values','action_label','fc', 'altitudes', 'hiker_in_ego', 'drone_alt', 'crash']
 datab = np.reshape(data,[data.shape[0],data.shape[1]])
