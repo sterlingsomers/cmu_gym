@@ -330,8 +330,6 @@ class GridworldEnv(gym.Env):
             self.reward = 0
             #self.drop = True
             return 0
-
-
         self.drop = True
         alt = self.altitude
         drone_position = np.where(self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
@@ -340,14 +338,10 @@ class GridworldEnv(gym.Env):
                                               int(drone_position[2]), region)
         w = self.map_volume['vol'][0][left:right, top:bottom]
         is_hiker_in_neighbors = np.any(w == self.map_volume['feature_value_map']['hiker']['val'])
-        # print("neigh:")
-        # print(neighbors)
-        # x = drone_position[0]
-        # y = drone_position[1]
+
         x = np.random.randint(0, neighbors.shape[0])
         y = np.random.randint(0, neighbors.shape[1])
-        #print(x, y)
-        # value = [x, y]
+
         value = neighbors[x, y] # It returns what kind of terrain is there in (number)
         pack_world_coords = (x + left, y + top) #(x,y) #
         terrain = self.original_map_volume['value_feature_map'][value]['feature'] # what kind of terrain is there (string)
@@ -556,7 +550,7 @@ class GridworldEnv(gym.Env):
         # print("state", [ self.observation[self.altitude]['drone'].nonzero()[0][0],self.observation[self.altitude]['drone'].nonzero()[1][0]] )
         self.dist_old = self.dist
         # HERE YOU SHOULD HAVE THE REWARD IN CASE IT CRASHES AT ALT=0 OR IN GENERAL AFTER ALL CASES HAVE BEEN CHECKED!!!
-        if self.check_for_hiker(): # On top of the hiker
+        if self.check_for_hiker(): # On top of the hiker avoiding infinity with distance depenedent reward function
             #print("hiker found:", self.check_for_hiker())
             # reward = (self.alt_rewards[self.altitude]*0.1)*(1/self.dist**2+1e-7) + self.drop*self.reward (and comment out the reward when you drop and terminate episode
             reward = 0 #1 + self.alt_rewards[self.altitude]
@@ -622,7 +616,9 @@ class GridworldEnv(gym.Env):
         self.altitude = random.randint(1,3)
         self.reward = 0
         self.crash = 0
-
+        self.package_dropped = 0
+        self.package_position = ()
+        # _map = random.choice(self.maps)
         # start DRAWN world (Un)comment BELOW this part if you want a custom map
         # drawn_map = [[2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
         #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
