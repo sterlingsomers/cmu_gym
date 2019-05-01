@@ -44,9 +44,9 @@ class GridworldEnv(gym.Env):
         self.restart_once_done = True  # restart or not once done
         self.drop = False
         self.no_action_flag = False
-        self.maps = [(265,308),(20,94),(146,456),(149,341),(164,90),(167,174),
-                     (224,153),(241,163),(260,241),(265,311),(291,231),
-                     (308,110),(334,203),(360,112),(385,291),(330,352),(321,337)]#[(400,35), (350,90), (430,110),(390,50), (230,70)] #[(86, 266)] (70,50) # For testing, 70,50 there is no where to drop in the whole map
+        self.maps = [(149,341)]#[(265,308),(20,94),(146,456),(149,341),(164,90),(167,174),
+        #              (224,153),(241,163),(260,241),(265,311),(291,231),
+        #              (308,110),(334,203),(360,112),(385,291),(330,352),(321,337)]#[(400,35), (350,90), (430,110),(390,50), (230,70)] #[(86, 266)] (70,50) # For testing, 70,50 there is no where to drop in the whole map
         self.mapw = 20
         self.maph = 20
         self.dist_old = 1000
@@ -59,6 +59,15 @@ class GridworldEnv(gym.Env):
         self.observation_space = spaces.Box(low=0, high=255, shape=self.obs_shape)
         self.real_actions = False
         self.crash = 0
+        self.package_dropped = 0
+        self.package_position = ()
+
+        self.masks = {
+            'hiker': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 16, 18, 21, 22],
+            1: [2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 16, 18, 21, 22],
+            2: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 16, 18, 21, 22, 19, 24, 30, 32],
+            3: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 16, 18, 21, 22, 19, 24, 30, 32, 13, 17, 19, 25, 28]
+        }
 
         if self.real_actions:
             self.mavsimhandler = MavsimHandler()
@@ -84,6 +93,13 @@ class GridworldEnv(gym.Env):
         self.hiker_image = np.zeros((5, 5, 3))
         # self.hiker_image[:,:,:] = self.map_volume['feature_value_map']['hiker']['color']
 
+        # package description
+        self.package = {}
+        self.package['OK'] = [[(1, 1), (1, 2), (1, 3), (2, 1), (2, 2), (2, 3), (3, 1), (3, 2), (3, 3)],
+                              np.zeros((5, 5, 3))]
+        self.package['DAMAGED'] = [[(0, 0), (1, 1), (2, 2), (3, 3), (4, 4), (4, 0), (3, 1), (1, 3), (0, 4)],
+                                   np.zeros((5, 5, 3))]
+
         self.drop_probabilities = {"damage_probability": {0: 0.00, 1: 0.01, 2: 0.40, 3: 0.80},
                                    "stuck_probability": {"pine trees": 0.50, "pine tree": 0.25, "cabin": 0.50,
                                                          "flight tower": 0.15, "firewatch tower": 0.20},
@@ -99,8 +115,6 @@ class GridworldEnv(gym.Env):
                              }
         # self.alt_rewards = {0:-1, 1:1, 2:-0.5, 3:-0.8} # This is bad!
         self.alt_rewards = {0: 0, 1: 1, 2: 0.5, 3: 0.08}
-
-        
 
         # self.possible_actions_map = {
         #     1: [[0, -1], [-1, -1], [-1, 0], [-1, 1], [0, 1]],
@@ -343,6 +357,8 @@ class GridworldEnv(gym.Env):
         #reward = reward*(1/(self.pack_dist+1e-7))*0.1
         self.reward = reward*is_hiker_in_neighbors # YOU CANNOT DO THAT EVEN IF IT WORKS FOR THAT MAP AS IT DOESNT GET PENALTY FOR DAMAGING THE PACK!
         #print(terrain, reward)
+        self.package_position = pack_world_coords
+        self.package_dropped = True
         x = eval(self.actionvalue_heading_action[7][self.heading])
 
     def take_action(self, delta_alt=0, delta_x=0, delta_y=0, new_heading=1):
@@ -507,7 +523,7 @@ class GridworldEnv(gym.Env):
 
         crash = self.check_for_crash()
         info['success'] = not crash
-
+        self.crash = crash
         # BELOW WAS WORKING FINE FOR FINDING HIKER
         # reward = (self.alt_rewards[self.altitude]*0.1)*(1/self.dist**2+1e-7)# + self.drop*self.reward (and comment out the reward when you drop and terminate episode
         #reward = (self.alt_rewards[self.altitude]*0.1)*((1/(self.dist**2)+1e-7)) # -0.01 + # The closer we are to the hiker the more important is to be close to its altitude
@@ -694,12 +710,33 @@ class GridworldEnv(gym.Env):
         ####actual maps### (Un)comment below if you DONT want to use custom maps
         _map = random.choice(self.maps)
         self.map_volume = CNP.map_to_volume_dict(_map[0], _map[1], self.mapw, self.maph)
-        # Set hiker's and drone's locations
-        #hiker = (random.randint(2, self.map_volume['vol'].shape[1] - 1), random.randint(2, self.map_volume['vol'].shape[1] - 2)) #(8,8) #
-        #if self.dropping:
-        hiker = (10,10)#(random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))  # (7,8) #
-        # drone = (random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 1))
-        drone = random.choice([(hiker[0]-1, hiker[1]-1),(hiker[0]-1, hiker[1]),(hiker[0], hiker[1]-1)])## Package drop starts close to hiker!!! #(random.randint(2, self.map_volume['vol'].shape[1] - 1), random.randint(2, self.map_volume['vol'].shape[1] - 2)) # (8,8) #
+        map_ = self.map_volume['flat']
+##########################
+        # place the hiker
+        hiker_safe_points = []
+        for val in self.masks['hiker']:
+            where_array = np.where(map_ == val)
+            hiker_safe_points = hiker_safe_points + [(x, y) for x, y in zip(where_array[0], where_array[1]) if
+                                                     x >= 3 and y >= 3 and x <= self.map_volume['vol'].shape[
+                                                         1] - 3 and y <= self.map_volume['vol'].shape[1] - 3]
+        hiker = random.choice(hiker_safe_points)
+
+        # place the drone
+        # self.altitude = random.choice([1, 2, 3])
+        drone_safe_points = []
+        for val in self.masks[self.altitude]:
+            where_array = np.where(map_ == val)
+            drone_safe_points = drone_safe_points + [(x, y) for x, y in zip(where_array[0], where_array[1]) if
+                                                     x >= 3 and y >= 3 and x <= self.map_volume['vol'].shape[
+                                                         1] - 3 and y <= self.map_volume['vol'].shape[1] - 3]
+        drone = random.choice(drone_safe_points)
+############################
+        # # Set hiker's and drone's locations
+        # #hiker = (random.randint(2, self.map_volume['vol'].shape[1] - 1), random.randint(2, self.map_volume['vol'].shape[1] - 2)) #(8,8) #
+        # #if self.dropping:
+        # hiker = (10,10)#(random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))  # (7,8) #
+        # # drone = (random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 1))
+        # drone = random.choice([(hiker[0]-1, hiker[1]-1),(hiker[0]-1, hiker[1]),(hiker[0], hiker[1]-1)])## Package drop starts close to hiker!!! #(random.randint(2, self.map_volume['vol'].shape[1] - 1), random.randint(2, self.map_volume['vol'].shape[1] - 2)) # (8,8) #
         # drone = random.choice([(hiker[0] - 5, hiker[1] - 7), (hiker[0] - 7, hiker[1]), (hiker[0], hiker[1] - 7)])
         #else:
             # hiker = (random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))  # (7,8) #
@@ -721,14 +758,14 @@ class GridworldEnv(gym.Env):
         # put the drone in
         self.map_volume['vol'][self.altitude][drone[0], drone[1]] = \
         self.map_volume['feature_value_map']['drone'][self.altitude]['val']
-        self.map_volume['flat'][drone[0], drone[1]] = self.map_volume['feature_value_map']['drone'][self.altitude][
-            'val']
+        # self.map_volume['flat'][drone[0], drone[1]] = self.map_volume['feature_value_map']['drone'][self.altitude][
+        #     'val']
         self.map_volume['img'][drone[0], drone[1]] = self.map_volume['feature_value_map']['drone'][self.altitude][
             'color']
         # self.map_volume[altitude]['drone'][local_y, local_x] = 1.0
         # put the hiker in@ altitude 0
         self.map_volume['vol'][0][hiker[0], hiker[1]] = self.map_volume['feature_value_map']['hiker']['val']
-        self.map_volume['flat'][hiker[0], hiker[1]] = self.map_volume['feature_value_map']['hiker']['val']
+        # self.map_volume['flat'][hiker[0], hiker[1]] = self.map_volume['feature_value_map']['hiker']['val']
         self.map_volume['img'][hiker[0], hiker[1]] = self.map_volume['feature_value_map']['hiker']['color']
         self.hiker_position = np.where(self.map_volume['vol'] == self.map_volume['feature_value_map']['hiker']['val'])
 
@@ -786,11 +823,16 @@ class GridworldEnv(gym.Env):
         # hiker_background_color = None
         column_number = 0
         for xy in self.possible_actions_map[self.heading]:
-            try:
+            if drone_position_flat[0] + xy[0] >= 0 and drone_position_flat[1] + xy[1] >= 0 and drone_position_flat[0] + \
+                    xy[0] <= self.map_volume['vol'].shape[1] - 1 and drone_position_flat[1] + xy[1] <= \
+                    self.map_volume['vol'].shape[2] - 1:
+
+                # try:
                 # no hiker if using original
                 column = self.map_volume['vol'][:, drone_position_flat[0] + xy[0], drone_position_flat[1] + xy[1]]
 
-            except IndexError:
+            # except IndexError:
+            else:
                 column = [1., 1., 1., 1., 1.]
             slice[:, column_number] = column
             column_number += 1
@@ -845,7 +887,16 @@ class GridworldEnv(gym.Env):
         drone_position = (int(drone_position[1]) * 5, int(drone_position[2]) * 5)
         for point in self.planes[self.heading][0]:
             map[drone_position[0] + point[0], drone_position[1] + point[1], :] = \
-            self.map_volume['feature_value_map']['drone'][self.altitude]['color']
+                self.map_volume['feature_value_map']['drone'][self.altitude]['color']
+
+        # maybe put the package in
+
+        if self.package_dropped:
+            package_position = (int(self.package_position[0] * 5), int(self.package_position[1]) * 5)
+            for point in self.package[self.package_state][0]:
+                # print(point, package_position)
+                map[package_position[0] + point[0], package_position[1] + point[1], :] = [94, 249, 242]
+
         # map[drone_position[0]:drone_position[0] + 5,drone_position[1]:drone_position[1] + 5] = self.plane_image(self.heading,self.map_volume['feature_value_map']['drone'][self.altitude]['color'])
 
         # map = imresize(map, (1000,1000), interp='nearest')

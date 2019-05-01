@@ -1,6 +1,6 @@
 import tensorflow as tf
-from pysc2.lib import actions
-from pysc2.lib.features import SCREEN_FEATURES, MINIMAP_FEATURES
+# from pysc2.lib import actions
+# from pysc2.lib.features import SCREEN_FEATURES, MINIMAP_FEATURES
 from tensorflow.contrib import layers
 
 
