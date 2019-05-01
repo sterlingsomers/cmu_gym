@@ -607,7 +607,7 @@ for key in new_navs_by_action:
         new_navs_by_action[key]['ordered_indicies'].append(get_furthest_index(new_navs_by_action[key]['center'],new_navs_by_action[key]['vals'],new_navs_by_action[key]['ordered_indicies']))
 
 
-#find smallest 'vals' size
+#find smallest 'vals' size, in order to reduce size so samples are even
 vals_len = -1
 smallest_list = 1000000000000
 for key in new_navs_by_action:
