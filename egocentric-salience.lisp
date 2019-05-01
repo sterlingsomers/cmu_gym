@@ -16,7 +16,7 @@
 (define-model test-blending
     (sgp :sim-hook "similarity_function"
          ;:blending-request-hook "new_blend_request"
-         :tmp 1
+         :tmp 0.5
          ;:seed (1 1) :bll nil :blc 5 :mp 1 :v t :blt t :esc t :ans .25 :rt -5)
          :seed (1 1) :bll nil :blc 5 :mp 1 :v f :blt t :esc t :ans nil :rt -5 :value->mag second)
 
@@ -72,7 +72,8 @@
        hiker_center =HC
        hiker_diagonal_left =HDL
        hiker_left =HL
-       type NAV)
+       type NAV
+       ;:ignore-slots (altitude distance_to_hiker))
 
   
   (p p2

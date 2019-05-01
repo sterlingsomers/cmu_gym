@@ -339,6 +339,7 @@ def similarity(val1, val2):
     #return abs(val1_t - val2_t) * -1
     #print("sim returning", (abs(value1 - value2) * - 1)/max_val)
     return_value = abs(val1_t - val2_t) * -1#/max_val
+
     return return_value#(abs(value1 - value2) * - 1)/max_val
 
     #print("sim returning", abs(val1 - val2) / (max_val - min_val) * - 1)
@@ -435,8 +436,8 @@ def reset_actr():
     actr.load_act_r_model(os.path.join(model_path,model_name))
     actr.record_history("blending-trace")
 
-    max_mins = 'max_mins_from_data.pkl'
-    max_mins = pickle.load(open(os.path.join(chunk_path,chunk_file_name),'rb'))
+    max_mins_name = 'max_mins_from_data.pkl'
+    max_mins = pickle.load(open(os.path.join(chunk_path,max_mins_name),'rb'))
 
     #load all the chunks
     allchunks = pickle.load(open(os.path.join(chunk_path,chunk_file_name),'rb'))
@@ -464,7 +465,14 @@ def reset_actr():
                     min_max[x].append(y[1])
     #modifying the max_mins to include things from data collection, inorder to transponse
     for key in max_mins:
-        print('test')
+        if key == 'ego':
+            for aMinMax in min_max:
+                if 'ego' in aMinMax:
+                    min_max[aMinMax] = max_mins[key]
+        elif key == 'distance':
+            min_max['distance_to_hiker'] = max_mins[key]
+        else:
+            min_max[key] = max_mins[key]
     #print('asf')
     print("reset done.")
 
@@ -504,7 +512,7 @@ def create_actr_observation(step):
     chunk = [int(x) if type(x) == np.int64 else x for x in chunk]
     for trans in transposes:
         index_of_value = chunk.index(trans) + 1
-        chunk[index_of_value] = remap(chunk[index_of_value], min(min_max[trans]),max(min_max[trans]),0,1)
+        chunk[index_of_value][1] = remap(chunk[index_of_value][1], min(min_max[trans]),max(min_max[trans]),0,1)
     #transponse the transposes values to zero to 1 range
 
     return chunk
