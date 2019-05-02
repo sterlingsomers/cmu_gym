@@ -329,7 +329,7 @@ class GridworldEnv(gym.Env):
             local_coordinates[2] == self.map_volume['vol'].shape[1] - 1:
             print("NOACTION")
             self.no_action_flag = True
-            self.reward = 0
+            self.reward = -1
             self.package_state = 'OOB'
             #self.drop = True
             return 0
@@ -363,16 +363,16 @@ class GridworldEnv(gym.Env):
         #print(terrain, reward)
         # distance in tiles ( we use Transpose and take the first element as the np.array for hiker pos is inside another array and καθετο vector
         self.pack_dist = max(abs(np.array(pack_world_coords) - np.array(self.hiker_position[-2:]).T[0]))
-        if reward==1: # package state is OK
-            if int(self.pack_dist) == 0:  # pack lands on top of the hiker. We need this condition to avoid the explosion of the inverse distance on 0
-                self.reward = 1  # reward + is_hiker_in_neighbors + 1
-            else:
-                self.reward = 1/((self.pack_dist** 2) + 1e-7)
-        else: # package DAMAGED
-            if int(self.pack_dist) == 0:  # pack lands on top of the hiker
-                self.reward = 0  # reward + is_hiker_in_neighbors + 1
-            else:
-                self.reward = -1 + 1/((self.pack_dist** 2) + 1e-7)
+        # if reward==1: # package state is OK
+        if int(self.pack_dist) == 0:  # pack lands on top of the hiker. We need this condition to avoid the explosion of the inverse distance on 0
+                self.reward = 3  # reward + is_hiker_in_neighbors + 1 # altitude is implied so you might need to put it in
+        else:
+                self.reward = (reward + self.alt_rewards[self.altitude])/((self.pack_dist** 2) + 1e-7)
+        # else: # package DAMAGED
+        #     if int(self.pack_dist) == 0:  # pack lands on top of the hiker
+        #         self.reward = 0  # reward + is_hiker_in_neighbors + 1
+        #     else:
+        #         self.reward = -1 + 1/((self.pack_dist** 2) + 1e-7)
             # self.reward = reward + 1/((self.pack_dist** 2) + 1e-7)#reward*is_hiker_in_neighbors + 1/((self.pack_dist** 2) + 1e-7) # if you are far away you get only the reward from the distance
         self.package_position = pack_world_coords
         self.package_dropped = True
