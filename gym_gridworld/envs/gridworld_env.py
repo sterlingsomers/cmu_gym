@@ -739,7 +739,7 @@ class GridworldEnv(gym.Env):
 
         # self.map_volume = CNP.map_to_volume_dict(_map[0],_map[1], self.mapw, self.maph)
         # drone = (random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))#(6,5)#(2,6)#(random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2)) #(1,8)
-        drone = (18,10)
+        drone = (11,18) # first dimension is down the map and second is right from top left corner
         # drone = (random.randint(2, self.map_volume['vol'].shape[1] - 4), random.randint(2, self.map_volume['vol'].shape[1] - 4))
         hiker = (10,10)#(random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))
         ##################
