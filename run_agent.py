@@ -287,9 +287,10 @@ def main():
                 t=0
                 rewards = []
                 done = 0
+                rnn_state = runner.agent.theta.state_init
                 while done==0:
                     # RUN THE MAIN LOOP
-                    obs, action, value, reward, done = runner.run_trained_batch()
+                    obs, action, value, reward, done, rnn_state = runner.run_trained_batch(rnn_state)
 
                     rewards.append(reward)
                     if done:

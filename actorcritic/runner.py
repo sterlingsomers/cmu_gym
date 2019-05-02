@@ -165,7 +165,7 @@ class Runner(object):
         print('Batch %d finished' % self.batch_counter)
         sys.stdout.flush()
 
-    def run_trained_batch(self):
+    def run_trained_batch(self, rnn_state):
         #gameDisplay.fill((1, 50, 130))
         # STATE, ACTION, REWARD, NEXT STATE
         # YOU NEED TO DISPLAY FIRST IMAGE HERE AS YOU HAVE RESETED AND THERE ARE OBS THERE AS WELL (YOUR FIRST ONES!)
@@ -173,7 +173,7 @@ class Runner(object):
         latest_obs = self.latest_obs # (MINE) =state(t)
 
         # action = agent(state)
-        action_ids, value_estimate, representation = self.agent.step_eval(latest_obs) # (MINE) AGENT STEP = INPUT TO NN THE CURRENT STATE AND OUTPUT ACTION
+        action_ids, value_estimate, representation, state_out = self.agent.step_eval(latest_obs, rnn_state) # (MINE) AGENT STEP = INPUT TO NN THE CURRENT STATE AND OUTPUT ACTION
         print('|actions:', action_ids)
         obs_raw = self.envs.step(action_ids) # It will also visualize the next observation if all the episodes have ended as after success it retunrs the obs from reset
         latest_obs = self.obs_processer.process(obs_raw[0:-3])  # Take only the first element which is the rgb image and ignore the reward, done etc
@@ -187,4 +187,4 @@ class Runner(object):
         self.batch_counter += 1
         #print('Batch %d finished' % self.batch_counter)
         sys.stdout.flush()
-        return obs_raw[0:-3], action_ids[0], value_estimate[0], obs_raw[1], obs_raw[2]
+        return obs_raw[0:-3], action_ids[0], value_estimate[0], obs_raw[1], obs_raw[2], state_out

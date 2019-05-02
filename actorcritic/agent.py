@@ -287,22 +287,25 @@ class ActorCriticAgent:
 
         return action_id, value_estimate, state_out
 
-    def step_eval(self, obs):
+    def step_eval(self, obs, rnn_state):
         # (MINE) Pass the observations through the net
-        ob = np.zeros((1, 100, 100, 3))
-        obsb =np.zeros((1, 100, 100, 3))
-        ob[0] = obs['rgb_screen']
-        obsb[0] = obs['alt_view']
+        # ob = obs['rgb_screen']
+        # obsb = obs['alt_view']
+        # feed_dict = {'rgb_screen:0' : ob,
+        #              'alt_view:0': obsb}
 
-        feed_dict = {'rgb_screen:0' : ob,
-                     'alt_view:0': obsb}
-
-        action_id, value_estimate, representation = self.sess.run(
-            [self.sampled_action_id, self.value_estimate, self.theta.map_output],
-            feed_dict=feed_dict
+        action_id, value_estimate, representation, state_out = self.sess.run(
+            [self.sampled_action_id, self.value_estimate, self.theta.map_output, self.theta.state_out],
+            feed_dict={
+                self.placeholders.rgb_screen: obs['rgb_screen'],
+                self.placeholders.alt_view: obs['alt_view'],
+                self.theta.step_size: [1],
+                self.theta.state_in[0]: rnn_state[0],
+                self.theta.state_in[1]: rnn_state[1]
+            }
         )
 
-        return action_id, value_estimate, representation
+        return action_id, value_estimate, representation, state_out
 
     def train(self, input_dict, rnn_state): # The input dictionary is designed in the runner with advantage function and other stuff in order to be used in the training.
         feed_dict = self._input_to_feed_dict(input_dict)

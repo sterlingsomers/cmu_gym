@@ -95,7 +95,7 @@ class FullyConvPolicy:
 
         rnn_out = tf.reshape(self.outputs, [-1, 25, 25, 128])
 
-        map_output_flat = tf.reshape(self.outputs, [-1, 80000])# 25*25*128
+        map_output_flat = tf.reshape(self.outputs, [-1, 80000])# 25*25*128 OR FLATTEN THE rnn_out like u were doing with the concated volume
         # (MINE) This is the last layer (fully connected -fc) for the non-spatial (categorical) actions
         fc1 = layers.fully_connected(
             map_output_flat,
