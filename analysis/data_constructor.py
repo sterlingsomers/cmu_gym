@@ -1,3 +1,4 @@
+import os.path
 import numpy as np
 import pandas as pd
 import pickle
@@ -94,7 +95,7 @@ def load_feat2value():
 
 # Load and create the data
 def load_data():
-    pickle_in = open('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/BoxCanyon_D1910_H1010_100.tj','rb')
+    pickle_in = open(path + '.tj','rb')
     obs = pickle.load(pickle_in)
     return obs
 
@@ -161,17 +162,25 @@ def create_dataframe(obs, value_feature_map):
 
     # datab = np.reshape(data, [data.shape[0], data.shape[1]])
     df = pd.DataFrame(data, columns=columns)
-    df.to_pickle('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/BoxCanyon_D1910_H1010_100_df.df')
+    df.to_pickle(path + '.df')
     print('...dataframe saved')
     # To load
     # df = pd.read_pickle('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/df_dataframe.df')
 
+
+folder = '/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/'
+map_name = 'BoxCanyon'
+drone_init_loc = 'D1118'
+hiker_loc = 'H1010'
+path = folder + map_name + '_' + drone_init_loc + '_' + hiker_loc + '_' + '200'
+
 obs = load_data()
-# value_feature = load_feat2value()
-# create_dataframe(obs,value_feature)
+if os.path.isfile(path + '.df')==False:
+    value_feature = load_feat2value()
+    create_dataframe(obs,value_feature)
 
 img = obs[0]['map_volume'][0]['img']
-df = pd.read_pickle('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/BoxCanyon_D1910_H1010_100_df.df')
+df = pd.read_pickle(path + '.df')
 ''' DROP LOCATIONS '''
 data = df['drone_position'].loc[(df['agent_type'] == 'drop_agent') & (df['action_label'] == 'drop')]
 data = data.values

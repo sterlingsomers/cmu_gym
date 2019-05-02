@@ -598,7 +598,7 @@ def main():
                 clock.tick(15)
 
             print("...saving dictionary.")
-            pickle_in = open('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/BoxCanyon_D1118_H1010_100.tj','wb')
+            pickle_in = open('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/BoxCanyon_D1118_H1010_200.tj','wb')
             pickle.dump(dictionary, pickle_in)
             # with open('./data/All_maps_20x20_500.tj', 'wb') as handle:
             #     pickle.dump(dictionary, handle)
