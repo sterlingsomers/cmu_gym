@@ -426,8 +426,8 @@ def main():
 
                     # RUN THE MAIN LOOP
                     #obs, action, value, reward, done, representation, fc, grad_V, grad_pi = nav_runner.run_trained_batch(drop_flag) # Just one step. There is no monitor here so no info section
-                    # obs, action, value, reward, done, representation, fc, action_probs, grad_V_allo, grad_V_ego, mask_allo, mask_ego = nav_runner.run_trained_batch(drop_flag) # Just one step. There is no monitor here so no info section
-                    obs, action, value, reward, done, representation, fc, action_probs = nav_runner.run_trained_batch(drop_flag) # Just one step. There is no monitor here so no info section
+                    obs, action, value, reward, done, representation, fc, action_probs, grad_V_allo, grad_V_ego, mask_allo, mask_ego = nav_runner.run_trained_batch(drop_flag) # Just one step. There is no monitor here so no info section
+                    # obs, action, value, reward, done, representation, fc, action_probs = nav_runner.run_trained_batch(drop_flag) # Just one step. There is no monitor here so no info section
 
                     # dictionary[nav_runner.episode_counter]['actions'].append(action)
                     mb_actions.append(action)
@@ -438,28 +438,28 @@ def main():
                     mb_crash.append(nav_runner.envs.crash)
 
                     # Saliencies
-                    # cmap = plt.get_cmap('viridis')
-                    # grad_V_allo = cmap(grad_V_allo) # (100,100,4)
-                    # grad_V_allo = np.delete(grad_V_allo, 3, 2) # (100,100,3)
-                    # # grad_V = np.stack((grad_V,) * 3, -1)
-                    # grad_V_allo = grad_V_allo * 255
-                    # grad_V_allo = grad_V_allo.astype(np.uint8)
-                    # process_img(grad_V_allo, 400, 20)
-                    #
-                    # grad_V_ego = cmap(grad_V_ego)  # (100,100,4)
-                    # grad_V_ego = np.delete(grad_V_ego, 3, 2)  # (100,100,3)
-                    # # grad_pi = np.stack((grad_pi,) * 3, -1)
-                    # grad_V_ego = grad_V_ego * 255
-                    # grad_V_ego = grad_V_ego.astype(np.uint8)
-                    # process_img(grad_V_ego, 400, 400)
-                    #
-                    # # Masks
-                    # masked_map_xy = map_xy
-                    # masked_map_xy[mask_allo == 0] = 0
-                    # process_img(masked_map_xy, 800, 20)
-                    # masked_map_alt = map_alt
-                    # masked_map_alt[mask_ego == 0] = 0
-                    # process_img(masked_map_alt, 800, 400)
+                    cmap = plt.get_cmap('viridis')
+                    grad_V_allo = cmap(grad_V_allo) # (100,100,4)
+                    grad_V_allo = np.delete(grad_V_allo, 3, 2) # (100,100,3)
+                    # grad_V = np.stack((grad_V,) * 3, -1)
+                    grad_V_allo = grad_V_allo * 255
+                    grad_V_allo = grad_V_allo.astype(np.uint8)
+                    process_img(grad_V_allo, 400, 20)
+
+                    grad_V_ego = cmap(grad_V_ego)  # (100,100,4)
+                    grad_V_ego = np.delete(grad_V_ego, 3, 2)  # (100,100,3)
+                    # grad_pi = np.stack((grad_pi,) * 3, -1)
+                    grad_V_ego = grad_V_ego * 255
+                    grad_V_ego = grad_V_ego.astype(np.uint8)
+                    process_img(grad_V_ego, 400, 400)
+
+                    # Masks
+                    masked_map_xy = map_xy
+                    masked_map_xy[mask_allo == 0] = 0
+                    process_img(masked_map_xy, 800, 20)
+                    masked_map_alt = map_alt
+                    masked_map_alt[mask_ego == 0] = 0
+                    process_img(masked_map_alt, 800, 400)
 
                     screen_mssg_variable("Value    : ", np.round(value,3), (168, 350))
                     screen_mssg_variable("Reward: ", np.round(reward,3), (168, 372))
@@ -503,8 +503,8 @@ def main():
                         while done2==0:
 
                             # Step
-                            # obs, action, value, reward, done2, representation, fc, action_probs, grad_V_allo, grad_V_ego, mask_allo, mask_ego = drop_runner.run_trained_batch(drop_flag)
-                            obs, action, value, reward, done2, representation, fc, action_probs = drop_runner.run_trained_batch(drop_flag)
+                            obs, action, value, reward, done2, representation, fc, action_probs, grad_V_allo, grad_V_ego, mask_allo, mask_ego = drop_runner.run_trained_batch(drop_flag)
+                            # obs, action, value, reward, done2, representation, fc, action_probs = drop_runner.run_trained_batch(drop_flag)
 
                             mb_rewards.append(reward)
 
@@ -525,27 +525,27 @@ def main():
                             mb_ego.append(drop_runner.envs.ego)
 
                             # Saliencies
-                            # grad_V_allo = cmap(grad_V_allo)  # (100,100,4)
-                            # grad_V_allo = np.delete(grad_V_allo, 3, 2)  # (100,100,3)
-                            # # grad_V = np.stack((grad_V,) * 3, -1)
-                            # grad_V_allo = grad_V_allo * 255
-                            # grad_V_allo = grad_V_allo.astype(np.uint8)
-                            # process_img(grad_V_allo, 400, 20)
-                            #
-                            # grad_V_ego = cmap(grad_V_ego)  # (100,100,4)
-                            # grad_V_ego = np.delete(grad_V_ego, 3, 2)  # (100,100,3)
-                            # # grad_pi = np.stack((grad_pi,) * 3, -1)
-                            # grad_V_ego = grad_V_ego * 255
-                            # grad_V_ego = grad_V_ego.astype(np.uint8)
-                            # process_img(grad_V_ego, 400, 400)
-                            #
-                            # # Masks
-                            # masked_map_xy = map_xy
-                            # masked_map_xy[mask_allo == 0] = 0
-                            # process_img(masked_map_xy, 800, 20)
-                            # masked_map_alt = map_alt
-                            # masked_map_alt[mask_ego == 0] = 0
-                            # process_img(masked_map_alt, 800, 400)
+                            grad_V_allo = cmap(grad_V_allo)  # (100,100,4)
+                            grad_V_allo = np.delete(grad_V_allo, 3, 2)  # (100,100,3)
+                            # grad_V = np.stack((grad_V,) * 3, -1)
+                            grad_V_allo = grad_V_allo * 255
+                            grad_V_allo = grad_V_allo.astype(np.uint8)
+                            process_img(grad_V_allo, 400, 20)
+
+                            grad_V_ego = cmap(grad_V_ego)  # (100,100,4)
+                            grad_V_ego = np.delete(grad_V_ego, 3, 2)  # (100,100,3)
+                            # grad_pi = np.stack((grad_pi,) * 3, -1)
+                            grad_V_ego = grad_V_ego * 255
+                            grad_V_ego = grad_V_ego.astype(np.uint8)
+                            process_img(grad_V_ego, 400, 400)
+
+                            # Masks
+                            masked_map_xy = map_xy
+                            masked_map_xy[mask_allo == 0] = 0
+                            process_img(masked_map_xy, 800, 20)
+                            masked_map_alt = map_alt
+                            masked_map_alt[mask_ego == 0] = 0
+                            process_img(masked_map_alt, 800, 400)
 
                             screen_mssg_variable("Value    : ", np.round(value, 3), (168, 350))
                             screen_mssg_variable("Reward: ", np.round(reward, 3), (168, 372))

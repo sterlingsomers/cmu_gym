@@ -323,46 +323,46 @@ class ActorCriticAgent:
             feed_dict=feed_dict
         )
         ##### UNCOMMENT BELOW
-        # obs_b = np.squeeze(ob.astype(float)) # remove the 1 batch dimension by squeezing
-        # # Baseline is a black image (for integrated gradients)
-        # baseline = np.zeros(obs_b.shape)
-        # baseline.fill(-1)
-        # images = self.placeholders.rgb_screen # Inputs placeholder to differentiate with respect to it.
-        # # ============ VALUE GRADIENT ======================
-        # values = self.graph.get_tensor_by_name('theta/Squeeze:0')
-        # V = tf.reshape(values, [1])
-        # # Vanilla
-        # # Allocentric #############
-        # gradient_saliency = saliency.GradientSaliency(self.graph, self.sess, V, images)
-        # # Below you have to put the other image as input in order to compute deriv w.r.t. the other one
-        # smoothgrad_V = gradient_saliency.GetSmoothedMask(obs_b, feed_dict={self.value_estimate: value_estimate, 'alt_view:0': obsb})
-        # # # Integrated
-        # # # gradient_saliency = saliency.IntegratedGradients(self.graph, self.sess, V, images)
-        # # # smoothgrad_V = gradient_saliency.GetSmoothedMask(obs_b, feed_dict={self.value_estimate: value_estimate}, x_steps=25, x_baseline=baseline)
-        # smoothgrad_V_gray_allo = saliency.VisualizeImageGrayscale(smoothgrad_V)
-        # # # Instead of smoothgrad_V_gray use RGB
-        # # smoothgrad_V_gray = (smoothgrad_V - smoothgrad_V.min()) / (
-        # #         smoothgrad_V.max() - smoothgrad_V.min())
-        # #
-        # mask_allo = copy.deepcopy(smoothgrad_V_gray_allo)
-        # mask_allo[mask_allo<0.7] = 0
-        # # Egocentric ############
-        # obs_b = np.squeeze(obsb.astype(float))  # remove the 1 batch dimension by squeezing
-        # # Baseline is a black image (for integrated gradients)
-        # baseline = np.zeros(obs_b.shape)
-        # baseline.fill(-1)
-        # images = self.placeholders.alt_view  # Inputs placeholder to differentiate with respect to it.
-        # # Value
-        # values = self.graph.get_tensor_by_name('theta/Squeeze:0')
-        # V = tf.reshape(values, [1])
-        # # Vanilla
-        # gradient_saliency = saliency.GradientSaliency(self.graph, self.sess, V, images)
-        # smoothgrad_V = gradient_saliency.GetSmoothedMask(obs_b,
-        #                                                  feed_dict={self.value_estimate: value_estimate,
-        #                                                             self.placeholders.rgb_screen: ob})
-        # smoothgrad_V_gray_ego = saliency.VisualizeImageGrayscale(smoothgrad_V)
-        # mask_ego = copy.deepcopy(smoothgrad_V_gray_ego)
-        # mask_ego[mask_ego<0.7] = 0
+        obs_b = np.squeeze(ob.astype(float)) # remove the 1 batch dimension by squeezing
+        # Baseline is a black image (for integrated gradients)
+        baseline = np.zeros(obs_b.shape)
+        baseline.fill(-1)
+        images = self.placeholders.rgb_screen # Inputs placeholder to differentiate with respect to it.
+        # ============ VALUE GRADIENT ======================
+        values = self.graph.get_tensor_by_name('theta/Squeeze:0')
+        V = tf.reshape(values, [1])
+        # Vanilla
+        # Allocentric #############
+        gradient_saliency = saliency.GradientSaliency(self.graph, self.sess, V, images)
+        # Below you have to put the other image as input in order to compute deriv w.r.t. the other one
+        smoothgrad_V = gradient_saliency.GetSmoothedMask(obs_b, feed_dict={self.value_estimate: value_estimate, 'alt_view:0': obsb})
+        # # Integrated
+        # # gradient_saliency = saliency.IntegratedGradients(self.graph, self.sess, V, images)
+        # # smoothgrad_V = gradient_saliency.GetSmoothedMask(obs_b, feed_dict={self.value_estimate: value_estimate}, x_steps=25, x_baseline=baseline)
+        smoothgrad_V_gray_allo = saliency.VisualizeImageGrayscale(smoothgrad_V)
+        # # Instead of smoothgrad_V_gray use RGB
+        # smoothgrad_V_gray = (smoothgrad_V - smoothgrad_V.min()) / (
+        #         smoothgrad_V.max() - smoothgrad_V.min())
+        #
+        mask_allo = copy.deepcopy(smoothgrad_V_gray_allo)
+        mask_allo[mask_allo<0.7] = 0
+        # Egocentric ############
+        obs_b = np.squeeze(obsb.astype(float))  # remove the 1 batch dimension by squeezing
+        # Baseline is a black image (for integrated gradients)
+        baseline = np.zeros(obs_b.shape)
+        baseline.fill(-1)
+        images = self.placeholders.alt_view  # Inputs placeholder to differentiate with respect to it.
+        # Value
+        values = self.graph.get_tensor_by_name('theta/Squeeze:0')
+        V = tf.reshape(values, [1])
+        # Vanilla
+        gradient_saliency = saliency.GradientSaliency(self.graph, self.sess, V, images)
+        smoothgrad_V = gradient_saliency.GetSmoothedMask(obs_b,
+                                                         feed_dict={self.value_estimate: value_estimate,
+                                                                    self.placeholders.rgb_screen: ob})
+        smoothgrad_V_gray_ego = saliency.VisualizeImageGrayscale(smoothgrad_V)
+        mask_ego = copy.deepcopy(smoothgrad_V_gray_ego)
+        mask_ego[mask_ego<0.7] = 0
 
         ##### UNCOMMENT ABOVE
 
@@ -380,8 +380,8 @@ class ActorCriticAgent:
 
 
 
-        # return action_id, value_estimate, representation, fc, action_probs, smoothgrad_V_gray_allo, smoothgrad_V_gray_ego, mask_allo, mask_ego#,smoothgrad_pi#smoothgrad_V_gray, smoothgrad_pi_gray
-        return action_id, value_estimate, representation, fc, action_probs
+        return action_id, value_estimate, representation, fc, action_probs, smoothgrad_V_gray_allo, smoothgrad_V_gray_ego, mask_allo, mask_ego#,smoothgrad_pi#smoothgrad_V_gray, smoothgrad_pi_gray
+        # return action_id, value_estimate, representation, fc, action_probs
 
     def train(self, input_dict):
         feed_dict = self._input_to_feed_dict(input_dict)
