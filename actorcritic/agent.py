@@ -297,13 +297,13 @@ class ActorCriticAgent:
 
     def step_eval(self, obs):
         # (MINE) Pass the observations through the net
-        ob = np.zeros((1, 100, 100, 3))
-        obsb =np.zeros((1, 100, 100, 3))
-        ob[0] = obs['rgb_screen']
-        obsb[0] = obs['alt_view']
+        # ob = np.zeros((1, 100, 100, 3))
+        # obsb =np.zeros((1, 100, 100, 3))
+        # ob[0] = obs['rgb_screen']
+        # obsb[0] = obs['alt_view']
 
-        feed_dict = {'rgb_screen:0' : ob,
-                     'alt_view:0': obsb}
+        feed_dict = {'rgb_screen:0' : obs['rgb_screen'],
+                     'alt_view:0': obs['alt_view']}
 
         action_id, value_estimate, representation = self.sess.run(
             [self.sampled_action_id, self.value_estimate, self.theta.map_output],
