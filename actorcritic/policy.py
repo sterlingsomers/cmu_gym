@@ -78,8 +78,8 @@ class FullyConvPolicy:
         self.cell = tf.contrib.rnn.Conv2DLSTMCell(input_shape=[25, 25, 1],  # input dims
                                                   kernel_shape=[3, 3],  # for a 3 by 3 conv
                                                   output_channels=128)  # number of feature maps
-        c_init = np.zeros((1, 25, 25, 128), np.float32)
-        h_init = np.zeros((1, 25, 25, 128), np.float32)
+        c_init = np.zeros((2, 25, 25, 128), np.float32)
+        h_init = np.zeros((2, 25, 25, 128), np.float32)
         self.state_init = [c_init, h_init]
         step_size = tf.shape(self.map_output)[:1]  # Get step_size from input dimensions
         c_in = tf.placeholder(tf.float32, [None, 25, 25, 128])
