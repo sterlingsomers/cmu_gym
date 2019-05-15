@@ -5,7 +5,7 @@ import tensorflow as tf
 from pysc2.lib import actions
 from tensorflow.contrib import layers
 from tensorflow.contrib.layers.python.layers.optimizers import OPTIMIZER_SUMMARIES
-from actorcritic.policy import FullyConvPolicy
+from actorcritic.policy import FullyConvPolicy, MetaPolicy
 from common.preprocess import ObsProcesser, FEATURE_KEYS, AgentInputTuple
 from common.util import weighted_random_sample, select_from_each_row, ravel_index_pairs
 import tensorboard.plugins.beholder as beholder_lib
@@ -70,7 +70,7 @@ class ActorCriticAgent:
             max_gradient_norm=None,
             optimiser="adam",
             optimiser_pars: dict = None,
-            policy=FullyConvPolicy,
+            policy=None,
             num_actions=4
     ):
         """
@@ -115,7 +115,7 @@ class ActorCriticAgent:
         self.train_step = 0
         self.max_gradient_norm = max_gradient_norm
         self.clip_epsilon = clip_epsilon
-        self.policy = policy
+        self.policy = MetaPolicy if policy == 'MetaPolicy' else FullyConvPolicy
         self.num_actions= num_actions
 
         opt_class = tf.train.AdamOptimizer if optimiser == "adam" else tf.train.RMSPropOptimizer
@@ -142,10 +142,7 @@ class ActorCriticAgent:
         action_id = select_from_each_row(
             pi.action_id_log_probs, self.placeholders.selected_action_id
         )
-        # spatial = select_from_each_row(
-        #     pi.spatial_action_log_probs, selected_spatial_action_flat
-        # )
-        # total = spatial + action_id
+
         total = action_id
 
         return SelectedLogProbs(action_id, total)
@@ -156,28 +153,13 @@ class ActorCriticAgent:
 
     def build_model(self):
         self.placeholders = _get_placeholders(self.spatial_dim)
-        # Wtihin theta you build the policy net. Check the graph in tensoflow and expand theta to see the nets
         with tf.variable_scope("theta"):
             self.theta = self.policy(self, trainable=True).build() # (MINE) from policy.py you build the net. Theta is
-            # actually the policy and contains the actions ids and spatial action dstrs
-
-        # selected_spatial_action_flat = ravel_index_pairs(
-        #     self.placeholders.selected_spatial_action, self.spatial_dim
-        # )
 
         selected_log_probs = self._get_select_action_probs(self.theta)
 
-        # maximum is to avoid 0 / 0 because this is used to calculate some means
-        # sum_spatial_action_available = tf.maximum(
-        #     1e-10, tf.reduce_sum(self.placeholders.is_spatial_action_available)
-        # )
-
-        # neg_entropy_spatial = tf.reduce_sum(
-        #     self.theta.spatial_action_probs * self.theta.spatial_action_log_probs
-        # ) / sum_spatial_action_available
         neg_entropy_action_id = tf.reduce_mean(tf.reduce_sum(self.theta.action_id_probs * self.theta.action_id_log_probs, axis=1))
-        # neg_entropy_action_id = tf.reduce_sum(self.theta.action_id_probs * self.theta.action_id_log_probs, axis=1)
-        # (MINE) Sample now actions from the corresponding dstrs defined by the policy network theta
+
         if self.mode == ACMode.PPO:
             # could also use stop_gradient and forget about the trainable
             with tf.variable_scope("theta_old"):
@@ -187,7 +169,7 @@ class ActorCriticAgent:
             old_theta_var = tf.global_variables("theta_old/")
 
             assert len(tf.trainable_variables("theta/")) == len(new_theta_var)
-            assert not tf.trainable_variables("theta_old/")
+            assert not tf.trainable_variables("theta_old/") # Has to be empty
             assert len(old_theta_var) == len(new_theta_var)
 
             self.update_theta_op = [
@@ -212,10 +194,8 @@ class ActorCriticAgent:
             policy_loss = -tf.reduce_mean(l_clip)
         else:
             self.sampled_action_id = weighted_random_sample(self.theta.action_id_probs)
-            # self.sampled_spatial_action = weighted_random_sample(self.theta.spatial_action_probs)
             self.value_estimate = self.theta.value_estimate
             policy_loss = -tf.reduce_mean(selected_log_probs.total * self.placeholders.advantage)
-            #policy_loss = -tf.reduce_sum(selected_log_probs.total * self.placeholders.advantage)
 
         value_loss = tf.losses.mean_squared_error(self.placeholders.value_target, self.theta.value_estimate) # Target comes from runner/run_batch when you specify the full input
         # value_loss = tf.reduce_sum(tf.square(tf.reshape(self.placeholders.value_target,[-1]) - tf.reshape(self.value_estimate, [-1])))
@@ -295,6 +275,25 @@ class ActorCriticAgent:
 
         return action_id, value_estimate
 
+    def step_recurrent(self, obs, rnn_state, prev_reward, prev_action):
+        # (MINE) Pass the observations through the net
+        feed_dict = self._input_to_feed_dict(obs)
+
+        action_id, value_estimate, state_out = self.sess.run(
+            [self.sampled_action_id, self.value_estimate, self.theta.state_out],
+            feed_dict={
+                self.placeholders.rgb_screen: feed_dict['rgb_screen:0'],
+                self.placeholders.alt_view: feed_dict['alt_view:0'],
+                self.theta.prev_rewards: prev_reward,#np.vstack(prev_rewards),
+                self.theta.prev_actions: prev_action,
+                # self.theta.step_size: [1],
+                self.theta.state_in[0]: rnn_state[0],
+                self.theta.state_in[1]: rnn_state[1]
+            }
+        )
+
+        return action_id, value_estimate, state_out
+
     def step_eval(self, obs):
         # (MINE) Pass the observations through the net
         # ob = np.zeros((1, 100, 100, 3))
@@ -337,9 +336,59 @@ class ActorCriticAgent:
 
         self.train_step += 1
 
+    def train_recurrent(self, input_dict): # The input dictionary is designed in the runner with advantage function and other stuff in order to be used in the training.
+        feed_dict = self._input_to_feed_dict(input_dict)
+        ops = [self.train_op] # (MINE) From build model above the train_op contains all the operations for training
+
+        write_all_summaries = (
+            (self.train_step % self.all_summary_freq == 0) and
+            self.summary_path is not None
+        )
+        write_scalar_summaries = (
+            (self.train_step % self.scalar_summary_freq == 0) and
+            self.summary_path is not None
+        )
+
+        if write_all_summaries:
+            ops.append(self.all_summary_op)
+        elif write_scalar_summaries:
+            ops.append(self.scalar_summary_op)
+        # You can either use the rnn_state from the previous batch (you need to save it somehow) or you reset at every batch the initial state of the rnn
+        rnn_state = self.theta.state_init
+        r = self.sess.run(ops, feed_dict={
+            self.placeholders.advantage: feed_dict['advantage:0'],
+            self.placeholders.value_target: feed_dict['value_target:0'],
+            self.placeholders.selected_action_id: feed_dict['selected_action_id:0'],
+            self.placeholders.rgb_screen: feed_dict['rgb_screen:0'],
+            self.placeholders.alt_view: feed_dict['alt_view:0'],
+            self.theta.prev_rewards: feed_dict['prev_rewards:0'],  # np.vstack(prev_rewards),
+            self.theta.prev_actions: feed_dict['prev_actions:0'],
+            # self.theta.step_size: [32],
+            self.theta.state_in[0]: rnn_state[0],
+            self.theta.state_in[1]: rnn_state[1]
+        })  # (MINE) TRAIN!!!
+
+        if write_all_summaries or write_scalar_summaries:
+            self.summary_writer.add_summary(r[-1], global_step=self.train_step)
+
+        self.train_step += 1
+
     def get_value(self, obs):
         feed_dict = self._input_to_feed_dict(obs)
         return self.sess.run(self.value_estimate, feed_dict=feed_dict)
+
+    def get_recurrent_value(self, obs,rnn_state):
+        feed_dict = self._input_to_feed_dict(obs)
+        return self.sess.run(self.value_estimate, feed_dict={
+                self.placeholders.rgb_screen: feed_dict['rgb_screen:0'],
+                self.placeholders.alt_view: feed_dict['alt_view:0'],
+                self.theta.prev_rewards: feed_dict['prev_rewards:0'],  # np.vstack(prev_rewards),
+                self.theta.prev_actions: feed_dict['prev_actions:0'],
+                # self.theta.step_size: [1],
+                self.theta.state_in[0]: rnn_state[0],
+                self.theta.state_in[1]: rnn_state[1]
+            }
+                             )
 
     def flush_summaries(self):
         self.summary_writer.flush()

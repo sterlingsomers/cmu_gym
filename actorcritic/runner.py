@@ -1,7 +1,7 @@
 from collections import namedtuple
-from pysc2.lib import actions
+# from pysc2.lib import actions
 
-import pygame
+# import pygame
 import numpy as np
 import sys
 from actorcritic.agent import ActorCriticAgent, ACMode
@@ -10,7 +10,8 @@ from common.util import calculate_n_step_reward, general_n_step_advantage, combi
     dict_of_lists_to_list_of_dicst
 import tensorflow as tf
 from absl import flags
-from time import sleep
+# from time import sleep
+from actorcritic.policy import FullyConvPolicy, MetaPolicy
 
 PPORunParams = namedtuple("PPORunParams", ["lambda_par", "batch_size", "n_epochs"])
 
@@ -24,7 +25,8 @@ class Runner(object):
             discount=0.99,
             do_training=True,
             ppo_par: PPORunParams = None,
-            n_envs=1
+            n_envs=1,
+            policy_type = None
     ):
         self.envs = envs
         self.n_envs = n_envs
@@ -38,7 +40,8 @@ class Runner(object):
         self.batch_counter = 0
         self.episode_counter = 0
         self.score = 0.0
-        assert self.agent.mode in [ACMode.PPO, ACMode.A2C]
+        self.policy_type = MetaPolicy if policy_type == 'MetaPolicy' else FullyConvPolicy
+        assert self.agent.mode in [ACMode.A2C, ACMode.PPO]
         self.is_ppo = self.agent.mode == ACMode.PPO
         if self.is_ppo:
             assert ppo_par is not None
@@ -80,9 +83,23 @@ class Runner(object):
             k: np.split(v[shuffle_idx], total_obs // self.ppo_par.batch_size)
             for k, v in full_input.items()
         })
-        for b in batches:
-            self.agent.train(b)
+        if self.policy_type == "MetaPolicy": # We take out the if from the loop so you choose trainer BEFORE getting into the batch loop
+            for b in batches:
+                self.agent.train_recurrent(b)
+        else:
+            for b in batches:
+                self.agent.train(b)
 
+    def _train_ppo_recurrent_epoch(self, full_input, rnn_state):
+        # HE SHUFFLES SO BE CAREFUL!!! RECHECK IT: rnn_state might need to get in the full_input
+        total_obs = self.n_steps * self.envs.num_envs
+        shuffle_idx = np.random.permutation(total_obs)
+        batches = dict_of_lists_to_list_of_dicst({
+            k: np.split(v[shuffle_idx], total_obs // self.ppo_par.batch_size)
+            for k, v in full_input.items()
+        })
+        for b in batches:
+            self.agent.train_recurrent(b, rnn_state) # IMPORTANT : όταν κανεις training δεν χρειαζεσαι την rnn_State, ξεκινας απο το 0 και αθτη παιρνη την μορφή πουπρεπει να εχει
     def run_batch(self):
         #(MINE) MAIN LOOP!!!
         # The reset is happening through Monitor (except the first one of the first batch (is in hte run_agent)
@@ -117,7 +134,7 @@ class Runner(object):
             # You can use as below for obs_raw[4] which is success of failure
             #print(obs_raw[2])
             indx=0
-            for t in obs_raw[2]:
+            for t in obs_raw[2]: # Monitor returns additional stuff such as epis_reward and epis_length etc apart the obs, r, done, info
                 if t == True: # done=true
                     # Put reward in scores
                     epis_reward = obs_raw[3][indx]['episode']['r']
@@ -162,6 +179,82 @@ class Runner(object):
 
         self.latest_obs = latest_obs
         self.batch_counter += 1 # It is used only for printing reasons as the outer while loop takes care to stop the number of batches
+        print('Batch %d finished' % self.batch_counter)
+        sys.stdout.flush()
+
+    def run_meta_batch(self):
+        mb_actions = []
+        mb_obs = []
+        mb_values = np.zeros((self.envs.num_envs, self.n_steps + 1), dtype=np.float32)
+        mb_rewards = np.zeros((self.envs.num_envs, self.n_steps), dtype=np.float32)
+        mb_done = np.zeros((self.envs.num_envs, self.n_steps), dtype=np.int32)
+        # EVERYTHING IS HAPPENING ON PARALLEL!!!
+        r_=0
+        a_=0
+        latest_obs = self.latest_obs # (MINE) =state(t)
+        rnn_state = self.agent.theta.state_init
+        for n in range(self.n_steps):
+            action_ids, value_estimate, rnn_state_new = self.agent.step_recurrent(latest_obs, rnn_state, r_, a_) # Automatically returns [num_envs, outx] for each outx you want
+            print('|step:', n, '|actions:', action_ids)
+            # (MINE) Store actions and value estimates for all steps
+            mb_values[:, n] = value_estimate
+            mb_obs.append(latest_obs)
+            mb_actions.append((action_ids))
+            # (MINE)  do action, return it to environment, get new obs and reward, store reward
+            obs_raw = self.envs.step(action_ids)
+            latest_obs = self.obs_processer.process(obs_raw[0]) # For obs_raw as tuple! #(MINE) =state(t+1). Processes all inputs/obs from all timesteps (and envs)
+
+            rnn_state = rnn_state_new
+            r_ = obs_raw[1]
+            a_ = action_ids
+
+            mb_rewards[:, n] = [t for t in obs_raw[1]]
+            mb_done[:, n] = [t for t in obs_raw[2]]
+
+            # Shouldnt this part below be OUT of the nstep loop? NO: You check if done=True and you extract the additional info that Monitor outputs
+            indx=0
+            for t in obs_raw[2]: # Monitor returns additional stuff such as epis_reward and epis_length etc apart the obs, r, done, info
+                if t == True: # done=true
+                    # Put reward in scores
+                    epis_reward = obs_raw[3][indx]['episode']['r']
+                    epis_length = obs_raw[3][indx]['episode']['l']
+                    last_step_r = obs_raw[1][indx]
+                    self._handle_episode_end(epis_reward, epis_length, last_step_r) # The printing score process is NOT a parallel process apparrently as you input every reward (t) independently
+                indx = indx + 1 # finished envs count
+
+        mb_values[:, -1] = self.agent.get_recurrent_value(latest_obs, rnn_state)
+
+        n_step_advantage = general_n_step_advantage(
+            mb_rewards,
+            mb_values,
+            self.discount,
+            mb_done,
+            lambda_par=self.ppo_par.lambda_par if self.is_ppo else 1.0
+        )
+        prev_rewards = [0] + mb_rewards[:, -1].tolist() # from the rewards you take out the last element and replace it with 0
+        prev_actions = [0] + mb_actions[:, -1]#.tolist()
+        full_input = {
+            FEATURE_KEYS.advantage: n_step_advantage.transpose(),
+            FEATURE_KEYS.value_target: (n_step_advantage + mb_values[:, :-1]).transpose()
+        }
+
+        full_input.update(self.action_processer.combine_batch(mb_actions))
+        full_input.update(self.obs_processer.combine_batch(mb_obs))
+        full_input.update(self.action_processer.combine_batch(prev_actions))
+        full_input.update(self.action_processer.combine_batch(prev_rewards))
+        full_input = {k: combine_first_dimensions(v) for k, v in full_input.items()}
+
+        if not self.do_training:
+            pass
+        elif self.agent.mode == ACMode.A2C:
+            self.agent.train(full_input)
+        elif self.agent.mode == ACMode.PPO:
+            for epoch in range(self.ppo_par.n_epochs):
+                self._train_ppo_epoch(full_input)
+            self.agent.update_theta()
+
+        self.latest_obs = latest_obs
+        self.batch_counter += 1
         print('Batch %d finished' % self.batch_counter)
         sys.stdout.flush()
 

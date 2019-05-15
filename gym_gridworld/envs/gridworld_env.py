@@ -111,7 +111,7 @@ class GridworldEnv(gym.Env):
         self.drop_rewards = {"OK": 1,#10, # try all positive rewards
                              # "OK_STUCK": 5,
                              # "OK_SUNK": 5,
-                             "DAMAGED": 0#-1,#-10,
+                             "DAMAGED": -1,# 0#-10,
                              # "DAMAGED_STUCK": -15,
                              # "DAMAGED_SUNK": -15,
                              # "CRASHED": -30
@@ -320,7 +320,7 @@ class GridworldEnv(gym.Env):
             local_coordinates[2] == self.map_volume['vol'].shape[1] - 1:
             print("NOACTION")
             self.no_action_flag = True
-            self.reward = -1 # might be redundant cauz u have a reward = 0 in the step function if the no action flag is true. Also this returns 0
+            self.reward = 0#-1 # might be redundant cauz u have a reward = 0 in the step function if the no action flag is true. Also this returns 0
             self.package_state = 'OOB'
             #self.drop = True
             return 0
@@ -350,9 +350,9 @@ class GridworldEnv(gym.Env):
         self.pack_dist = max(abs(np.array(pack_world_coords) - np.array(self.hiker_position[-2:]).T[0]))
         # if reward==1: # package state is OK
         if int(self.pack_dist) == 0:  # pack lands on top of the hiker. We need this condition to avoid the explosion of the inverse distance on 0
-                self.reward = reward + self.alt_rewards[self.altitude] + 1#3  # reward + is_hiker_in_neighbors + 1 # altitude is implied so you might need to put it in
+                self.reward = 3#  reward + self.alt_rewards[self.altitude] + 1# reward + is_hiker_in_neighbors + 1 # altitude is implied so you might need to put it in
         else:
-                self.reward = reward + self.alt_rewards[self.altitude] + 1/((self.pack_dist** 2) + 1e-7)#(reward + self.alt_rewards[self.altitude])/((self.pack_dist** 2) + 1e-7)
+                self.reward = (reward + self.alt_rewards[self.altitude])/((self.pack_dist** 2) + 1e-7)#reward + self.alt_rewards[self.altitude] + 1/((self.pack_dist** 2) + 1e-7)#
         # else: # package DAMAGED
         #     if int(self.pack_dist) == 0:  # pack lands on top of the hiker
         #         self.reward = 0  # reward + is_hiker_in_neighbors + 1
@@ -647,7 +647,7 @@ class GridworldEnv(gym.Env):
                 return (observation, reward, done, info)
 
         if self.no_action_flag == True:
-            reward = 0 #TODO: it was 0 in all successful training session with PPO. TRY -1 so it avoids dropping at the edges!!!! ahouls be = self.reward and fix self. reward in the drop package function
+            reward = self.reward#-1#TODO: it was 0 in all successful training session with PPO. TRY -1 so it avoids dropping at the edges!!!! ahouls be = self.reward and fix self. reward in the drop package function
             done = True
             if self.restart_once_done: # HAVE IT ALWAYS TRUE!!!
                 return (observation, reward, done, info)
@@ -804,22 +804,22 @@ class GridworldEnv(gym.Env):
             drone_safe_points = drone_safe_points + [(x, y) for x, y in zip(where_array[0], where_array[1]) if
                                                      x >= 3 and y >= 3 and x <= self.map_volume['vol'].shape[
                                                          1] - 3 and y <= self.map_volume['vol'].shape[1] - 3]
-        # D = distance.cdist([hiker], drone_safe_points, 'chebyshev').astype(int) # Distances from hiker to all drone safe points
-        # # print('Distance:',D[0])
-        # # print('Hiker',hiker)
-        # # print('safe_drone',drone_safe_points)
-        # # print('safe_hiker', hiker_safe_points)
-        # k = 4 # k closest. There might be cases in which you have very few drone safe points (e.g. 3) and only one will be really close
-        # if k> np.array(drone_safe_points).shape[0]:
-        #     k = np.array(drone_safe_points).shape[0] - 1 # Cauz we index from 0 but shape starts from 1 to max shape
-        # indx = np.argpartition(D[0],k) # Return the indices of the k closest distances to the hiker. The [0] is VITAL!!!
-        # # # Use the index to retrieve the k closest safe coords to the hiker
-        # closest_neighs = np.array(drone_safe_points)[indx[:k]] # You need to have the safe points as array and not list
-        # drone = tuple(random.choice(closest_neighs))
+        D = distance.cdist([hiker], drone_safe_points, 'chebyshev').astype(int) # Distances from hiker to all drone safe points
+        # print('Distance:',D[0])
+        # print('Hiker',hiker)
+        # print('safe_drone',drone_safe_points)
+        # print('safe_hiker', hiker_safe_points)
+        k = 4 # k closest. There might be cases in which you have very few drone safe points (e.g. 3) and only one will be really close
+        if k> np.array(drone_safe_points).shape[0]:
+            k = np.array(drone_safe_points).shape[0] - 1 # Cauz we index from 0 but shape starts from 1 to max shape
+        indx = np.argpartition(D[0],k) # Return the indices of the k closest distances to the hiker. The [0] is VITAL!!!
+        # # Use the index to retrieve the k closest safe coords to the hiker
+        closest_neighs = np.array(drone_safe_points)[indx[:k]] # You need to have the safe points as array and not list
+        drone = tuple(random.choice(closest_neighs))
         # NOTES: The first element might be the hiker position
         # To move away from hiker increase k and define h=k/2 and discard the h first closest_neighs - 9 suppose to be the max of the closest in an open area. So just use dividends of 9 to discard
         # drone = (hiker[0]-2, hiker[1]-3)
-        drone = random.choice([(hiker[0] - 1, hiker[1] - 1), (hiker[0] - 1, hiker[1] ), (hiker[0], hiker[1] - 1 )])
+        # drone = random.choice([(hiker[0] - 1, hiker[1] - 1), (hiker[0] - 1, hiker[1] ), (hiker[0], hiker[1] - 1 )])
         # below these are not sure safe points!!!
         # drone = random.choice([(hiker[0] - 5, hiker[1] - 3), (hiker[0] - 6, hiker[1]), (hiker[0], hiker[1] - 4), (hiker[0] - 6, hiker[1] - 7)])
         # drone = random.choice(drone_safe_points)
