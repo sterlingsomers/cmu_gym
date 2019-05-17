@@ -5,6 +5,10 @@ import os
 import random
 import copy
 
+from sklearn.cluster import MeanShift
+import matplotlib.pyplot as plt
+
+
 
 
 include_fc = False
@@ -276,9 +280,23 @@ def bin_chunks_by_action(allchunks):
 
 def convert_data_to_ndarray(data):
     '''Converts the list of steps into ndarray'''
-    ndarray = np.zeros((len(data),int(len(data[0])/2)))
+    ndarray = np.zeros((len(data),22))
+    labels = []
+    for d in range(len(data)):
+        value = None
+        astep = []
+        for i in range(1,len(data[d]),2):
+            try:
+                value = float(data[d][i][1])
+            except ValueError:
+                pass
+            if not value == None:
+                astep.append(value)
+                if data[d][i][0] not in labels:
+                    labels.append(data[d][i][0])
+        ndarray[d][:] = astep
 
-    pass
+    return ndarray,labels
 
 def pick_two_from_each_group(dict_by_action,dist,step=0.1):
     #first, remove all empty actions
@@ -443,6 +461,7 @@ def access_by_key(key, list):
 def remap( x, oMin, oMax, nMin, nMax ):
     #https://stackoverflow.com/questions/929103/convert-a-number-range-to-another-range-maintaining-ratio
     #range check
+    #oMin = original Minimum, n = new
     if oMin == oMax:
         print("Warning: Zero input range")
         return None
@@ -586,94 +605,119 @@ for key in garbage:
 
     del navs_by_action[key]
 #Now we have no empty bins
-#find the virtual center of each bin, then find the farthest n points
-ran_out = False
-#first convert the data structure so it's a dictionary that stores the center
-#so it doesn't have to be calculated multiple times
-new_navs_by_action = {}
-for key in navs_by_action:
-    new_navs_by_action[key] = {'vals':navs_by_action[key],'center':{},'ordered_indicies':[]}
 
-for key in new_navs_by_action:
-    new_navs_by_action[key]['center'] = virtual_center(new_navs_by_action[key]['vals'])
+#K-means
+#Before k-means, we need vectors.
+#make a new dictionary, same keys, where the values will be np arrays
+navs_by_action_array = {}
+for key, val in navs_by_action.items():
+    navs_by_action_array[key] = convert_data_to_ndarray(val)
 
-furthest_nav_indexs_ordered = {'hiker_left':[],'hiker_diagonal_left':[],'hiker_center':[],
-                        'hiker_diagonal_right':[],'hiker_right':[],'altitude':[],
-                        'ego_left':[], 'ego_diagonal_left':[], 'ego_center':[],
-                        'ego_diagonal_right':[], 'ego_right':[], 'distance_to_hiker':[]}
+X,oritinal_labels = navs_by_action_array[('up','left')]
+ms = MeanShift()
+ms.fit(X)
+labels = ms.labels_
+cluster_centers = ms.cluster_centers_
 
-for key in new_navs_by_action:
-    for i in range(len(new_navs_by_action[key]['vals'])):
-        new_navs_by_action[key]['ordered_indicies'].append(get_furthest_index(new_navs_by_action[key]['center'],new_navs_by_action[key]['vals'],new_navs_by_action[key]['ordered_indicies']))
+print('cluster center', ms.cluster_centers_)
 
+n_clusters_ = len(np.unique(labels))
+print("number of clusters", n_clusters_)
 
-#find smallest 'vals' size, in order to reduce size so samples are even
-vals_len = -1
-smallest_list = 1000000000000
-for key in new_navs_by_action:
-    if len(new_navs_by_action[key]['vals']) < smallest_list:
-        smallest_list = len(new_navs_by_action[key]['vals'])
-#create the final set
-nav_complete_list = []
-for key in new_navs_by_action:
-    for i in range(smallest_list):
-        index_of_chunk = new_navs_by_action[key]['ordered_indicies'][i]
-        nav_complete_list.append(new_navs_by_action[key]['vals'][index_of_chunk])
-        #nav_complete_list.append(new_navs_by_action[key]['vals'][new_navs_by_action[key]['ordered_indicies'][i]])
+colors = 10*['r.','g.','b.','c.','k.','y.','m.','w.']
 
 
 
-
-print("ok")
-
-
-max_mins = {'distance':[max_nav_distance,min_nav_distances],
-            'ego':[max_nav_ego,min_nav_ego],
-            'altitude':[max_nav_alt,min_nav_alt]}
-
-
-# find_fail = False
-# new_navs_by_action = copy.deepcopy(navs_by_action)
-# while True:
-#     for key in new_navs_by_action:
-#         new_indexes = []
-#         chunks = new_navs_by_action[key]
-#         new_indexes,dist = index_of_most_distal_chunks(chunks)
-#         if not new_indexes:
-#             find_fail = True
-#             continue
-#         if not key in indexes:
-#             indexes[key] = new_indexes
-#         else:
-#             indexes[key].extend(new_indexes)
-#         for ind in new_indexes:
-#             new_navs_by_action[key] = [i for j, i in enumerate(new_navs_by_action[key]) if j not in new_indexes]
-#     if find_fail:
-#         break
-#
-#
-#
-#
-#
-#     print("ok")
-# print("done")
-#HERE - now that I have the index - add it to a new list, and clear out the old, n times untiles the first combination (up left) gives up
-
-
-
-#average_distance_navs = average_euclidean(memory[0])
-#average_distance_drops = average_euclidean(memory[0])
-
-#the aim here will be to pick two items from each action category
-#first pick a random one, then find one greater than average distance away
-
-
-
-#file_path = os.path.join(data_path,filename)
-with open('chunks_maxdistance.pkl','wb') as handle:
-    pickle.dump(nav_complete_list,handle)
-
-with open('max_mins_from_data.pkl','wb') as handle2:
-    pickle.dump(max_mins,handle2)
-
-print("done.")
+print('stop')
+##commented out below to try k-means
+# #find the virtual center of each bin, then find the farthest n points
+# ran_out = False
+# #first convert the data structure so it's a dictionary that stores the center
+# #so it doesn't have to be calculated multiple times
+# # new_navs_by_action = {}
+# # for key in navs_by_action:
+# #     new_navs_by_action[key] = {'vals':navs_by_action[key],'center':{},'ordered_indicies':[]}
+# #
+# # for key in new_navs_by_action:
+# #     new_navs_by_action[key]['center'] = virtual_center(new_navs_by_action[key]['vals'])
+# #
+# # furthest_nav_indexs_ordered = {'hiker_left':[],'hiker_diagonal_left':[],'hiker_center':[],
+# #                         'hiker_diagonal_right':[],'hiker_right':[],'altitude':[],
+# #                         'ego_left':[], 'ego_diagonal_left':[], 'ego_center':[],
+# #                         'ego_diagonal_right':[], 'ego_right':[], 'distance_to_hiker':[]}
+# #
+# # for key in new_navs_by_action:
+# #     for i in range(len(new_navs_by_action[key]['vals'])):
+# #         new_navs_by_action[key]['ordered_indicies'].append(get_furthest_index(new_navs_by_action[key]['center'],new_navs_by_action[key]['vals'],new_navs_by_action[key]['ordered_indicies']))
+# #
+# #
+# # #find smallest 'vals' size, in order to reduce size so samples are even
+# # vals_len = -1
+# # smallest_list = 1000000000000
+# # for key in new_navs_by_action:
+# #     if len(new_navs_by_action[key]['vals']) < smallest_list:
+# #         smallest_list = len(new_navs_by_action[key]['vals'])
+# # #create the final set
+# # nav_complete_list = []
+# # for key in new_navs_by_action:
+# #     for i in range(smallest_list):
+# #         index_of_chunk = new_navs_by_action[key]['ordered_indicies'][i]
+# #         nav_complete_list.append(new_navs_by_action[key]['vals'][index_of_chunk])
+# #         #nav_complete_list.append(new_navs_by_action[key]['vals'][new_navs_by_action[key]['ordered_indicies'][i]])
+# #
+# #
+# #
+# #
+# # print("ok")
+# #
+# #
+# # max_mins = {'distance':[max_nav_distance,min_nav_distances],
+# #             'ego':[max_nav_ego,min_nav_ego],
+# #             'altitude':[max_nav_alt,min_nav_alt]}
+# #
+# #
+# # # find_fail = False
+# # # new_navs_by_action = copy.deepcopy(navs_by_action)
+# # # while True:
+# # #     for key in new_navs_by_action:
+# # #         new_indexes = []
+# # #         chunks = new_navs_by_action[key]
+# # #         new_indexes,dist = index_of_most_distal_chunks(chunks)
+# # #         if not new_indexes:
+# # #             find_fail = True
+# # #             continue
+# # #         if not key in indexes:
+# # #             indexes[key] = new_indexes
+# # #         else:
+# # #             indexes[key].extend(new_indexes)
+# # #         for ind in new_indexes:
+# # #             new_navs_by_action[key] = [i for j, i in enumerate(new_navs_by_action[key]) if j not in new_indexes]
+# # #     if find_fail:
+# # #         break
+# # #
+# # #
+# # #
+# # #
+# # #
+# # #     print("ok")
+# # # print("done")
+# # #HERE - now that I have the index - add it to a new list, and clear out the old, n times untiles the first combination (up left) gives up
+# #
+# #
+# #
+# # #average_distance_navs = average_euclidean(memory[0])
+# # #average_distance_drops = average_euclidean(memory[0])
+# #
+# # #the aim here will be to pick two items from each action category
+# # #first pick a random one, then find one greater than average distance away
+# #
+# #
+# #
+# # #file_path = os.path.join(data_path,filename)
+# # with open('chunks_maxdistance.pkl','wb') as handle:
+# #     pickle.dump(nav_complete_list,handle)
+# #
+# # with open('max_mins_from_data.pkl','wb') as handle2:
+# #     pickle.dump(max_mins,handle2)
+# #
+# # print("done.")
