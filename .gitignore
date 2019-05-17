@@ -211,3 +211,15 @@ venv.bak/
 # mypy
 .mypy_cache/
 
+
+# Development environment: PyCharm, emacs, etc.
+.idea/
+*.iml
+*~
+images/*
+!images/pixel_salience_test.bmp
+!images/ego_salience_test.bmp
+.DS_Store
+_files/models/
+_files/*
+data/*
