@@ -3,7 +3,7 @@ import os
 import shutil
 import sys
 from datetime import datetime
-from time import sleep
+from time import sleep, strftime
 import numpy as np
 import pickle
 import matplotlib.pyplot as plt
@@ -29,6 +29,9 @@ import gym
 #import gym_gridworld
 #from gym_grid.envs import GridEnv
 import gym_gridworld
+import studyresources
+from copy import copy
+import ppt
 
 FLAGS = flags.FLAGS
 flags.DEFINE_bool("visualize", True, "Whether to render with pygame.")
@@ -36,7 +39,7 @@ flags.DEFINE_float("sleep_time", 1.2, "Time-delay in the demo")
 flags.DEFINE_integer("resolution", 32, "Resolution for screen and minimap feature layers.")
 flags.DEFINE_integer("step_mul", 100, "Game steps per agent step.")
 flags.DEFINE_integer("n_envs", 1, "Number of environments to run in parallel")
-flags.DEFINE_integer("episodes", 200, "Number of complete episodes")
+flags.DEFINE_integer("episodes", 1, "Number of complete episodes")
 flags.DEFINE_integer("n_steps_per_batch", 32,
     "Number of steps per batch, if None use 8 for a2c and 128 for ppo")  # (MINE) TIMESTEPS HERE!!! You need them cauz you dont want to run till it finds the beacon especially at first episodes - will take forever
 flags.DEFINE_integer("all_summary_freq", 50, "Record all summaries every n batch")
@@ -102,6 +105,20 @@ flags.DEFINE_bool("trace", False, "Whether to trace the code execution.")
 flags.DEFINE_bool("save_replay", False, "Whether to save a replay at the end.")
 
 #flags.DEFINE_string("map", None, "Name of a map to use.")
+
+###############################################################################################
+# User Study configurations
+flags.DEFINE_string("map", 'original_drawn_map', "name of a map to use.")
+flags.DEFINE_integer("hikerx", 4, "x coordinate for hiker (integer 3-17)")
+flags.DEFINE_integer("hikery", 4, "y coordinate for hiker (integer 3-17)")
+flags.DEFINE_integer("dronex", 9, "x coordinate for drone (integer 3-17)")
+flags.DEFINE_integer("droney", 9, "y coordinate for drone (integer 3-17)")
+flags.DEFINE_boolean("getnames", False, "get names of available maps")
+flags.DEFINE_string("getmap", "", "get map by name")
+flags.DEFINE_boolean("studyhelp", False, "show help for study configuation (False | True)")
+flags.DEFINE_integer("maxsteps", 50, "Maximum number of steps for a run)")
+###############################################################################################
+
 
 
 FLAGS(sys.argv)
@@ -369,8 +386,18 @@ def main():
 
             dictionary = {}
             running = True
+            rootname = os.path.abspath(os.path.dirname(__file__))
+            dirname = os.path.join(rootname,'images')
+            run_name = strftime("run_%Y%m%d_%H%M%S_")
+
             while nav_runner.episode_counter <= (FLAGS.episodes - 1) and running==True:
                 print('Episode: ', nav_runner.episode_counter)
+                ###############################################################################################
+                episode_name = run_name + str(nav_runner.episode_counter) + ".pptx"
+                mission_file_name = os.path.join(rootname, 'images', run_name + str(nav_runner.episode_counter)  + '.json')
+                mission_json = studyresources.Mission(mission_file_name)
+                ###############################################################################################
+
                 # Init storage structures
                 dictionary[nav_runner.episode_counter] = {}
                 mb_obs = []
@@ -409,6 +436,13 @@ def main():
 
                 drop_flag = 0
                 done = 0
+                ###############################################################################################
+                this_action_probability_matrix = None
+                last_action_probability_matrix = None
+                last_action_probs = None
+                ok_to_save_run = True
+                ###############################################################################################
+
                 while done==0:
 
                     mb_obs.append(nav_runner.latest_obs)
@@ -427,6 +461,9 @@ def main():
                     # RUN THE MAIN LOOP
                     #obs, action, value, reward, done, representation, fc, grad_V, grad_pi = nav_runner.run_trained_batch(drop_flag) # Just one step. There is no monitor here so no info section
                     obs, action, value, reward, done, representation, fc, action_probs, grad_V_allo, grad_V_ego, mask_allo, mask_ego = nav_runner.run_trained_batch(drop_flag) # Just one step. There is no monitor here so no info section
+                    print ("DEBUG obs=", end="")
+                    print (obs[0].keys())
+                    info = obs[0]['info']
                     # obs, action, value, reward, done, representation, fc, action_probs = nav_runner.run_trained_batch(drop_flag) # Just one step. There is no monitor here so no info section
 
                     # dictionary[nav_runner.episode_counter]['actions'].append(action)
@@ -480,7 +517,42 @@ def main():
                     pygame.event.get() # Show the last state and then reset
                     sleep(sleep_time)
                     t += 1
-                    if t == 70:
+                    ####################  SAVE SIMULATION OUTPUT FOR NAV STEP  ####################
+                    image_file_name = dirname + '/Image_' + str(t) + '.bmp'
+                    print(str(t), end=",")
+                    pygame.image.save(gameDisplay, image_file_name)
+                    mission_json.add(
+                        t,
+                        'common_ground',
+                        {'terms': ppt.image_title(t, info)})
+                    mission_json.add(
+                        t,
+                        'allocentric',
+                        {'data': obs[0]['allocentric']})
+                    mission_json.add(
+                        t,
+                        'egocentric',
+                        {'data': obs[0]['nextstepdata']})
+
+                    this_action_probability_matrix = studyresources.action_probability_matrix(action_probs)
+                    last_action_probability_matrix = studyresources.action_probability_matrix(last_action_probs)
+                    if t == 0:
+                        mission_json.add(
+                            t,
+                            'Mission',
+                            {'hiker': studyresources.get_hiker(),
+                             'drone': studyresources.get_drone(),
+                             'map': studyresources.get_map_object_by_name(FLAGS.map)})
+                    else:
+                        mission_json.add(
+                            t,
+                            'action_probability',
+                            {'matrix': this_action_probability_matrix})
+
+                    last_action_probs = copy(action_probs)
+                    ####################  /SAVE SIMULATION OUTPUT FOR NAV STEP  ###################
+                    if t >= FLAGS.maxsteps:
+                        ok_to_save_run = False
                         break
 
                     # Dropping Agent
@@ -504,6 +576,9 @@ def main():
 
                             # Step
                             obs, action, value, reward, done2, representation, fc, action_probs, grad_V_allo, grad_V_ego, mask_allo, mask_ego = drop_runner.run_trained_batch(drop_flag)
+                            print("DEBUG Drop obs: ", end=" ")
+                            print (obs[0].keys())
+                            info = obs[0]['info']
                             # obs, action, value, reward, done2, representation, fc, action_probs = drop_runner.run_trained_batch(drop_flag)
 
                             mb_rewards.append(reward)
@@ -573,8 +648,43 @@ def main():
                             pygame.display.update()  # Updates only the blitted parts of the screen, pygame.display.flip() updates the whole screen
                             pygame.event.get()  # Show the last state and then reset
                             sleep(sleep_time)
+                            ####################  SAVE SIMULATION OUTPUT FOR NAV STEP  ####################
+                            image_file_name = dirname + '/Image_' + str(t) + '.bmp'
+                            print(str(t),end=',')
+                            pygame.image.save(gameDisplay, image_file_name)
+                            mission_json.add(
+                                t,
+                                'common_ground',
+                                {'terms': ppt.image_title(t, info)})
+                            mission_json.add(
+                                t,
+                                'allocentric',
+                                {'data': obs[0]['allocentric']})
+                            mission_json.add(
+                                t,
+                                'egocentric',
+                                {'data': obs[0]['nextstepdata']})
+
+                            this_action_probability_matrix = studyresources.action_probability_matrix(action_probs)
+                            last_action_probability_matrix = studyresources.action_probability_matrix(last_action_probs)
+                            if t == 0:
+                                mission_json.add(
+                                    t,
+                                    'Mission',
+                                    {'hiker': studyresources.get_hiker(),
+                                     'drone': studyresources.get_drone(),
+                                     'map': studyresources.get_map_object_by_name(FLAGS.map)})
+                            else:
+                                mission_json.add(
+                                    t,
+                                    'action_probability',
+                                    {'matrix': this_action_probability_matrix})
+
+                            last_action_probs = copy(action_probs)
+                            ####################  /SAVE SIMULATION OUTPUT FOR NAV STEP  ###################
                             t = t +1 # Continue counting
-                            if t==70:
+                            if t >= FLAGS.maxsteps:
+                                ok_to_save_run = False
                                 break
 
                         dictionary[nav_runner.episode_counter]['map_volume'] = mb_map_volume
@@ -597,8 +707,12 @@ def main():
 
                 clock.tick(15)
 
+            if ok_to_save_run:
+                print("Saving JSON data")
+                mission_json.export_json()
+
             print("...saving dictionary.")
-            pickle_in = open('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/BoxCanyon_D1118_H1010_200.tj','wb')
+            pickle_in = open('/Users/lnelson/BoxCanyon_D1118_H1010_200.tj','wb')
             pickle.dump(dictionary, pickle_in)
             # with open('./data/All_maps_20x20_500.tj', 'wb') as handle:
             #     pickle.dump(dictionary, handle)
@@ -618,4 +732,11 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    if FLAGS.studyhelp:
+        print(studyresources.studyhelp())
+    elif FLAGS.getnames:
+        print(studyresources.get_map_names())
+    elif FLAGS.getmap:
+        print(studyresources.get_map_by_name(FLAGS.getmap))
+    else:
+        main()

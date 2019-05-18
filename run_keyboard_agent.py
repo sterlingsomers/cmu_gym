@@ -286,8 +286,8 @@ def main():
 
 
     with nav_graph.as_default():
-        if os.path.exists('_files/models/navi_2020'):
-            nav_agent.load('_files/models/navi_2020')
+        if os.path.exists('_files/models/Nav_Agent'):
+            nav_agent.load('_files/models/Nav_Agent')
 
     nav_runner = Runner(
         envs=envs,
