@@ -420,15 +420,22 @@ def get_furthest_index(center,data,exclusion):
 
 
 
-def convert_centroids_to_chunks(centroids,original_labels,kind='nav'):
+def convert_centroids_to_chunks(category,centroids,original_labels,kind='nav'):
     chunks = []
+    action_values = {'drop': 0, 'left': 0, 'diagonal_left': 0,
+                     'center': 0, 'diagonal_right': 0, 'right': 0,
+                     'up': 0, 'down': 0, 'level': 0}
 
     for centroid in centroids:
         chunk = []
         for slot,value in zip(original_labels,centroid):
             chunk.append(slot)
             chunk.append([slot,value])
-        chunk.append(['type',['type',kind]])
+        for key in action_values:
+            chunk.append(key)
+            chunk.append([key, int(key in category)])
+        chunk.append('type')
+        chunk.append(['type',kind])
         chunks.append(chunk)
     return chunks
 
@@ -564,6 +571,7 @@ reduced_navs = {('down', 'left'): [], ('down', 'diagonal_left'): [], ('down', 'c
                          ('level', 'diagonal_right'): [], ('level', 'right'): [],
                          ('up', 'left'): [], ('up', 'diagonal_left'): [], ('up', 'center'): [],
                          ('up', 'diagonal_right'): [], ('up', 'right'): [], ('drop'): []}
+#action_chunks_by_key = {('down', 'left'):['down']}
 # change = True
 # while change:
 #     one_pass,change = random_distal_chunks(navs_by_action)
@@ -639,13 +647,15 @@ for key in navs_by_action_array:
 #convert whatever centroids there are into chunks again
 nav_by_action_clusters_chunks = {}
 for key in nav_by_action_clusters:
-    nav_by_action_clusters_chunks[key] = convert_centroids_to_chunks(nav_by_action_clusters[key],original_labels_nav,kind='nav')
+    nav_by_action_clusters_chunks[key] = convert_centroids_to_chunks(key, nav_by_action_clusters[key],original_labels_nav,kind='nav')
 
 #convert the dictionary back into a list of all chunks
 nav_complete_list = []
-for key,value in nav_by_action_clusters:
-    chunk = value
-    value.append()
+for key,value in nav_by_action_clusters_chunks.items():
+    for chunk in value:
+
+        nav_complete_list.append(chunk)
+
 
 #X,original_labels = navs_by_action_array[('up','left')]
 #ms = MeanShift()
