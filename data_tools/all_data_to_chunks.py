@@ -280,12 +280,13 @@ def bin_chunks_by_action(allchunks):
 
 def convert_data_to_ndarray(data):
     '''Converts the list of steps into ndarray'''
-    ndarray = np.zeros((len(data),22))
+    ndarray = np.zeros((len(data),21))
     labels = []
     for d in range(len(data)):
-        value = None
         astep = []
+        value = None
         for i in range(1,len(data[d]),2):
+            value = None
             try:
                 value = float(data[d][i][1])
             except ValueError:
@@ -419,6 +420,17 @@ def get_furthest_index(center,data,exclusion):
 
 
 
+def convert_centroids_to_chunks(centroids,original_labels,kind='nav'):
+    chunks = []
+
+    for centroid in centroids:
+        chunk = []
+        for slot,value in zip(original_labels,centroid):
+            chunk.append(slot)
+            chunk.append([slot,value])
+        chunk.append(['type',['type',kind]])
+        chunks.append(chunk)
+    return chunks
 
 
 
@@ -609,23 +621,37 @@ for key in garbage:
 #K-means
 #Before k-means, we need vectors.
 #make a new dictionary, same keys, where the values will be np arrays
+original_labels_nav = []
 navs_by_action_array = {}
 for key, val in navs_by_action.items():
-    navs_by_action_array[key] = convert_data_to_ndarray(val)
+    navs_by_action_array[key],original_labels_nav = convert_data_to_ndarray(val)
 
-X,oritinal_labels = navs_by_action_array[('up','left')]
-ms = MeanShift()
-ms.fit(X)
-labels = ms.labels_
-cluster_centers = ms.cluster_centers_
+#nav by action clusters will hold the center cluster for each action type
+#it can then be used to make a single centroid chunk - just to try
+nav_by_action_clusters = {}
 
-print('cluster center', ms.cluster_centers_)
+for key in navs_by_action_array:
+    X = navs_by_action_array[key]
+    ms = MeanShift()
+    ms.fit(X)
+    nav_by_action_clusters[key] = ms.cluster_centers_
 
-n_clusters_ = len(np.unique(labels))
-print("number of clusters", n_clusters_)
+#convert whatever centroids there are into chunks again
+nav_by_action_clusters_chunks = {}
+for key in nav_by_action_clusters:
+    nav_by_action_clusters_chunks[key] = convert_centroids_to_chunks(nav_by_action_clusters[key],original_labels_nav,kind='nav')
 
-colors = 10*['r.','g.','b.','c.','k.','y.','m.','w.']
+#convert the dictionary back into a list of all chunks
+nav_complete_list = []
+for key,value in nav_by_action_clusters:
+    chunk = value
+    value.append()
 
+#X,original_labels = navs_by_action_array[('up','left')]
+#ms = MeanShift()
+#ms.fit(X)
+#labels = ms.labels_
+#cluster_centers = ms.cluster_centers_
 
 
 print('stop')
