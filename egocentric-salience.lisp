@@ -73,7 +73,7 @@
        hiker_diagonal_left =HDL
        hiker_left =HL
        type NAV
-       ;:ignore-slots (altitude distance_to_hiker))
+       :ignore-slots (altitude distance_to_hiker))
 
   
   (p p2

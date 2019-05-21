@@ -313,7 +313,8 @@ def similarity(val1, val2):
     #val2 is recalled, val1 is the observation
     if val1 == val2:
         return 0
-    if val1 == 'NAV' and val2 == 'DROP':
+    import pdb; pdb.set_trace()
+    if val1[0] == 'NAV' and val2[0] == 'DROP':
         return -5
 
     max_val = max(min_max[val1[0].lower()])
@@ -429,7 +430,7 @@ def reset_actr():
     model_name = 'egocentric-salience.lisp'
     model_path = '/Users/paulsomers/COGLE/gym-gridworld/'
 
-    chunk_file_name = 'chunks_maxdistance.pkl'
+    chunk_file_name = 'chunks_cluster_centers.pkl'
     #chunk_path = os.path.join(model_path,'data')
     chunk_path = ''
     actr.add_command('similarity_function',similarity)
