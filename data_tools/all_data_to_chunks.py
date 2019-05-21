@@ -44,6 +44,7 @@ action_to_category_map = {
     14: ['right', 'up'],
     15: ['drop']
 }
+actions = ['left','diagonal_left','center','diagonal_right','right','level','up','down']
 
 
 
@@ -280,7 +281,7 @@ def bin_chunks_by_action(allchunks):
 
 def convert_data_to_ndarray(data):
     '''Converts the list of steps into ndarray'''
-    ndarray = np.zeros((len(data),21))
+    ndarray = np.zeros((len(data),13))
     labels = []
     for d in range(len(data)):
         astep = []
@@ -564,6 +565,8 @@ memory = convert_data_to_chunks(all_data)#[[nav list,drop list]]
 navs_by_action = sort_chunks_by_action(memory[0])
 drops_by_action = sort_chunks_by_action(memory[1])
 
+#once binned, the chunks should not contain their action data anymore
+
 
 reduced_navs = {('down', 'left'): [], ('down', 'diagonal_left'): [], ('down', 'center'): [],
                          ('down', 'diagonal_right'): [], ('down', 'right'): [],
@@ -629,6 +632,21 @@ for key in garbage:
 #K-means
 #Before k-means, we need vectors.
 #make a new dictionary, same keys, where the values will be np arrays
+
+#first, remove the actions from the bins
+for bin in navs_by_action:
+    for i in range(len(navs_by_action[bin])):
+        clean_example = []
+        for x in navs_by_action[bin][i]:
+            if type(x) == list:
+                if x[0] not in actions:
+                    clean_example.append(x)
+            else:
+                if x not in actions:
+                    clean_example.append(x)
+        navs_by_action[bin][i] = clean_example
+
+
 original_labels_nav = []
 navs_by_action_array = {}
 for key, val in navs_by_action.items():
@@ -662,7 +680,8 @@ for key,value in nav_by_action_clusters_chunks.items():
 #ms.fit(X)
 #labels = ms.labels_
 #cluster_centers = ms.cluster_centers_
-
+with open('chunks_cluster_centers.pkl','wb') as handle:
+    pickle.dump(nav_complete_list,handle)
 
 print('stop')
 ##commented out below to try k-means
