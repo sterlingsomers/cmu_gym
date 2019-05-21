@@ -436,7 +436,8 @@ def convert_centroids_to_chunks(category,centroids,original_labels,kind='nav'):
             chunk.append(key)
             chunk.append([key, int(key in category)])
         chunk.append('type')
-        chunk.append(['type',kind])
+        chunk.append(kind)
+        # chunk.append(['type',kind])
         chunks.append(chunk)
     return chunks
 
