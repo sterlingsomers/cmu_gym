@@ -377,11 +377,13 @@ def main():
                 txt = font.render(text + str(variable), True, WHITE)
                 gameDisplay.blit(txt, area)
 
-            def process_img(img, x,y):
+            def process_img(img, x,y,savename = None):
                 # swap the axes else the image will not be the same as the matplotlib one
                 img = img.transpose(1,0,2)
                 surf = pygame.surfarray.make_surface(img)
                 surf = pygame.transform.scale(surf, (300, 300))
+                if savename is not None:
+                    pygame.image.save(surf,savename)
                 gameDisplay.blit(surf, (x, y))
 
             dictionary = {}
@@ -391,10 +393,16 @@ def main():
             run_name = strftime("run_%Y%m%d_%H%M%S_")
 
             while nav_runner.episode_counter <= (FLAGS.episodes - 1) and running==True:
+                run_folder = os.path.join(dirname, strftime("run_%Y%m%d_%H%M%S_")+str(nav_runner.episode_counter))
+                if not os.path.exists(run_folder):
+                    os.mkdir(run_folder)
                 print('Episode: ', nav_runner.episode_counter)
+                t = 0
+                run_image_prefix = run_folder + '/image_' + str(t) + '_'
                 ###############################################################################################
                 episode_name = run_name + str(nav_runner.episode_counter) + ".pptx"
-                mission_file_name = os.path.join(rootname, 'images', run_name + str(nav_runner.episode_counter)  + '.json')
+                #mission_file_name = os.path.join(rootname, 'images', run_name + str(nav_runner.episode_counter)  + '.json')
+                mission_file_name = os.path.join(run_folder, run_name + str(nav_runner.episode_counter)  + '.json')
                 mission_json = studyresources.Mission(mission_file_name)
                 ###############################################################################################
 
@@ -417,8 +425,8 @@ def main():
                 nav_runner.reset_demo()  # Cauz of differences in the arrangement of the dictionaries
                 map_xy = nav_runner.envs.map_image
                 map_alt = nav_runner.envs.alt_view
-                process_img(map_xy, 20, 20)
-                process_img(map_alt, 20, 400)
+                process_img(map_xy, 20, 20, run_image_prefix + "map.bmp")
+                process_img(map_alt, 20, 400, run_image_prefix + "ego.bmp")
                 pygame.display.update()
 
                 dictionary[nav_runner.episode_counter]['hiker_pos'] = nav_runner.envs.hiker_position
@@ -432,7 +440,7 @@ def main():
                         running = False
                 sleep(sleep_time)
                 # Timestep counter
-                t=0
+                #t=0
 
                 drop_flag = 0
                 done = 0
@@ -444,6 +452,7 @@ def main():
                 ###############################################################################################
 
                 while done==0:
+                    run_image_prefix = run_folder + '/image_' + str(t) + '_'
 
                     mb_obs.append(nav_runner.latest_obs)
                     mb_flag.append(drop_flag)
@@ -481,22 +490,22 @@ def main():
                     # grad_V = np.stack((grad_V,) * 3, -1)
                     grad_V_allo = grad_V_allo * 255
                     grad_V_allo = grad_V_allo.astype(np.uint8)
-                    process_img(grad_V_allo, 400, 20)
+                    process_img(grad_V_allo, 400, 20, run_image_prefix + 'grad_v_allo.bmp')
 
                     grad_V_ego = cmap(grad_V_ego)  # (100,100,4)
                     grad_V_ego = np.delete(grad_V_ego, 3, 2)  # (100,100,3)
                     # grad_pi = np.stack((grad_pi,) * 3, -1)
                     grad_V_ego = grad_V_ego * 255
                     grad_V_ego = grad_V_ego.astype(np.uint8)
-                    process_img(grad_V_ego, 400, 400)
+                    process_img(grad_V_ego, 400, 400, run_image_prefix + 'grad_v_ego.bmp')
 
                     # Masks
                     masked_map_xy = map_xy
                     masked_map_xy[mask_allo == 0] = 0
-                    process_img(masked_map_xy, 800, 20)
+                    process_img(masked_map_xy, 800, 20, run_image_prefix + 'masked_map.bmp')
                     masked_map_alt = map_alt
                     masked_map_alt[mask_ego == 0] = 0
-                    process_img(masked_map_alt, 800, 400)
+                    process_img(masked_map_alt, 800, 400, run_image_prefix + 'masked_ego.bmp')
 
                     screen_mssg_variable("Value    : ", np.round(value,3), (168, 350))
                     screen_mssg_variable("Reward: ", np.round(reward,3), (168, 372))
@@ -509,18 +518,17 @@ def main():
                     gameDisplay.fill(DARK_BLUE)
                     map_xy = obs[0]['img']
                     map_alt = obs[0]['nextstepimage']
-                    process_img(map_xy, 20, 20)
-                    process_img(map_alt, 20, 400)
+                    process_img(map_xy, 20, 20, run_image_prefix + 'map.bmp')
+                    process_img(map_alt, 20, 400, run_image_prefix + 'ego.bmp')
 
                     # Update finally the screen with all the images you blitted in the run_trained_batch
                     pygame.display.update() # Updates only the blitted parts of the screen, pygame.display.flip() updates the whole screen
                     pygame.event.get() # Show the last state and then reset
                     sleep(sleep_time)
-                    t += 1
                     ####################  SAVE SIMULATION OUTPUT FOR NAV STEP  ####################
                     image_file_name = dirname + '/Image_' + str(t) + '.bmp'
                     print(str(t), end=",")
-                    pygame.image.save(gameDisplay, image_file_name)
+                    #pygame.image.save(gameDisplay, image_file_name)
                     mission_json.add(
                         t,
                         'common_ground',
@@ -551,6 +559,7 @@ def main():
 
                     last_action_probs = copy(action_probs)
                     ####################  /SAVE SIMULATION OUTPUT FOR NAV STEP  ###################
+                    t += 1
                     if t >= FLAGS.maxsteps:
                         ok_to_save_run = False
                         break
@@ -573,6 +582,7 @@ def main():
                         mb_map_volume.append(nav_runner.envs.map_volume)
                         mb_ego.append(nav_runner.envs.ego)
                         while done2==0:
+                            run_image_prefix = run_folder + '/image_' + str(t) + '_'
 
                             # Step
                             obs, action, value, reward, done2, representation, fc, action_probs, grad_V_allo, grad_V_ego, mask_allo, mask_ego = drop_runner.run_trained_batch(drop_flag)
@@ -605,22 +615,22 @@ def main():
                             # grad_V = np.stack((grad_V,) * 3, -1)
                             grad_V_allo = grad_V_allo * 255
                             grad_V_allo = grad_V_allo.astype(np.uint8)
-                            process_img(grad_V_allo, 400, 20)
+                            process_img(grad_V_allo, 400, 20, run_image_prefix + 'grad_v_allo.bmp')
 
                             grad_V_ego = cmap(grad_V_ego)  # (100,100,4)
                             grad_V_ego = np.delete(grad_V_ego, 3, 2)  # (100,100,3)
                             # grad_pi = np.stack((grad_pi,) * 3, -1)
                             grad_V_ego = grad_V_ego * 255
                             grad_V_ego = grad_V_ego.astype(np.uint8)
-                            process_img(grad_V_ego, 400, 400)
+                            process_img(grad_V_ego, 400, 400, run_image_prefix + 'grad_v_ego.bmp')
 
                             # Masks
                             masked_map_xy = map_xy
                             masked_map_xy[mask_allo == 0] = 0
-                            process_img(masked_map_xy, 800, 20)
+                            process_img(masked_map_xy, 800, 20, run_image_prefix + 'masked_map.bmp')
                             masked_map_alt = map_alt
                             masked_map_alt[mask_ego == 0] = 0
-                            process_img(masked_map_alt, 800, 400)
+                            process_img(masked_map_alt, 800, 400, run_image_prefix + 'masked_ego.bmp')
 
                             screen_mssg_variable("Value    : ", np.round(value, 3), (168, 350))
                             screen_mssg_variable("Reward: ", np.round(reward, 3), (168, 372))
@@ -641,8 +651,8 @@ def main():
                             gameDisplay.fill(DARK_BLUE)
                             map_xy = obs[0]['img']
                             map_alt = obs[0]['nextstepimage']
-                            process_img(map_xy, 20, 20)
-                            process_img(map_alt, 20, 400)
+                            process_img(map_xy, 20, 20, run_image_prefix + 'map.bmp')
+                            process_img(map_alt, 20, 400, run_image_prefix + 'ego.bmp')
 
                             # Update finally the screen with all the images you blitted in the run_trained_batch
                             pygame.display.update()  # Updates only the blitted parts of the screen, pygame.display.flip() updates the whole screen
@@ -651,7 +661,7 @@ def main():
                             ####################  SAVE SIMULATION OUTPUT FOR NAV STEP  ####################
                             image_file_name = dirname + '/Image_' + str(t) + '.bmp'
                             print(str(t),end=',')
-                            pygame.image.save(gameDisplay, image_file_name)
+                            #pygame.image.save(gameDisplay, image_file_name)
                             mission_json.add(
                                 t,
                                 'common_ground',

@@ -261,7 +261,9 @@ class Mission:
 
      def add(self, step, label, data):
           if step not in self.mission_dictionary:
+               print('Adding step ' + str(step))
                self.mission_dictionary[step] = {}
+          print('Setting step ' + str(step) + ' data for ' + label)
           self.mission_dictionary[step][label] = data
           return
 

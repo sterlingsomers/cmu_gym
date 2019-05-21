@@ -893,9 +893,10 @@ class GridworldEnv(gym.Env):
         for x, y in combinations:
             if slice[x, y] == 0.0:
                 canvas[x, y, :] = [255, 255, 255]
-
+                data['labels'][x][y] = ""
             else:
                 canvas[x, y, :] = self.map_volume['value_feature_map'][slice[x, y]]['color']
+                data['labels'][x][y] = self.map_volume['value_feature_map'][slice[x, y]]['feature']
 
         data['canvas'] = canvas.tolist()
         return data
