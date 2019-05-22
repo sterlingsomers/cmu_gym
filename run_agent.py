@@ -313,8 +313,8 @@ def similarity(val1, val2):
     #val2 is recalled, val1 is the observation
     if val1 == val2:
         return 0
-    import pdb; pdb.set_trace()
-    if val1[0] == 'NAV' and val2[0] == 'DROP':
+    # import pdb; pdb.set_trace()
+    if val1 == 'NAV' and val2 == 'DROP':
         return -5
 
     max_val = max(min_max[val1[0].lower()])
@@ -339,6 +339,9 @@ def similarity(val1, val2):
     #print("sim returning", abs(val1_t - val2_t) * - 1)
     #return abs(val1_t - val2_t) * -1
     #print("sim returning", (abs(value1 - value2) * - 1)/max_val)
+    # if 'EGO' in val1[0]:
+    #     return abs(val1_t - val2_t) * -2
+
     return_value = abs(val1_t - val2_t) * -1#/max_val
 
     return return_value#(abs(value1 - value2) * - 1)/max_val
