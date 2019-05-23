@@ -370,6 +370,7 @@ class GridworldEnv(gym.Env):
                 int(local_coordinates[2]) + delta_x < 0 or \
                 int(local_coordinates[1] + delta_y > vol_shape[1] - 1) or \
                 int(local_coordinates[2] + delta_x > vol_shape[2] - 1):
+
             return 0
 
         # todo update with shape below
@@ -461,12 +462,25 @@ class GridworldEnv(gym.Env):
             done = False
             drone = np.where(
                 self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
+            # update for data collection - the drone at the edges contaminates it
+            vol_shape = self.map_volume['vol'].shape
+            if drone[1] <= 2 or drone[2] <= 2 or drone[1] >= vol_shape[1] - 2 or drone[2] >= vol_shape[2] - 2:
+                observation = self.generate_observation()
+                done = True
+                reward = 0
+                if self.restart_once_done:
+                    return (observation, reward, done, info)
+
+
             hiker = self.hiker_position
             # You should never reach as this is the state(t-1) distane. After eval you get the new distance
             self.dist = np.linalg.norm(np.array(drone[-2:]) - np.array(hiker[-2:]))  # we remove height from the equation so we avoid going diagonally down
 
             # Here the action takes place
             x = eval(self.actionvalue_heading_action[action][self.heading])
+
+            #for data collection, end the episode if the drone edgs up on the edge. It pollutes the data
+
             # A new observation is generated which we do not see cauz we reset() and render in the step function
             observation = self.generate_observation()
 
@@ -486,6 +500,8 @@ class GridworldEnv(gym.Env):
             #     reward = 1 / self.dist  # Put it here to avoid dividing by zero when you crash on the hiker
             # else:
             #     reward = -1 / self.dist
+
+
             if self.check_for_hiker():
                 done = True
                 reward = 1# + self.alt_rewards[self.altitude]
@@ -537,6 +553,16 @@ class GridworldEnv(gym.Env):
         drone_old = np.where(
             self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
         hiker = self.hiker_position
+
+        # update for data collection - the drone at the edges contaminates it
+        vol_shape = self.map_volume['vol'].shape
+        if drone_old[1] <= 2 or drone_old[2] <= 2 or drone_old[1] >= vol_shape[1] - 2 or drone_old[2] >= vol_shape[2] - 2:
+            observation = self.generate_observation()
+            done = True
+            reward = 0
+            if self.restart_once_done:
+                return (observation, reward, done, info)
+
         # Do the action (drone is moving)
         x = eval(self.actionvalue_heading_action[action][self.heading])
 

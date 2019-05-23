@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 
 include_fc = False
 
-all_data = pickle.load(open('all_data100.lst', "rb"))
+all_data = pickle.load(open('all_data2000.lst', "rb"))
 
 possible_actions_map = {
         1: [[0, -1], [-1, -1], [-1, 0], [-1, 1], [0, 1]],
@@ -656,12 +656,19 @@ for key, val in navs_by_action.items():
 #nav by action clusters will hold the center cluster for each action type
 #it can then be used to make a single centroid chunk - just to try
 nav_by_action_clusters = {}
-
+keys_to_delete = []
 for key in navs_by_action_array:
     X = navs_by_action_array[key]
+    if X.shape[0] <= 3:
+        keys_to_delete.append(key)
+        continue
     ms = MeanShift()
     ms.fit(X)
     nav_by_action_clusters[key] = ms.cluster_centers_
+
+#don't delete them, use them as centers - they are so rare
+# for key in keys_to_delete:
+#     del nav_by_action_clusters[key]
 
 #convert whatever centroids there are into chunks again
 nav_by_action_clusters_chunks = {}
@@ -681,7 +688,7 @@ for key,value in nav_by_action_clusters_chunks.items():
 #ms.fit(X)
 #labels = ms.labels_
 #cluster_centers = ms.cluster_centers_
-with open('chunks_cluster_centers.pkl','wb') as handle:
+with open('chunks_cluster_centers_2000.pkl','wb') as handle:
     pickle.dump(nav_complete_list,handle)
 
 print('stop')
