@@ -311,11 +311,18 @@ def access_by_key(key, list):
 def similarity(val1, val2):
     '''Linear tranformation, abslute difference'''
     #val2 is recalled, val1 is the observation
+
     if val1 == val2:
         return 0
     # import pdb; pdb.set_trace()
     if val1 == 'NAV' and val2 == 'DROP':
         return -5
+
+    if not type(val1) == list:
+        return 0
+
+    if val1[0] == 'ALTITUDE' or val1[0] == 'DISTANCE_TO_HIKER':
+        return 0
 
     max_val = max(min_max[val1[0].lower()])
     min_val = min(min_max[val1[0].lower()])
@@ -430,10 +437,10 @@ def compute_S(blend_trace, keys_list):
 
 def reset_actr():
 
-    model_name = 'egocentric-salience.lisp'
+    model_name = 'egocentric_allocentric_salience.lisp'
     model_path = '/Users/paulsomers/COGLE/gym-gridworld/'
 
-    chunk_file_name = 'chunks_cluster_centers.pkl'
+    chunk_file_name = 'chunks_cluster_centers_2000.pkl'
     #chunk_path = os.path.join(model_path,'data')
     chunk_path = ''
     actr.add_command('similarity_function',similarity)
