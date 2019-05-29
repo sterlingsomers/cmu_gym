@@ -33,11 +33,14 @@ import studyresources
 from copy import copy
 import ppt
 
-
+import math
+import operator
+import json
 import actr #Version 7.11.1 tested (may work on others)
 
 FLAGS = flags.FLAGS
 flags.DEFINE_bool("visualize", False, "Whether to render with pygame.")
+flags.DEFINE_float("sleep_time", 0, "Time-delay in the demo")
 flags.DEFINE_integer("resolution", 32, "Resolution for screen and minimap feature layers.")
 flags.DEFINE_integer("step_mul", 100, "Game steps per agent step.")
 flags.DEFINE_integer("n_envs", 1, "Number of environments to run in parallel")
@@ -110,11 +113,11 @@ flags.DEFINE_bool("save_replay", False, "Whether to save a replay at the end.")
 
 ###############################################################################################
 # User Study configurations
-flags.DEFINE_string("map", 'original_drawn_map', "name of a map to use.")
-flags.DEFINE_integer("hikerx", 4, "x coordinate for hiker (integer 3-17)")
-flags.DEFINE_integer("hikery", 4, "y coordinate for hiker (integer 3-17)")
-flags.DEFINE_integer("dronex", 9, "x coordinate for drone (integer 3-17)")
-flags.DEFINE_integer("droney", 9, "y coordinate for drone (integer 3-17)")
+flags.DEFINE_string("map", 'forest_clearing_with_river', "name of a map to use.")
+flags.DEFINE_integer("hikerx", 5, "x coordinate for hiker (integer 3-17)")
+flags.DEFINE_integer("hikery", 5, "y coordinate for hiker (integer 3-17)")
+flags.DEFINE_integer("dronex", 14, "x coordinate for drone (integer 3-17)")
+flags.DEFINE_integer("droney", 14, "y coordinate for drone (integer 3-17)")
 flags.DEFINE_boolean("getnames", False, "get names of available maps")
 flags.DEFINE_string("getmap", "", "get map by name")
 flags.DEFINE_boolean("studyhelp", False, "show help for study configuation (False | True)")
@@ -396,8 +399,8 @@ def compute_S(blend_trace, keys_list):
     #each to_sum is Pj x dSim(Fs,vjk)/dFk
     #therefore, will depend on your similarity equation
     #in this case, we need max/min of the features because we use them to normalize
-    max_val = 4#max(map(max, zip(*feature_sets)))
-    min_val = 1#min(map(min, zip(*feature_sets)))
+    max_val = 1#max(map(max, zip(*feature_sets)))
+    min_val = 0#min(map(min, zip(*feature_sets)))
     n = max_val - min_val
     n = max_val
     #n = 1
@@ -577,6 +580,9 @@ def handle_observation(observation):
     action_choice_yaw['right'] = access_by_key('RIGHT', blend_return)
     yaw_action = max(action_choice_yaw.items(), key=operator.itemgetter(1))[0]
 
+    #calculate salience
+    # salience = compute_S(d,['ego_center','ego_right'])
+
 
     drop_action = access_by_key('DROP',blend_return)
     if drop_action > action_choice_pitch[pitch_action] and drop_action > action_choice_yaw[yaw_action]:
@@ -587,6 +593,8 @@ def handle_observation(observation):
 
 
     print("here.")
+
+
 
     #
     #
@@ -968,14 +976,17 @@ def main():
 
                 drop_flag = 0
                 done = 0
+                step_count = 0
+
                 ###############################################################################################
                 this_action_probability_matrix = None
                 last_action_probability_matrix = None
                 last_action_probs = None
                 ok_to_save_run = True
-                ###############################################################################################
+                ###########################################################################################
 
                 while done==0:
+
                     run_image_prefix = run_folder + '/image_' + str(t) + '_'
 
                     mb_obs.append(nav_runner.latest_obs)
@@ -987,6 +998,23 @@ def main():
                     mb_map_volume.append(nav_runner.envs.map_volume)
                     mb_ego.append(nav_runner.envs.ego)
 
+                    if step_count >= 50:
+                        print("too many steps")
+                        done = True
+                        done2 = True
+                        step_data['stuck'] = True
+                        all_data[nav_runner.episode_counter]['stuck'] = True
+                        all_data[nav_runner.episode_counter]['nav'].append(step_data)
+                        break
+                    step_count += 1
+                    step_data = {'stuck':False}
+                    #I need the egocentric view + hiker's position
+                    #then drone steps, need action
+                    step_data['volume'] = np.array(nav_runner.envs.map_volume['vol'],copy=True)
+                    step_data['heading'] = nav_runner.envs.heading
+                    step_data['hiker'] = nav_runner.envs.hiker_position
+                    step_data['altitude'] = nav_runner.envs.altitude
+                    step_data['drone'] = np.where(step_data['volume'] == nav_runner.envs.map_volume['feature_value_map']['drone'][nav_runner.envs.altitude]['val'])
 
                     # dictionary[nav_runner.episode_counter]['observations'].append(nav_runner.latest_obs)
                     # dictionary[nav_runner.episode_counter]['flag'].append(drop_flag)
