@@ -8,6 +8,8 @@ import copy
 from sklearn.cluster import MeanShift
 import matplotlib.pyplot as plt
 
+from pandas import DataFrame
+
 
 
 
@@ -655,6 +657,7 @@ for key, val in navs_by_action.items():
 
 #nav by action clusters will hold the center cluster for each action type
 #it can then be used to make a single centroid chunk - just to try
+######MEAN SHIFT VERSION
 nav_by_action_clusters = {}
 keys_to_delete = []
 for key in navs_by_action_array:
@@ -665,8 +668,14 @@ for key in navs_by_action_array:
     ms = MeanShift()
     ms.fit(X)
     nav_by_action_clusters[key] = ms.cluster_centers_
+#######K-MEANS VERSION
+# nav_by_action_k_clusters = {}
+# keys_to_delete = []
+# for key in navs_by_action_array:
+
 
 #don't delete them, use them as centers - they are so rare
+#keep commented out below to keep them
 # for key in keys_to_delete:
 #     del nav_by_action_clusters[key]
 
@@ -678,8 +687,11 @@ for key in nav_by_action_clusters:
 #convert the dictionary back into a list of all chunks
 nav_complete_list = []
 for key,value in nav_by_action_clusters_chunks.items():
+    count = 0
     for chunk in value:
-
+        count += 1
+        if count >= 4:
+            break
         nav_complete_list.append(chunk)
 
 
@@ -688,7 +700,7 @@ for key,value in nav_by_action_clusters_chunks.items():
 #ms.fit(X)
 #labels = ms.labels_
 #cluster_centers = ms.cluster_centers_
-with open('chunks_cluster_centers_2000.pkl','wb') as handle:
+with open('chunks_cluster_centers_2000_4examplesmax.pkl','wb') as handle:
     pickle.dump(nav_complete_list,handle)
 
 print('stop')
