@@ -113,11 +113,11 @@ flags.DEFINE_bool("save_replay", False, "Whether to save a replay at the end.")
 
 ###############################################################################################
 # User Study configurations
-flags.DEFINE_string("map", 'forest_clearing_with_river', "name of a map to use.")
-flags.DEFINE_integer("hikerx", 5, "x coordinate for hiker (integer 3-17)")
-flags.DEFINE_integer("hikery", 5, "y coordinate for hiker (integer 3-17)")
-flags.DEFINE_integer("dronex", 14, "x coordinate for drone (integer 3-17)")
-flags.DEFINE_integer("droney", 14, "y coordinate for drone (integer 3-17)")
+flags.DEFINE_string("map", 'long_mountain', "name of a map to use.")
+flags.DEFINE_integer("hikerx", 6, "x coordinate for hiker (integer 3-17)")
+flags.DEFINE_integer("hikery", 11, "y coordinate for hiker (integer 3-17)")
+flags.DEFINE_integer("dronex", 13, "x coordinate for drone (integer 3-17)")
+flags.DEFINE_integer("droney", 9, "y coordinate for drone (integer 3-17)")
 flags.DEFINE_boolean("getnames", False, "get names of available maps")
 flags.DEFINE_string("getmap", "", "get map by name")
 flags.DEFINE_boolean("studyhelp", False, "show help for study configuation (False | True)")
@@ -378,9 +378,12 @@ def similarity(val1, val2):
     #return abs(val1 - val2) / (max_val - min_val) * - 1
 
 
-def compute_S(blend_trace, keys_list):
+def compute_S(blend_trace, keys_list, mismatch_penalty, tempterature):
     '''For blend_trace @ time'''
     #probablities
+    MP = mismatch_penalty
+    t = tempterature
+    factors = ['LEVEL', 'DOWN', 'UP', 'DIAGONAL_RIGHT', 'CENTER', 'DIAGONAL_LEFT', 'RIGHT', 'LEFT']
     probs = [x[3] for x in access_by_key('MAGNITUDES',access_by_key('SLOT-DETAILS',blend_trace[0][1])[0][1])]
     #feature values in probe
     FKs = [access_by_key(key.upper(),access_by_key('RESULT-CHUNK',blend_trace[0][1])) for key in keys_list]
@@ -427,8 +430,21 @@ def compute_S(blend_trace, keys_list):
         ts2.append(sum(tss[i]))
 
     #vios
+
     viosList = []
-    viosList.append([actr.chunk_slot_value(x,'action') for x in chunk_names])
+    #viosList.append([actr.chunk_slot_value(x,'action') for x in chunk_names])
+    #this simple vios list does not work anymore because the blend is split across multiple values.
+    #need to find a way to figure out what values.
+    #viosList.append([actr.chunk_slot_value(x,'DROP') for x in chunk_names])
+    viosList.append([actr.chunk_slot_value(x, 'LEVEL') for x in chunk_names])
+    viosList.append([actr.chunk_slot_value(x, 'DOWN') for x in chunk_names])
+    viosList.append([actr.chunk_slot_value(x, 'UP') for x in chunk_names])
+    viosList.append([actr.chunk_slot_value(x, 'DIAGONAL_RIGHT') for x in chunk_names])
+    viosList.append([actr.chunk_slot_value(x, 'CENTER') for x in chunk_names])
+    viosList.append([actr.chunk_slot_value(x, 'DIAGONAL_LEFT') for x in chunk_names])
+    viosList.append([actr.chunk_slot_value(x, 'RIGHT') for x in chunk_names])
+    viosList.append([actr.chunk_slot_value(x, 'LEFT') for x in chunk_names])
+
     #viosList.append([actr.chunk_slot_value(x,'altitude_change') for x in chunk_names])
     #viosList.append([actr.chunk_slot_value(x, 'diagonal_right_turn') for x in chunk_names])
     #viosList.append([actr.chunk_slot_value(x, 'right_turn') for x in chunk_names])
@@ -454,7 +470,15 @@ def compute_S(blend_trace, keys_list):
 
         #print("compute S complete")
         rturn.append(results)
-    return rturn
+    #should build a dictionary
+    rdict = {}
+    for sums, result_factor in zip(rturn, factors):
+        print("For", result_factor)
+        rdict[result_factor] = {}
+        for s, factor in zip(sums, keys_list):
+            rdict[result_factor][factor] = MP / t * sum(s)
+            print(factor, MP / t * sum(s))  # , sum(s),s)
+    return rdict
 
 def reset_actr():
 
@@ -580,15 +604,19 @@ def handle_observation(observation):
     action_choice_yaw['right'] = access_by_key('RIGHT', blend_return)
     yaw_action = max(action_choice_yaw.items(), key=operator.itemgetter(1))[0]
 
+    mp = actr.get_parameter_value(':mp')
+    t = access_by_key('TEMPERATURE', d[0][1])
     #calculate salience
-    # salience = compute_S(d,['ego_center','ego_right'])
+    salience = compute_S(d,['ego_left','ego_diagonal_left', 'ego_center','ego_diagonal_right',
+                            'ego_right','hiker_left','hiker_diagonal_left','hiker_center','hiker_diagonal_right',
+                            'hiker_right'],mp,t)
 
 
     drop_action = access_by_key('DROP',blend_return)
     if drop_action > action_choice_pitch[pitch_action] and drop_action > action_choice_yaw[yaw_action]:
-        return combos_to_actions[('drop')]
+        return combos_to_actions[('drop')], salience
     else:
-        return combos_to_actions[(pitch_action,yaw_action)]
+        return combos_to_actions[(pitch_action,yaw_action)], salience
 
 
 
@@ -1029,7 +1057,7 @@ def main():
 
                     #ACTR
                     actr_observation = create_actr_observation(step_data)
-                    action = handle_observation(actr_observation)
+                    action, cognitive_salience = handle_observation(actr_observation)
                     reset_actr()
 
 
@@ -1099,6 +1127,11 @@ def main():
                         t,
                         'egocentric',
                         {'data': obs[0]['nextstepdata']})
+                    mission_json.add(
+                        t,
+                        'cognitive_salience',
+                        {'data':cognitive_salience})
+
 
                     this_action_probability_matrix = studyresources.action_probability_matrix(action_probs)
                     last_action_probability_matrix = studyresources.action_probability_matrix(last_action_probs)
