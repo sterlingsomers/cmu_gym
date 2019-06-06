@@ -38,6 +38,8 @@ def _get_placeholders(spatial_dim):
         (FEATURE_KEYS.player_relative_screen, tf.int32, [None, sd, sd]),
         (FEATURE_KEYS.player_relative_minimap, tf.int32, [None, sd, sd]),
         (FEATURE_KEYS.advantage, tf.float32, [None]),
+        (FEATURE_KEYS.prev_actions, tf.int32, [None, sd, sd]),
+        (FEATURE_KEYS.prev_rewards, tf.float32, [None]),
     ]
     return AgentInputTuple(
         **{name: tf.placeholder(dtype, shape, name) for name, dtype, shape in feature_list}
@@ -163,7 +165,7 @@ class ActorCriticAgent:
         if self.mode == ACMode.PPO:
             # could also use stop_gradient and forget about the trainable
             with tf.variable_scope("theta_old"):
-                theta_old = self.policy(self, trainable=False).build()
+                theta_old = self.policy(self, trainable=False).build() # theta old is used as a constant here
 
             new_theta_var = tf.global_variables("theta/")
             old_theta_var = tf.global_variables("theta_old/")
@@ -286,8 +288,9 @@ class ActorCriticAgent:
                 self.placeholders.alt_view: feed_dict['alt_view:0'],
                 self.theta.prev_rewards: prev_reward,#np.vstack(prev_rewards),
                 self.theta.prev_actions: prev_action,
+                # self.theta.state : rnn_state
                 # self.theta.step_size: [1],
-                self.theta.state_in[0]: rnn_state[0],
+                self.theta.state_in[0]: rnn_state[0], # when you feed it has to be numpy and not a tensor
                 self.theta.state_in[1]: rnn_state[1]
             }
         )
@@ -336,7 +339,7 @@ class ActorCriticAgent:
 
         self.train_step += 1
 
-    def train_recurrent(self, input_dict): # The input dictionary is designed in the runner with advantage function and other stuff in order to be used in the training.
+    def train_recurrent(self, input_dict, prev_reward, prev_action): # The input dictionary is designed in the runner with advantage function and other stuff in order to be used in the training.
         feed_dict = self._input_to_feed_dict(input_dict)
         ops = [self.train_op] # (MINE) From build model above the train_op contains all the operations for training
 
@@ -361,8 +364,8 @@ class ActorCriticAgent:
             self.placeholders.selected_action_id: feed_dict['selected_action_id:0'],
             self.placeholders.rgb_screen: feed_dict['rgb_screen:0'],
             self.placeholders.alt_view: feed_dict['alt_view:0'],
-            self.theta.prev_rewards: feed_dict['prev_rewards:0'],  # np.vstack(prev_rewards),
-            self.theta.prev_actions: feed_dict['prev_actions:0'],
+            self.theta.prev_rewards: prev_reward,# feed_dict['prev_rewards:0'],  # np.vstack(prev_rewards),
+            self.theta.prev_actions: prev_action,#feed_dict['prev_actions:0'],
             # self.theta.step_size: [32],
             self.theta.state_in[0]: rnn_state[0],
             self.theta.state_in[1]: rnn_state[1]
@@ -377,15 +380,15 @@ class ActorCriticAgent:
         feed_dict = self._input_to_feed_dict(obs)
         return self.sess.run(self.value_estimate, feed_dict=feed_dict)
 
-    def get_recurrent_value(self, obs,rnn_state):
+    def get_recurrent_value(self, obs, rnn_state, prev_reward, prev_action):
         feed_dict = self._input_to_feed_dict(obs)
-        return self.sess.run(self.value_estimate, feed_dict={
+        return self.sess.run(self.value_estimate,            feed_dict={
                 self.placeholders.rgb_screen: feed_dict['rgb_screen:0'],
                 self.placeholders.alt_view: feed_dict['alt_view:0'],
-                self.theta.prev_rewards: feed_dict['prev_rewards:0'],  # np.vstack(prev_rewards),
-                self.theta.prev_actions: feed_dict['prev_actions:0'],
+                self.theta.prev_rewards: prev_reward,#np.vstack(prev_rewards),
+                self.theta.prev_actions: prev_action,
                 # self.theta.step_size: [1],
-                self.theta.state_in[0]: rnn_state[0],
+                self.theta.state_in[0]: rnn_state[0], # when you feed it has to be numpy and not a tensor
                 self.theta.state_in[1]: rnn_state[1]
             }
                              )

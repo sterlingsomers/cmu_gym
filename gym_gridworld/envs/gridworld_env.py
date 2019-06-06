@@ -44,11 +44,12 @@ class GridworldEnv(gym.Env):
         self.dropping = True # This is for the reset to select the proper starting locations for hiker and drone
         self.restart_once_done = True  # restart or not once done
         self.drop = False
+        self.countdrop = 0
         self.no_action_flag = False
-        self.maps = [(149, 341)]#[(146,456),(149,341)]#,(241,163), (260,241),(291,231),(308,110),(330,352)]#[(265,308),(20,94),(146,456),(149,341),(164,90),(167,174),
-                       # (224,153),(241,163),(260,241),(265,311),(291,231),
-                       # (308,110),(334,203),(360,112),(385,291),(330,352),(321,337)]#[(400,35), (350,90), (430,110),(390,50), (230,70)] #[(86, 266)] (70,50) # For testing, 70,50 there is no where to drop in the whole map
-        #[(149, 341)]
+        self.maps =[(265,308),(20,94),(146,456),(149,341),(164,90),(167,174),
+                        (224,153),(241,163),(260,241),(265,311),(291,231),
+                        (308,110),(334,203),(360,112),(385,291),(330,352),(321,337)]#[(400,35), (350,90), (430,110),(390,50), (230,70)] #[(86, 266)] (70,50) # For testing, 70,50 there is no where to drop in the whole map
+        #[(149, 341)]#[(149, 341),(241,163), (260,241),(291,231),(308,110),(330,352)]
         self.mapw = 20
         self.maph = 20
         self.dist_old = 1000
@@ -321,7 +322,7 @@ class GridworldEnv(gym.Env):
             print("NOACTION")
             self.no_action_flag = True
             self.reward = 0#-1 # might be redundant cauz u have a reward = 0 in the step function if the no action flag is true. Also this returns 0
-            self.package_state = 'OOB'
+            # self.package_state = 'OOB' # You might need it when you drop out of bounds
             #self.drop = True
             return 0
         self.drop = True
@@ -347,7 +348,7 @@ class GridworldEnv(gym.Env):
         # self.reward = reward*is_hiker_in_neighbors # YOU CANNOT DO THAT EVEN IF IT WORKS FOR THAT MAP AS IT DOESNT GET PENALTY FOR DAMAGING THE PACK!
         #print(terrain, reward)
         # distance in tiles ( we use Transpose and take the first element as the np.array for hiker pos is inside another array and καθετο vector
-        self.pack_dist = max(abs(np.array(pack_world_coords) - np.array(self.hiker_position[-2:]).T[0]))
+        self.pack_dist = max(abs(np.array(pack_world_coords) - np.array(self.hiker_position[-2:]).T[0])) # Chebyshev is better than Manhattan as with the latter you cannot go diagonal
         # if reward==1: # package state is OK
         if int(self.pack_dist) == 0:  # pack lands on top of the hiker. We need this condition to avoid the explosion of the inverse distance on 0
                 self.reward = 3#  reward + self.alt_rewards[self.altitude] + 1# reward + is_hiker_in_neighbors + 1 # altitude is implied so you might need to put it in
@@ -652,6 +653,22 @@ class GridworldEnv(gym.Env):
             if self.restart_once_done: # HAVE IT ALWAYS TRUE!!!
                 return (observation, reward, done, info)
 
+        # Multiple packages
+        # if self.drop:
+        #     reward = self.reward
+        #     self.countdrop = self.countdrop + 1
+        #     if self.countdrop > 2: # 3 drops
+        #         done = True
+        #         if self.restart_once_done:  # HAVE IT ALWAYS TRUE!!!
+        #             return (observation, reward, done, info)
+            # reward = self.reward + self.alt_rewards[self.altitude] # (try to multiply them and see if it makes a difference!!! Here tho u reward for dropping low alt
+
+            print('DROP!!!', 'self.reward=', self.reward, 'alt_reward=', self.alt_rewards[self.altitude], 'hiker-package distance=', self.pack_dist)
+            # Below you should commented out so you just continue without the return. You put this inside the if self.countdrop>2
+            # if self.restart_once_done: # HAVE IT ALWAYS TRUE!!!
+            #     return (observation, reward, done, info)
+
+        # One package
         if self.drop:
             done = True
             # reward = self.reward + self.alt_rewards[self.altitude] # (try to multiply them and see if it makes a difference!!! Here tho u reward for dropping low alt
@@ -668,6 +685,7 @@ class GridworldEnv(gym.Env):
     def reset(self):
         self.dist_old = 1000
         self.drop = False
+        self.countdrop = 0
         self.no_action_flag = False
         self.heading = random.randint(1, 8)
         self.altitude = random.randint(1,3)
@@ -809,19 +827,33 @@ class GridworldEnv(gym.Env):
         # print('Hiker',hiker)
         # print('safe_drone',drone_safe_points)
         # print('safe_hiker', hiker_safe_points)
-        k = 4 # k closest. There might be cases in which you have very few drone safe points (e.g. 3) and only one will be really close
+        k = 50 # k closest. There might be cases in which you have very few drone safe points (e.g. 3) and only one will be really close
         if k> np.array(drone_safe_points).shape[0]:
             k = np.array(drone_safe_points).shape[0] - 1 # Cauz we index from 0 but shape starts from 1 to max shape
         indx = np.argpartition(D[0],k) # Return the indices of the k closest distances to the hiker. The [0] is VITAL!!!
         # # Use the index to retrieve the k closest safe coords to the hiker
         closest_neighs = np.array(drone_safe_points)[indx[:k]] # You need to have the safe points as array and not list
         drone = tuple(random.choice(closest_neighs))
+
         # NOTES: The first element might be the hiker position
         # To move away from hiker increase k and define h=k/2 and discard the h first closest_neighs - 9 suppose to be the max of the closest in an open area. So just use dividends of 9 to discard
         # drone = (hiker[0]-2, hiker[1]-3)
         # drone = random.choice([(hiker[0] - 1, hiker[1] - 1), (hiker[0] - 1, hiker[1] ), (hiker[0], hiker[1] - 1 )])
-        # below these are not sure safe points!!!
+
+        # random away location + safe check
         # drone = random.choice([(hiker[0] - 5, hiker[1] - 3), (hiker[0] - 6, hiker[1]), (hiker[0], hiker[1] - 4), (hiker[0] - 6, hiker[1] - 7)])
+        # drone = random.choice([(hiker[0] - 8, hiker[1] - 3), (hiker[0] - 10, hiker[1]), (hiker[0], hiker[1] - 9),
+        #                        (hiker[0] - 6, hiker[1] - 7)])
+        # times = 0
+        # while drone not in drone_safe_points:
+        #     drone = random.choice([(hiker[0] - 5, hiker[1] - 3), (hiker[0] - 6, hiker[1]), (hiker[0], hiker[1] - 4),
+        #                            (hiker[0] - 6, hiker[1] - 7)])
+        #     # print('non safe reset drone pos')
+        #     if times==10:
+        #         print('max reps reached so reset hiker')
+        #         hiker = random.choice(hiker_safe_points)
+        #         times = 0
+        #     times = times + 1
         # drone = random.choice(drone_safe_points)
         # drone = (18,18)
 

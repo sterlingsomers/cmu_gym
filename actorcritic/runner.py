@@ -83,7 +83,7 @@ class Runner(object):
             k: np.split(v[shuffle_idx], total_obs // self.ppo_par.batch_size)
             for k, v in full_input.items()
         })
-        if self.policy_type == "MetaPolicy": # We take out the if from the loop so you choose trainer BEFORE getting into the batch loop
+        if self.policy_type == MetaPolicy: # We take out the if from the loop so you choose trainer BEFORE getting into the batch loop
             for b in batches:
                 self.agent.train_recurrent(b)
         else:
@@ -100,6 +100,7 @@ class Runner(object):
         })
         for b in batches:
             self.agent.train_recurrent(b, rnn_state) # IMPORTANT : όταν κανεις training δεν χρειαζεσαι την rnn_State, ξεκινας απο το 0 και αθτη παιρνη την μορφή πουπρεπει να εχει
+
     def run_batch(self):
         #(MINE) MAIN LOOP!!!
         # The reset is happening through Monitor (except the first one of the first batch (is in hte run_agent)
@@ -133,8 +134,9 @@ class Runner(object):
             # IF MAX_STEPS OR GOAL REACHED
             # You can use as below for obs_raw[4] which is success of failure
             #print(obs_raw[2])
-            indx=0
+            indx=0 # env count
             for t in obs_raw[2]: # Monitor returns additional stuff such as epis_reward and epis_length etc apart the obs, r, done, info
+                #obs_raw[2] = done = [True, False, False, True,...] each element corresponds to an env
                 if t == True: # done=true
                     # Put reward in scores
                     epis_reward = obs_raw[3][indx]['episode']['r']
@@ -186,12 +188,13 @@ class Runner(object):
         mb_actions = []
         mb_obs = []
         mb_values = np.zeros((self.envs.num_envs, self.n_steps + 1), dtype=np.float32)
-        mb_rewards = np.zeros((self.envs.num_envs, self.n_steps), dtype=np.float32)
+        mb_rewards = np.zeros((self.envs.num_envs, self.n_steps), dtype=np.float32) # n x d array (ndarray)
         mb_done = np.zeros((self.envs.num_envs, self.n_steps), dtype=np.int32)
         # EVERYTHING IS HAPPENING ON PARALLEL!!!
-        r_=0
-        a_=0
+        r_=np.zeros((self.envs.num_envs, 1), dtype=np.float32) # Instead of 1 you might use n_steps
+        a_=np.zeros((self.envs.num_envs), dtype=np.int32)
         latest_obs = self.latest_obs # (MINE) =state(t)
+        # rnn_state = self.agent.theta.state_init
         rnn_state = self.agent.theta.state_init
         for n in range(self.n_steps):
             action_ids, value_estimate, rnn_state_new = self.agent.step_recurrent(latest_obs, rnn_state, r_, a_) # Automatically returns [num_envs, outx] for each outx you want
@@ -205,24 +208,32 @@ class Runner(object):
             latest_obs = self.obs_processer.process(obs_raw[0]) # For obs_raw as tuple! #(MINE) =state(t+1). Processes all inputs/obs from all timesteps (and envs)
 
             rnn_state = rnn_state_new
-            r_ = obs_raw[1]
+            r_ = obs_raw[1] # (nenvs,) but you need (nenvs,1)
+            r_ = np.reshape(r_,[self.envs.num_envs,1]) # gets into recurrency as [nenvs,1] # The 1 might be used as timestep
             a_ = action_ids
 
             mb_rewards[:, n] = [t for t in obs_raw[1]]
             mb_done[:, n] = [t for t in obs_raw[2]]
 
             # Shouldnt this part below be OUT of the nstep loop? NO: You check if done=True and you extract the additional info that Monitor outputs
-            indx=0
+            indx=0 # env count
             for t in obs_raw[2]: # Monitor returns additional stuff such as epis_reward and epis_length etc apart the obs, r, done, info
+                # obs_raw[2] = done = [True, False, False, True,...] each element corresponds to an env (index gives the env)
                 if t == True: # done=true
                     # Put reward in scores
                     epis_reward = obs_raw[3][indx]['episode']['r']
                     epis_length = obs_raw[3][indx]['episode']['l']
                     last_step_r = obs_raw[1][indx]
                     self._handle_episode_end(epis_reward, epis_length, last_step_r) # The printing score process is NOT a parallel process apparrently as you input every reward (t) independently
+                    # Here you have to reset the rnn_state of that env: rnn_state[i] = 0 or smth like that
+                    rnn_state[0][indx] = np.zeros(256)
+                    rnn_state[1][indx] = np.zeros(256)
+                    #reset the relevant r_ and a_
+                    r_[indx] = 0
+                    a_[indx] = 0
                 indx = indx + 1 # finished envs count
 
-        mb_values[:, -1] = self.agent.get_recurrent_value(latest_obs, rnn_state)
+        mb_values[:, -1] = self.agent.get_recurrent_value(latest_obs, rnn_state, r_, a_) # Put at last slot the estimated future expected reward for bootstrap the Vt+1
 
         n_step_advantage = general_n_step_advantage(
             mb_rewards,
@@ -231,8 +242,10 @@ class Runner(object):
             mb_done,
             lambda_par=self.ppo_par.lambda_par if self.is_ppo else 1.0
         )
-        prev_rewards = [0] + mb_rewards[:, -1].tolist() # from the rewards you take out the last element and replace it with 0
-        prev_actions = [0] + mb_actions[:, -1]#.tolist()
+        # prev_rewards = [0] + mb_rewards[:, :-1]#.tolist() # from the rewards you take out the last element and replace it with 0
+        prev_rewards = np.c_[np.zeros((self.envs.num_envs, 1), dtype=np.float32), mb_rewards[:, :-1]]
+        # Below we add one zero action element and we take out the at so we get at=0:t-1
+        prev_actions = [np.zeros((self.envs.num_envs), dtype=np.int32)] + mb_actions[:-1] # You have to pad this probably to have equal lengths with your data in terms of nsteps
         full_input = {
             FEATURE_KEYS.advantage: n_step_advantage.transpose(),
             FEATURE_KEYS.value_target: (n_step_advantage + mb_values[:, :-1]).transpose()
@@ -247,7 +260,10 @@ class Runner(object):
         if not self.do_training:
             pass
         elif self.agent.mode == ACMode.A2C:
-            self.agent.train(full_input)
+            if self.policy_type == MetaPolicy:
+                self.agent.train_recurrent(full_input,prev_rewards,prev_actions)
+            else:
+                self.agent.train(full_input)
         elif self.agent.mode == ACMode.PPO:
             for epoch in range(self.ppo_par.n_epochs):
                 self._train_ppo_epoch(full_input)

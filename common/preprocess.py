@@ -219,8 +219,8 @@ FEATURE_LIST = (
     "available_action_ids",
     "value_target",
     "advantage",
-    # "prev_actions",
-    # "prev_rewards"
+    "prev_actions",
+    "prev_rewards"
 
 )
 

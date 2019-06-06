@@ -158,7 +158,7 @@ class FullyConvPolicy:
 
         map_output_flat = layers.flatten(self.map_output)
         # (MINE) This is the last layer (fully connected -fc) for the non-spatial (categorical) actions
-        fc1 = layers.fully_connected(
+        self.fc1 = layers.fully_connected(
             map_output_flat,
             num_outputs=256,
             activation_fn=tf.nn.relu,
@@ -166,20 +166,20 @@ class FullyConvPolicy:
             trainable=self.trainable
         )
         # Add layer normalization for better stability
-        fc1_ = layers.layer_norm(fc1,trainable=self.trainable)
+        self.fc1 = layers.layer_norm(self.fc1,trainable=self.trainable)
 
         # fc1 = normalize(fc1, train=False) # wont work cauz PPO compares global variables with trainable variables so no matter True/False assertion will give error
         # (MINE) From the previous layer you extract action_id_probs (non spatial - categorical - actions) and value
         # estimate
         action_id_probs = layers.fully_connected(
-            fc1_,
+            self.fc1,
             num_outputs=self.num_actions,#len(actions.FUNCTIONS),
             activation_fn=tf.nn.softmax,
             scope="action_id",
             trainable=self.trainable
         )
         value_estimate = tf.squeeze(layers.fully_connected( # squeeze removes a dimension of 1 elements. e.g.: [n_batches,1,value_est_dim]--->[n_batches,value_est_dim]
-            fc1_,
+            self.fc1,
             num_outputs=1,
             activation_fn=None,
             scope='value',
@@ -274,9 +274,10 @@ class MetaPolicy:
         self.alt_output = self._build_convs(alt_px, "alt_network")
         self.map_output = tf.concat([self.screen_output, self.alt_output], axis=2) # should be 3
 
-        self.prev_rewards = tf.placeholder(shape=[None, 1], dtype=tf.float32)
+        self.prev_rewards = tf.placeholder(shape=[None, 1], dtype=tf.float32) # num_envs x num_steps (it was [None,1])
         self.prev_actions = tf.placeholder(shape=[None], dtype=tf.int32)
         self.prev_actions_onehot = tf.one_hot(self.prev_actions, self.num_actions, dtype=tf.float32)
+        # self.prev_actions_onehot = tf.squeeze(self.prev_actions_onehot,[1])
         # self.prev_actions_onehot = layers.embed_sequence(
         #                                 self.prev_actions,
         #                                 vocab_size=a_size,  # 1850
@@ -286,22 +287,51 @@ class MetaPolicy:
         # )
 
         hidden = tf.concat([layers.flatten(self.map_output), self.prev_actions_onehot, self.prev_rewards], 1)
-
+        # hidden = layers.flatten(self.map_output)
+        # Below, feed the batch_size!
+        # self.batch_size = tf.placeholder(shape=[], dtype=tf.int32)#.shape(self.placeholders.rgb_screen)
         lstm_cell = tf.contrib.rnn.BasicLSTMCell(256, state_is_tuple=True)
-        c_init = np.zeros((1, lstm_cell.state_size.c), np.float32)
-        h_init = np.zeros((1, lstm_cell.state_size.h), np.float32)
-        self.state_init = [c_init, h_init]
-        c_in = tf.placeholder(tf.float32, [1, lstm_cell.state_size.c])
-        h_in = tf.placeholder(tf.float32, [1, lstm_cell.state_size.h])
-        self.state_in = (c_in, h_in)
-        rnn_in = tf.expand_dims(hidden, [0])
-        step_size = tf.shape(self.prev_rewards)[:1]
-        state_in = tf.contrib.rnn.LSTMStateTuple(c_in, h_in)
+        # lstm_cell.trainable = self.trainable
+
+        # Initialization: you create an initial state which will be fed as self.state in the unfolded net. So you have to define the self.state_init AND the self.state
+        # or maybe have only the self.state defined and assined?
+        # init_vars = lstm_cell.zero_state(2, tf.float32)
+        # init_c = tf.Variable(init_vars.c, trainable=self.trainable)
+        # init_h = tf.Variable(init_vars.h, trainable=self.trainable)
+        # self.state_init = tf.contrib.rnn.LSTMStateTuple(init_c, init_h)
+        #
+        # state_vars = lstm_cell.zero_state(2, tf.float32)
+        # state_c = tf.Variable(state_vars.c, trainable=self.trainable)
+        # state_h = tf.Variable(state_vars.h, trainable=self.trainable)
+        # self.state = tf.contrib.rnn.LSTMStateTuple(state_c, state_h)
+        # self.state = (state_c, state_h)
+
+
+        c_init = np.zeros((2, lstm_cell.state_size.c), np.float32)
+        h_init = np.zeros((2, lstm_cell.state_size.h), np.float32)
+        # # (or bring the batch_size from out) The following should be defined in the runner and you need a self before the lstm_cell. Because you get a numpy array below you need the batch size
+        self.state_init = [c_init, h_init]#lstm_cell.zero_state(2, dtype=tf.float32)# Its already a tensor with a numpy array full of zeros
+        self.c_in = tf.placeholder(tf.float32, [2, lstm_cell.state_size.c])
+        self.h_in = tf.placeholder(tf.float32, [2, lstm_cell.state_size.h])
+        self.state_in = (self.c_in, self.h_in) # You need this so from outside you can feed the two placeholders
+        rnn_in = tf.reshape(hidden,[-1,1,80017])#tf.expand_dims(hidden, [0]) # 1 is the timestep, if you have more you might need -1 also there
+        # step_size = tf.shape(self.prev_rewards)[:1]
+        state_in = tf.contrib.rnn.LSTMStateTuple(self.c_in, self.h_in)
         lstm_outputs, lstm_state = tf.nn.dynamic_rnn(
-            lstm_cell, rnn_in, initial_state=state_in, sequence_length=step_size,
-            time_major=False)
+            lstm_cell, rnn_in, initial_state=state_in, time_major=False) #sequence_length=step_size,
+        # # lstm_outputs, lstm_state = tf.nn.dynamic_rnn(
+        # #     lstm_cell, rnn_in, initial_state=self.state_init,time_major=False)
         lstm_c, lstm_h = lstm_state
-        self.state_out = (lstm_c[:1, :], lstm_h[:1, :])
+        self.state_out = (lstm_c, lstm_h)#(lstm_c[:1, :], lstm_h[:1, :])
+        # self.state_out = lstm_state
+
+        # layer = tf.nn.rnn_cell.DropoutWrapper(cell, output_keep_prob=0.7)
+        # lstm_outputs, self.new_state = tf.nn.dynamic_rnn(lstm_cell, rnn_in, initial_state=self.state, dtype=tf.float32)
+        #
+        # self.trained_state_c = tf.assign(self.state[0], self.new_state[0])
+        # trained_state_h = tf.assign(self.state[1], self.new_state[1])
+        # self.state_out = tf.contrib.rnn.LSTMStateTuple(self.trained_state_c, trained_state_h) # the new state will be get in the net as self.state
+
         rnn_out = tf.reshape(lstm_outputs, [-1, 256])
 
         # Add layer normalization
