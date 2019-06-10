@@ -46,7 +46,7 @@ action_to_category_map = {
     14: ['right', 'up'],
     15: ['drop']
 }
-actions = ['left','diagonal_left','center','diagonal_right','right','level','up','down']
+actions = ['_'.join(x) if len(x) > 1 else x[0] for x in action_to_category_map.values()]
 
 
 
@@ -122,11 +122,24 @@ def convert_data_to_chunks(all_data):
             chunk.extend(['distance_to_hiker',
                           ['distance_to_hiker', distance_to_hiker(np.array(step['drone']), np.array(step['hiker']))]])
             # split action into components [up, level, down, left, right, etc]
-            components = action_to_category_map[step['action']]
-            for component in components:
-                action_values[component] = 1
-            for key, value in action_values.items():
-                chunk.extend([key, [key, value]])
+            # components = action_to_category_map[step['action']]
+            # for component in components:
+            #     action_values[component] = 1
+            # for key, value in action_values.items():
+            #     chunk.extend([key, [key, value]])
+
+            #no longer splitting the actions. Use all 15
+            #actr_actions = ['_'.join(x) if len(x) > 1 else x for x in action_to_category_map.values()]
+            for key,value in action_to_category_map.items():
+                if len(value) > 1:
+                    actr_action = '_'.join(value)
+                else:
+                    actr_action = value[0]
+                if key == step['action']:
+                    chunk.extend([actr_action,[actr_action,1]])
+                else:
+                    chunk.extend([actr_action,[actr_action,0]])
+
 
             if include_fc:
                 chunk.extend(['fc', ['fc', step['fc']]])
@@ -159,12 +172,24 @@ def convert_data_to_chunks(all_data):
             chunk.extend(['distance_to_hiker',
                           ['distance_to_hiker', distance_to_hiker(np.array(step['drone']), np.array(step['hiker']))]])
             # split action into components [up, level, down, left, right, etc]
-            components = action_to_category_map[step['action']]
-            for component in components:
-                action_values[component] = 1
-            for key, value in action_values.items():
-                chunk.extend([key, [key, value]])
-            drop.append(chunk)
+            # components = action_to_category_map[step['action']]
+            # for component in components:
+            #     action_values[component] = 1
+            # for key, value in action_values.items():
+            #     chunk.extend([key, [key, value]])
+            # drop.append(chunk)
+
+            # no longer splitting the actions. Use all 15
+            # actr_actions = ['_'.join(x) if len(x) > 1 else x for x in action_to_category_map.values()]
+            for key, value in action_to_category_map.items():
+                if len(value) > 1:
+                    actr_action = '_'.join(value)
+                else:
+                    actr_action = value[0]
+                if key == step['action']:
+                    chunk.extend([actr_action, [actr_action, 1]])
+                else:
+                    chunk.extend([actr_action, [actr_action, 0]])
 
             if include_fc:
                 chunk.extend(['fc', ['fc', step['fc']]])
@@ -283,7 +308,7 @@ def bin_chunks_by_action(allchunks):
 
 def convert_data_to_ndarray(data):
     '''Converts the list of steps into ndarray'''
-    ndarray = np.zeros((len(data),13))
+    ndarray = np.zeros((len(data),12))
     labels = []
     for d in range(len(data)):
         astep = []
@@ -428,15 +453,16 @@ def convert_centroids_to_chunks(category,centroids,original_labels,kind='nav'):
     action_values = {'drop': 0, 'left': 0, 'diagonal_left': 0,
                      'center': 0, 'diagonal_right': 0, 'right': 0,
                      'up': 0, 'down': 0, 'level': 0}
+    actr_actions = ['_'.join(x) if len(x) > 1 else x[0] for x in action_to_category_map.values()]
 
     for centroid in centroids:
         chunk = []
         for slot,value in zip(original_labels,centroid):
             chunk.append(slot)
             chunk.append([slot,value])
-        for key in action_values:
+        for key in actr_actions:
             chunk.append(key)
-            chunk.append([key, int(key in category)])
+            chunk.append([key, int(key == category)])
         chunk.append('type')
         chunk.append(kind)
         # chunk.append(['type',kind])
@@ -517,26 +543,35 @@ def remap( x, oMin, oMax, nMin, nMax ):
 
     return result
 
-def get_chunks_with_action(chunks,action_key1,action_key2):
+def get_chunks_with_action(chunks,action):
     '''Returns a list to subdivide the chunks'''
     #rList = []
     # for chunk in chunks:
     #     if access_by_key(action_key1,chunk)
-    rList = [x for x in chunks if access_by_key(action_key1,x)[1] and access_by_key(action_key2,x)[1]]
+    rList = [x for x in chunks if access_by_key(action,x)[1]]# and access_by_key(action_key2,x)[1]]
     return rList
 
 def sort_chunks_by_action(chunksList,drop=False):
-    combos_to_actions = {('down', 'left'): 0, ('down', 'diagonal_left'): 1, ('down', 'center'): 2,
-                         ('down', 'diagonal_right'): 3, ('down', 'right'): 4,
-                         ('level', 'left'): 5, ('level', 'diagonal_left'): 6, ('level', 'center'): 7,
-                         ('level', 'diagonal_right'): 8, ('level', 'right'): 9,
-                         ('up', 'left'): 10, ('up', 'diagonal_left'): 11, ('up', 'center'): 12,
-                         ('up', 'diagonal_right'): 13, ('up', 'right'): 14, ('drop'): 15}
+    # combos_to_actions = {('down', 'left'): 0, ('down', 'diagonal_left'): 1, ('down', 'center'): 2,
+    #                      ('down', 'diagonal_right'): 3, ('down', 'right'): 4,
+    #                      ('level', 'left'): 5, ('level', 'diagonal_left'): 6, ('level', 'center'): 7,
+    #                      ('level', 'diagonal_right'): 8, ('level', 'right'): 9,
+    #                      ('up', 'left'): 10, ('up', 'diagonal_left'): 11, ('up', 'center'): 12,
+    #                      ('up', 'diagonal_right'): 13, ('up', 'right'): 14, ('drop'): 15}
+    combos_to_actions = {}
+    actr_actions = ['_'.join(x) if len(x) > 1 else x[0] for x in action_to_category_map.values()]
+    for key,value in action_to_category_map.items():
+        actr_action = ''
+        if len(value) > 1:
+            actr_action = '_'.join(value)
+        else:
+            actr_action = value[0]
+        combos_to_actions[actr_action] = key
 
     if not drop:
         del combos_to_actions['drop']
     for key in combos_to_actions:
-        combos_to_actions[key] = get_chunks_with_action(chunksList,key[0],key[1])
+        combos_to_actions[key] = get_chunks_with_action(chunksList,key)
     return combos_to_actions
 
 #bin_chunks_by_action(all_data)
@@ -700,7 +735,7 @@ for key,value in nav_by_action_clusters_chunks.items():
 #ms.fit(X)
 #labels = ms.labels_
 #cluster_centers = ms.cluster_centers_
-with open('chunks_cluster_centers_2000_4examplesmax.pkl','wb') as handle:
+with open('chunks_cluster_centers_15actions_2000_4examplesmax.pkl','wb') as handle:
     pickle.dump(nav_complete_list,handle)
 
 print('stop')
