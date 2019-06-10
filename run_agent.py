@@ -161,13 +161,23 @@ action_to_category_map = {
     14: ['right', 'up'],
     15: ['drop']
 }
+action_list = ['left_down','diagonal_left_down','center_down','diagonal_right_down','right_down',
+                   'left_level','diagonal_left_level','center_level','diagonal_right_level','right_level',
+                   'left_up','diagonal_left_up','center_up','diagonal_right_up','right_up']
 
-combos_to_actions = {('down','left'):0,('down','diagonal_left'):1,('down','center'):2,
-                     ('down','diagonal_right'):3,('down','right'):4,
-                     ('level','left'):5,('level','diagonal_left'):6,('level','center'):7,
-                     ('level','diagonal_right'):8,('level','right'):9,
-                     ('up','left'):10,('up','diagonal_left'):11,('up','center'):12,
-                     ('up','diagonal_right'):13,('up','right'):14,('drop'):15}
+# combos_to_actions = {('down','left'):0,('down','diagonal_left'):1,('down','center'):2,
+#                      ('down','diagonal_right'):3,('down','right'):4,
+#                      ('level','left'):5,('level','diagonal_left'):6,('level','center'):7,
+#                      ('level','diagonal_right'):8,('level','right'):9,
+#                      ('up','left'):10,('up','diagonal_left'):11,('up','center'):12,
+#                      ('up','diagonal_right'):13,('up','right'):14,('drop'):15}
+
+combos_to_actions = {'left_down':0,'diagonal_left_down':1,'center_down':2,
+                     'diagonal_right_down':3,'right_down':4,
+                     'left_level':5,'diagonal_left_level':6,'center_level':7,
+                     'diagonal_right_level':8,'right_level':9,
+                     'left_up':10,'diagonal_left_up':11,'center_up':12,
+                     'diagonal_right_up':13,'right_up':14,'drop':15}
 
 
 def distance_to_hiker(drone_position,hiker_position):
@@ -440,7 +450,7 @@ def reset_actr():
     model_name = 'egocentric_allocentric_salience.lisp'
     model_path = '/Users/paulsomers/COGLE/gym-gridworld/'
 
-    chunk_file_name = 'chunks_cluster_centers_2000_4examplesmax.pkl'
+    chunk_file_name = 'chunks_cluster_centers_15actions_2000_4examplesmax.pkl'
     #chunk_path = os.path.join(model_path,'data')
     chunk_path = ''
     actr.add_command('similarity_function',similarity)
@@ -466,7 +476,10 @@ def reset_actr():
         chunk = [int(x) if type(x) == np.int64 else x for x in chunk]
         actr.add_dm(chunk)
 
-    ignore_list = ['left', 'diagonal_left', 'center', 'diagonal_right', 'right', 'type', 'drop', 'up', 'down', 'level']
+    # ignore_list = ['left', 'diagonal_left', 'center', 'diagonal_right', 'right', 'type', 'drop', 'up', 'down', 'level']
+    ignore_list = ['left_down','diagonal_left_down','center_down','diagonal_right_down','right_down',
+                   'left_level','diagonal_left_level','center_level','diagonal_right_level','right_level',
+                   'left_up','diagonal_left_up','center_up','diagonal_right_up','right_up', 'drop', 'type']
     #collecting the max mins
     for chunk in allchunks:
         for x, y in zip(*[iter(chunk)] * 2):
@@ -545,26 +558,37 @@ def handle_observation(observation):
     # first add the blend to the results dictionary
     blend_return = access_by_key('RESULT-CHUNK', d[0][1])
     #HACK - carry out the action here.
-    action_choice_pitch = {'up': 0, 'down': 0, 'level': 0}
-    action_choice_yaw = {'left': 0, 'diagonal_left': 0, 'center': 0, 'diagonal_right': 0, 'right': 0}
-    action_choice_pitch['up'] = access_by_key('UP', blend_return)
-    action_choice_pitch['down'] = access_by_key('DOWN', blend_return)
-    action_choice_pitch['level'] = access_by_key('LEVEL', blend_return)
-    pitch_action = max(action_choice_pitch.items(), key=operator.itemgetter(1))[0]
+    action_choice = {'left_down':0,'diagonal_left_down':0,'center_down':0,'diagonal_right_down':0,'right_down':0,
+                     'left_level':0,'diagonal_left_level':0,'center_level':0,'diagonal_right_level':0,'right_level':0,
+                     'left_up':0,'diagonal_left_up':0,'center_up':0,'diagonal_right_up':0,'right_up':0,
+                     'drop':0}
 
-    action_choice_yaw['left'] = access_by_key('LEFT', blend_return)
-    action_choice_yaw['diagonal_left'] = access_by_key('DIAGONAL_LEFT', blend_return)
-    action_choice_yaw['center'] = access_by_key('CENTER', blend_return)
-    action_choice_yaw['diagonal_right'] = access_by_key('DIAGONAL_RIGHT', blend_return)
-    action_choice_yaw['right'] = access_by_key('RIGHT', blend_return)
-    yaw_action = max(action_choice_yaw.items(), key=operator.itemgetter(1))[0]
+    for key in action_choice:
+        action_choice[key] = access_by_key(key.upper(), blend_return)
+    action = max(action_choice.items(), key=operator.itemgetter(1))[0]
+
+    return combos_to_actions[action]
+
+    # action_choice_pitch = {'up': 0, 'down': 0, 'level': 0}
+    # action_choice_yaw = {'left': 0, 'diagonal_left': 0, 'center': 0, 'diagonal_right': 0, 'right': 0}
+    # action_choice_pitch['up'] = access_by_key('UP', blend_return)
+    # action_choice_pitch['down'] = access_by_key('DOWN', blend_return)
+    # action_choice_pitch['level'] = access_by_key('LEVEL', blend_return)
+    # pitch_action = max(action_choice_pitch.items(), key=operator.itemgetter(1))[0]
+
+    # action_choice_yaw['left'] = access_by_key('LEFT', blend_return)
+    # action_choice_yaw['diagonal_left'] = access_by_key('DIAGONAL_LEFT', blend_return)
+    # action_choice_yaw['center'] = access_by_key('CENTER', blend_return)
+    # action_choice_yaw['diagonal_right'] = access_by_key('DIAGONAL_RIGHT', blend_return)
+    # action_choice_yaw['right'] = access_by_key('RIGHT', blend_return)
+    # yaw_action = max(action_choice_yaw.items(), key=operator.itemgetter(1))[0]
 
 
-    drop_action = access_by_key('DROP',blend_return)
-    if drop_action > action_choice_pitch[pitch_action] and drop_action > action_choice_yaw[yaw_action]:
-        return combos_to_actions[('drop')]
-    else:
-        return combos_to_actions[(pitch_action,yaw_action)]
+    # drop_action = access_by_key('DROP',blend_return)
+    # if drop_action > action_choice_pitch[pitch_action] and drop_action > action_choice_yaw[yaw_action]:
+    #     return combos_to_actions[('drop')]
+    # else:
+    #     return combos_to_actions[(pitch_action,yaw_action)]
 
 
 

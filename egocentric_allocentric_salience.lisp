@@ -33,7 +33,9 @@
   (chunk-type decision hiker_left hiker_diagonal_left hiker_center hiker_diagonal_right hiker_right
               ego_left ego_diagonal_left ego_center ego_diagonal_right ego_right 
               distance_to_hiker altitude type
-              left diagonal_left center diagonal_right right up down level)
+              left_down diagonal_left_down center_down diagonal_right_down right_down
+              left_level diagonal_left_level center_level diagonal_right_level right_level
+              left_up diagonal_left_up center_up diagonal_right_up right_up)
 
   
 
