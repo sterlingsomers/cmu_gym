@@ -13,9 +13,9 @@ from pandas import DataFrame
 
 
 
-include_fc = False
+include_fc = True
 
-all_data = pickle.load(open('all_data2000.lst', "rb"))
+all_data = pickle.load(open('all_data100.lst', "rb"))
 
 possible_actions_map = {
         1: [[0, -1], [-1, -1], [-1, 0], [-1, 1], [0, 1]],
@@ -117,7 +117,9 @@ def convert_data_to_chunks(all_data):
                           'ego_center', ['ego_center', altitudes[2] - alt],
                           'ego_diagonal_right', ['ego_diagonal_right', altitudes[3] - alt],
                           'ego_right', ['ego_right', altitudes[4] - alt]])
-            chunk.extend(['type', 'nav'])
+
+
+
             # also want distance  to hiker
             chunk.extend(['distance_to_hiker',
                           ['distance_to_hiker', distance_to_hiker(np.array(step['drone']), np.array(step['hiker']))]])
@@ -127,6 +129,11 @@ def convert_data_to_chunks(all_data):
             #     action_values[component] = 1
             # for key, value in action_values.items():
             #     chunk.extend([key, [key, value]])
+
+            #last part of the observation side will be the vector
+            if include_fc:
+                fc_list = step['fc'].tolist()[0]
+                chunk.extend(['fc', ['fc', fc_list]])
 
             #no longer splitting the actions. Use all 15
             #actr_actions = ['_'.join(x) if len(x) > 1 else x for x in action_to_category_map.values()]
@@ -139,10 +146,10 @@ def convert_data_to_chunks(all_data):
                     chunk.extend([actr_action,[actr_action,1]])
                 else:
                     chunk.extend([actr_action,[actr_action,0]])
+            chunk.extend(['type', 'nav'])
 
 
-            if include_fc:
-                chunk.extend(['fc', ['fc', step['fc']]])
+
 
             nav.append(chunk)
             print('step')
@@ -191,8 +198,8 @@ def convert_data_to_chunks(all_data):
                 else:
                     chunk.extend([actr_action, [actr_action, 0]])
 
-            if include_fc:
-                chunk.extend(['fc', ['fc', step['fc']]])
+            # if include_fc:
+            #     chunk.extend(['fc', ['fc', step['fc']]])
 
         print("episode complete")
     memory = [nav, drop]
@@ -308,7 +315,10 @@ def bin_chunks_by_action(allchunks):
 
 def convert_data_to_ndarray(data):
     '''Converts the list of steps into ndarray'''
-    ndarray = np.zeros((len(data),12))
+    ndarray_size = 12
+    if include_fc:
+        ndarray_size += 256
+    ndarray = np.zeros((len(data),ndarray_size))
     labels = []
     for d in range(len(data)):
         astep = []
@@ -319,11 +329,16 @@ def convert_data_to_ndarray(data):
                 value = float(data[d][i][1])
             except ValueError:
                 pass
+            except TypeError:
+                #i expect the TypeError when it's a list
+                value = data[d][i][1]
             if not value == None:
                 astep.append(value)
                 if data[d][i][0] not in labels:
                     labels.append(data[d][i][0])
-        ndarray[d][:] = astep
+        ndarray[d][:12] = astep[:12]
+        if include_fc:
+            ndarray[d][12:] = [x for x in astep[12]]
 
     return ndarray,labels
 
@@ -457,12 +472,19 @@ def convert_centroids_to_chunks(category,centroids,original_labels,kind='nav'):
 
     for centroid in centroids:
         chunk = []
+        if include_fc:
+            centroid, fc = list(centroid[:12].astype(float)), list(centroid[12:].astype(float))
+
         for slot,value in zip(original_labels,centroid):
             chunk.append(slot)
             chunk.append([slot,value])
+        chunk.append('fc')
+        chunk.append(['fc', fc])
         for key in actr_actions:
             chunk.append(key)
             chunk.append([key, int(key == category)])
+
+
         chunk.append('type')
         chunk.append(kind)
         # chunk.append(['type',kind])
@@ -726,7 +748,7 @@ for key,value in nav_by_action_clusters_chunks.items():
     for chunk in value:
         count += 1
         if count >= 4:
-            break
+            pass#break
         nav_complete_list.append(chunk)
 
 
@@ -735,7 +757,7 @@ for key,value in nav_by_action_clusters_chunks.items():
 #ms.fit(X)
 #labels = ms.labels_
 #cluster_centers = ms.cluster_centers_
-with open('chunks_cluster_centers_15actions_2000_4examplesmax.pkl','wb') as handle:
+with open('chunks_cluster_centers_15actions_2000_fc.pkl','wb') as handle:
     pickle.dump(nav_complete_list,handle)
 
 print('stop')
