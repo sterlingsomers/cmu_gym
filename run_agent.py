@@ -32,6 +32,7 @@ import gym_gridworld
 
 import copy
 import math
+import itertools
 
 import json
 import operator
@@ -178,6 +179,8 @@ combos_to_actions = {'left_down':0,'diagonal_left_down':1,'center_down':2,
                      'diagonal_right_level':8,'right_level':9,
                      'left_up':10,'diagonal_left_up':11,'center_up':12,
                      'diagonal_right_up':13,'right_up':14,'drop':15}
+
+fc_distances = []
 
 
 def distance_to_hiker(drone_position,hiker_position):
@@ -334,6 +337,9 @@ def similarity(val1, val2):
     if val1[0] == 'ALTITUDE' or val1[0] == 'DISTANCE_TO_HIKER':
         return 0
 
+    if val1[0] == 'FC':
+        dist = np.linalg.norm(np.array(val1[1]) - np.array(val2[1]))
+        print("k")
     max_val = max(min_max[val1[0].lower()])
     min_val = min(min_max[val1[0].lower()])
 
@@ -450,7 +456,7 @@ def reset_actr():
     model_name = 'egocentric_allocentric_salience.lisp'
     model_path = '/Users/paulsomers/COGLE/gym-gridworld/'
 
-    chunk_file_name = 'chunks_cluster_centers_15actions_2000_4examplesmax.pkl'
+    chunk_file_name = 'chunks_cluster_centers_15actions_2000_fc.pkl'
     #chunk_path = os.path.join(model_path,'data')
     chunk_path = ''
     actr.add_command('similarity_function',similarity)
@@ -479,7 +485,7 @@ def reset_actr():
     # ignore_list = ['left', 'diagonal_left', 'center', 'diagonal_right', 'right', 'type', 'drop', 'up', 'down', 'level']
     ignore_list = ['left_down','diagonal_left_down','center_down','diagonal_right_down','right_down',
                    'left_level','diagonal_left_level','center_level','diagonal_right_level','right_level',
-                   'left_up','diagonal_left_up','center_up','diagonal_right_up','right_up', 'drop', 'type']
+                   'left_up','diagonal_left_up','center_up','diagonal_right_up','right_up', 'drop', 'type', 'fc']
     #collecting the max mins
     for chunk in allchunks:
         for x, y in zip(*[iter(chunk)] * 2):
@@ -498,6 +504,15 @@ def reset_actr():
         else:
             min_max[key] = max_mins[key]
     #print('asf')
+
+    #distance of all FC, in order to scale the euclidean distance
+    fcs = []
+    for chunk in allchunks:
+        fc_pair = access_by_key('fc', chunk)
+        fcs.append(fc_pair[1])
+        print('ok')
+    for pair in itertools.combinations(fcs,2):
+        fc_distances.append(float(np.linalg.norm(np.array(pair[0]) - np.array(pair[1]))))
     print("reset done.")
 
 def create_actr_observation(step):

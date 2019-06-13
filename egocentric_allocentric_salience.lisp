@@ -24,7 +24,7 @@
   ;(chunk-type observation current_altitude heading view_left view_diagonal_left view_center view_diagonal_right view_right)
   ;(chunk-type observation current_altitude view_left view_diagonal_left view_center view_diagonal_right view_right)
   (chunk-type observation hiker_left hiker_diagonal_left hiker_center hiker_diagonal_right hiker_right
-              ego_left ego_diagonal_left ego_center ego_diagonal_right ego_right)
+              ego_left ego_diagonal_left ego_center ego_diagonal_right ego_right fc)
               ;distance_to_hiker altitude)
   ;(chunk-type decision needsRadio needsFood needsFA needsWater radio food firstaid water)
   ;(chunk-type decision current_altitude heading view_left view_diagonal_left view_center view_diagonal_right view_right
@@ -35,7 +35,7 @@
               distance_to_hiker altitude type
               left_down diagonal_left_down center_down diagonal_right_down right_down
               left_level diagonal_left_level center_level diagonal_right_level right_level
-              left_up diagonal_left_up center_up diagonal_right_up right_up)
+              left_up diagonal_left_up center_up diagonal_right_up right_up fc)
 
   
 
