@@ -47,14 +47,14 @@ def main():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--policy', help='Policy architecture', choices=['cnn', 'lstm', 'lnlstm'], default='cnn')
     parser.add_argument('--lrschedule', help='Learning rate schedule', choices=['constant', 'linear'], default='constant')
-    parser.add_argument('--env', type=str, default='gridworld-v0')
+    parser.add_argument('--env', type=str, default='gridworld-v3')
     parser.add_argument('--num_timesteps', type=int, default=int(100))
     parser.add_argument('--seed', help='RNG seed', type=int, default=2)
     args = parser.parse_args()
     #args.env = 'gridworld-v0'
     logger.configure()
     train(args.env, num_timesteps=args.num_timesteps, seed=args.seed,
-        policy=args.policy, lrschedule=args.lrschedule, num_env=20)
+        policy=args.policy, lrschedule=args.lrschedule, num_env=2)
 
 if __name__ == '__main__':
     main()

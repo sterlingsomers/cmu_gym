@@ -6,6 +6,7 @@ import sys
 from datetime import datetime
 from time import sleep
 import numpy as np
+import pickle
 #from functools import partial
 
 from absl import flags
@@ -36,7 +37,7 @@ flags.DEFINE_float("sleep_time", 0.8, "Time-delay in the demo")
 flags.DEFINE_integer("resolution", 32, "Resolution for screen and minimap feature layers.")
 flags.DEFINE_integer("step_mul", 100, "Game steps per agent step.")
 flags.DEFINE_integer("step2save", 1000, "Game step to save the model.") #A2C every 1000, PPO 250
-flags.DEFINE_integer("n_envs", 80, "Number of environments to run in parallel")
+flags.DEFINE_integer("n_envs", 10, "Number of environments to run in parallel")
 flags.DEFINE_integer("episodes", 10, "Number of complete episodes")
 flags.DEFINE_integer("n_steps_per_batch", 32,
     "Number of steps per batch, if None use 8 for a2c and 128 for ppo")  # (MINE) TIMESTEPS HERE!!! You need them cauz you dont want to run till it finds the beacon especially at first episodes - will take forever
@@ -44,7 +45,7 @@ flags.DEFINE_integer("all_summary_freq", 50, "Record all summaries every n batch
 flags.DEFINE_integer("scalar_summary_freq", 5, "Record scalar summaries every n batch")
 flags.DEFINE_string("checkpoint_path", "_files/models", "Path for agent checkpoints")
 flags.DEFINE_string("summary_path", "_files/summaries", "Path for tensorboard summaries")
-flags.DEFINE_string("model_name", "A2C_Meta", "Name for checkpoints and tensorboard summaries") # DONT touch TESTING is the best (take out normalization layer in order to work! -- check which parts exist in the restore session if needed)
+flags.DEFINE_string("model_name", "A2C_multiple_packs", "Name for checkpoints and tensorboard summaries") # DONT touch TESTING is the best (take out normalization layer in order to work! -- check which parts exist in the restore session if needed)
 flags.DEFINE_integer("K_batches", 15000, # Batch is like a training epoch!
     "Number of training batches to run in thousands, use -1 to run forever") #(MINE) not for now
 flags.DEFINE_string("map_name", "DefeatRoaches", "Name of a map to use.")
@@ -62,7 +63,7 @@ flags.DEFINE_float("entropy_weight_action", 0.001, "entropy of action-id distrib
 flags.DEFINE_float("ppo_lambda", 0.95, "lambda parameter for ppo")
 flags.DEFINE_integer("ppo_batch_size", None, "batch size for ppo, if None use n_steps_per_batch")
 flags.DEFINE_integer("ppo_epochs", 3, "epochs per update")
-flags.DEFINE_enum("policy_type", "FullyConv", ["MetaPolicy", "FullyConv"], "Which type of Policy to use")
+flags.DEFINE_enum("policy_type", "FullyConv", ["MetaPolicy", "FullyConv", "Relational"], "Which type of Policy to use")
 flags.DEFINE_enum("agent_mode", ACMode.A2C, [ACMode.A2C, ACMode.PPO], "if should use A2C or PPO")
 
 ### NEW FLAGS ####
@@ -154,6 +155,8 @@ def main():
     #env = gym.make('gridworld-v0')
     tf.reset_default_graph()
     # The following lines fix the problem with using more than 2 envs!!!
+    # config = tf.ConfigProto(allow_soft_placement=True,
+    #                                     log_device_placement=True) # first option allows to use with device:cpu so some operations go there and second option shows all operations where do they go
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
     sess = tf.Session(config=config)
@@ -242,20 +245,12 @@ def main():
         except KeyboardInterrupt:
             pass
     else: # Test the agent
-        # try:
-        #     runner.reset_demo() # Cauz of differences in the arrangement of the dictionaries
-        #     while runner.episode_counter <= (FLAGS.episodes - 1):
-        #         #runner.reset()
-        #         # You need the -1 as counting starts from zero so for counter 3 you do 4 episodes
-        #         runner.run_trained_batch()  # (MINE) HERE WE RUN MAIN LOOP for while true
-        # except KeyboardInterrupt:
-        #     pass
         try:
             import pygame
             import time
             import random
             # pygame.font.get_fonts() # Run it to get a list of all system fonts
-            display_w = 800
+            display_w = 1200
             display_h = 720
 
             BLUE = (128, 128, 255)
@@ -276,7 +271,7 @@ def main():
                 font = pygame.font.SysFont('arial', 16)
                 txt = font.render(text + str(variable), True, WHITE)
                 gameDisplay.blit(txt, area)
-                #pygame.display.update()
+
 
             def process_img(img, x,y):
                 # swap the axes else the image will come not the same as the matplotlib one
@@ -285,15 +280,37 @@ def main():
                 surf = pygame.transform.scale(surf, (300, 300))
                 gameDisplay.blit(surf, (x, y))
 
+            dictionary = {}
             running = True
             while runner.episode_counter <= (FLAGS.episodes - 1) and running==True:
                 print('Episode: ', runner.episode_counter)
+
+                # Init storage structures
+                dictionary[runner.episode_counter] = {}
+                mb_obs = []
+                mb_actions = []
+                mb_action_probs = []
+                mb_flag = []
+                mb_fc = []
+                mb_rewards = []
+                mb_values = []
+                mb_drone_pos = []
+                mb_heading = []
+                mb_crash = []
+                mb_map_volume = [] # obs[0]['volume']==envs.map_volume
+                mb_ego = []
+
                 runner.reset_demo()  # Cauz of differences in the arrangement of the dictionaries
+                map_name = str(runner.envs._map)
                 map_xy = runner.envs.map_image
                 map_alt = runner.envs.alt_view
                 process_img(map_xy, 20, 20)
                 process_img(map_alt, 20, 400)
                 pygame.display.update()
+
+                dictionary[runner.episode_counter]['hiker_pos'] = runner.envs.hiker_position
+                # dictionary[nav_runner.episode_counter]['map_volume'] = map_xy
+
                 # Quit pygame if the (X) button is pressed on the top left of the window
                 # Seems that without this for event quit doesnt show anything!!!
                 # Also it seems that the pygame.event.get() is responsible to REALLY updating the screen contents
@@ -303,17 +320,36 @@ def main():
                 sleep(sleep_time)
                 # Timestep counter
                 t=0
-                rewards = []
+
+                drop_flag = 0
                 done = 0
                 while done==0:
-                    # RUN THE MAIN LOOP
-                    obs, action, value, reward, done = runner.run_trained_batch()
 
-                    rewards.append(reward)
+                    mb_obs.append(runner.latest_obs)
+                    # mb_flag.append(drop_flag)
+                    mb_heading.append(runner.envs.heading)
+
+                    drone_pos = np.where(runner.envs.map_volume['vol'] == runner.envs.map_volume['feature_value_map']['drone'][runner.envs.altitude]['val'])
+                    mb_drone_pos.append(drone_pos)
+                    mb_map_volume.append(runner.envs.map_volume) # what is contained here?
+                    mb_ego.append(runner.envs.ego)
+
+
+                    # dictionary[nav_runner.episode_counter]['observations'].append(nav_runner.latest_obs)
+                    # dictionary[nav_runner.episode_counter]['flag'].append(drop_flag)
+
+                    # RUN THE MAIN LOOP
+                    obs, action, value, reward, done, fc, action_probs = runner.run_trained_batch()
+
+                    mb_actions.append(action)
+                    mb_action_probs.append(action_probs)
+                    mb_rewards.append(reward)
+                    mb_fc.append(fc)
+                    mb_values.append(value)
+                    mb_crash.append(runner.envs.crash)
                     if done:
-                        score = sum(rewards)
+                        score = sum(mb_rewards)
                         print(">>>>>>>>>>>>>>>>>>>>>>>>>>> episode %d ended in %d steps. Score %f" % (runner.episode_counter, t, score))
-                        runner.episode_counter += 1
 
                     screen_mssg_variable("Value    : ", np.round(value,3), (168, 350))
                     screen_mssg_variable("Reward: ", np.round(reward,3), (168, 372))
@@ -322,11 +358,14 @@ def main():
                     sleep(sleep_time)
 
                     if action==15:
+                        drop_flag = 1
+                        # dictionary[runner.episode_counter]['pack-hiker_dist'] = runner.envs.pack_dist
+                        # dictionary[runner.episode_counter]['pack condition'] = runner.envs.package_state
                         screen_mssg_variable("Package state:", runner.envs.package_state, (20, 350)) # The update of the text will be at the same time with the update of state
                         pygame.display.update()
                         pygame.event.get()  # Update the screen
                         sleep(sleep_time)
-
+                    mb_flag.append(drop_flag)
                     # BLIT!!!
                     # First Background covering everyything from previous session
                     gameDisplay.fill(DARK_BLUE)
@@ -339,17 +378,45 @@ def main():
                     pygame.event.get() # Show the last state and then reset
                     sleep(sleep_time)
                     t += 1
+                    if t == 70:
+                        stuck_flag = 1
+                        break
+                    else:
+                        stuck_flag = 0
+
+                dictionary[runner.episode_counter]['map_volume'] = mb_map_volume # You might need to save only for epis=0
+                dictionary[runner.episode_counter]['ego'] = mb_ego
+                dictionary[runner.episode_counter]['flag'] = mb_flag
+                dictionary[runner.episode_counter]['actions'] = mb_actions
+                dictionary[runner.episode_counter]['actions'] = mb_action_probs
+                dictionary[runner.episode_counter]['rewards'] = mb_rewards
+                dictionary[runner.episode_counter]['fc'] = mb_fc
+                dictionary[runner.episode_counter]['values'] = mb_values
+                dictionary[runner.episode_counter]['drone_pos'] = mb_drone_pos
+                dictionary[runner.episode_counter]['headings'] = mb_heading
+                dictionary[runner.episode_counter]['crash'] = mb_crash
+                dictionary[runner.episode_counter]['pack-hiker_dist'] = runner.envs.pack_dist if drop_flag==1 else None
+                dictionary[runner.episode_counter]['pack condition'] = runner.envs.package_state if drop_flag==1 else None
+                dictionary[runner.episode_counter]['pack position'] = runner.envs.package_position if drop_flag==1 else None
+                dictionary[runner.episode_counter]['stuck_epis'] = stuck_flag# if stuck_flag else 0
+
+                runner.episode_counter += 1
                 clock.tick(15)
+
+            print("...saving dictionary.")
+            # hiker_pos =
+            # drone_pos =
+            # num_epis =
+            # BoxCanyon_D1118_H1010_200
+            pickle_in = open('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/testing.tj','wb')
+            pickle.dump(dictionary, pickle_in)
+            # with open('./data/All_maps_20x20_500.tj', 'wb') as handle:
+            #     pickle.dump(dictionary, handle)
+
         except KeyboardInterrupt:
             pass
 
     print("Okay. Work is done")
-    #_print(i)
-    if FLAGS.training:
-        _save_if_training(agent)
-    if not FLAGS.training and FLAGS.save_replay:
-        #envs.env.save_replay('/Users/constantinos/Documents/StarcraftMAC/MyAgents/')
-        envs.env.save_replay('./Replays/MyAgents/')
 
     envs.close()
 

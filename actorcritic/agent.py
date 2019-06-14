@@ -5,7 +5,7 @@ import tensorflow as tf
 from pysc2.lib import actions
 from tensorflow.contrib import layers
 from tensorflow.contrib.layers.python.layers.optimizers import OPTIMIZER_SUMMARIES
-from actorcritic.policy import FullyConvPolicy, MetaPolicy
+from actorcritic.policy import FullyConvPolicy, MetaPolicy, RelationalPolicy
 from common.preprocess import ObsProcesser, FEATURE_KEYS, AgentInputTuple
 from common.util import weighted_random_sample, select_from_each_row, ravel_index_pairs
 import tensorboard.plugins.beholder as beholder_lib
@@ -117,8 +117,15 @@ class ActorCriticAgent:
         self.train_step = 0
         self.max_gradient_norm = max_gradient_norm
         self.clip_epsilon = clip_epsilon
-        self.policy = MetaPolicy if policy == 'MetaPolicy' else FullyConvPolicy
         self.num_actions= num_actions
+        # self.policy = FullyConvPolicy if ( (policy == 'FullyConv') or (policy == 'Relational')) else MetaPolicy
+        if policy == 'FullyConv':
+            self.policy = FullyConvPolicy
+        elif policy == 'Relational':
+            self.policy = RelationalPolicy
+        else:
+            self.policy = MetaPolicy
+
 
         opt_class = tf.train.AdamOptimizer if optimiser == "adam" else tf.train.RMSPropOptimizer
         if optimiser_pars is None:
@@ -251,8 +258,8 @@ class ActorCriticAgent:
         # (MINE) Pass the observations through the net
         feed_dict = self._input_to_feed_dict(obs)
 
-        action_id, value_estimate, convs_im = self.sess.run(
-            [self.sampled_action_id, self.value_estimate, self.theta.map_output],
+        action_id, value_estimate = self.sess.run(
+            [self.sampled_action_id, self.value_estimate],
             feed_dict=feed_dict
         )
 
@@ -299,20 +306,16 @@ class ActorCriticAgent:
 
     def step_eval(self, obs):
         # (MINE) Pass the observations through the net
-        # ob = np.zeros((1, 100, 100, 3))
-        # obsb =np.zeros((1, 100, 100, 3))
-        # ob[0] = obs['rgb_screen']
-        # obsb[0] = obs['alt_view']
 
         feed_dict = {'rgb_screen:0' : obs['rgb_screen'],
                      'alt_view:0': obs['alt_view']}
 
-        action_id, value_estimate, representation = self.sess.run(
-            [self.sampled_action_id, self.value_estimate, self.theta.map_output],
+        action_id, value_estimate, fc, action_probs = self.sess.run(
+            [self.sampled_action_id, self.value_estimate, self.theta.fc1, self.theta.action_id_probs],
             feed_dict=feed_dict
         )
 
-        return action_id, value_estimate, representation
+        return action_id, value_estimate, fc, action_probs
 
     def train(self, input_dict):
         feed_dict = self._input_to_feed_dict(input_dict)

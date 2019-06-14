@@ -341,12 +341,7 @@ class GridworldEnv(gym.Env):
         pack_world_coords = (x + left, y + top) #(x,y) #
         terrain = self.original_map_volume['value_feature_map'][value]['feature'] # what kind of terrain is there (string) e.g. 'tree'
         reward = self.position_value(terrain, alt, self.drop_rewards, self.drop_probabilities) # OK:1, DMG: -1
-        # Below we assume that package lands always in alt=0
-        # self.pack_dist = np.linalg.norm(np.array(pack_world_coords) - np.array(self.hiker_position[-2:])) # Check it out if it is correct!!!
-        # reward -= self.pack_dist * 0.1 # Do not penalize put a small reward here. Penalizing according to the dropping distance is wrong! The closer the package is the HIGHER the penalty
-        # #reward = reward*(1/(self.pack_dist+1e-7))*0.1
-        # self.reward = reward*is_hiker_in_neighbors # YOU CANNOT DO THAT EVEN IF IT WORKS FOR THAT MAP AS IT DOESNT GET PENALTY FOR DAMAGING THE PACK!
-        #print(terrain, reward)
+
         # distance in tiles ( we use Transpose and take the first element as the np.array for hiker pos is inside another array and καθετο vector
         self.pack_dist = max(abs(np.array(pack_world_coords) - np.array(self.hiker_position[-2:]).T[0])) # Chebyshev is better than Manhattan as with the latter you cannot go diagonal
         # if reward==1: # package state is OK
@@ -354,12 +349,7 @@ class GridworldEnv(gym.Env):
                 self.reward = 3#  reward + self.alt_rewards[self.altitude] + 1# reward + is_hiker_in_neighbors + 1 # altitude is implied so you might need to put it in
         else:
                 self.reward = (reward + self.alt_rewards[self.altitude])/((self.pack_dist** 2) + 1e-7)#reward + self.alt_rewards[self.altitude] + 1/((self.pack_dist** 2) + 1e-7)#
-        # else: # package DAMAGED
-        #     if int(self.pack_dist) == 0:  # pack lands on top of the hiker
-        #         self.reward = 0  # reward + is_hiker_in_neighbors + 1
-        #     else:
-        #         self.reward = -1 + 1/((self.pack_dist** 2) + 1e-7)
-            # self.reward = reward + 1/((self.pack_dist** 2) + 1e-7)#reward*is_hiker_in_neighbors + 1/((self.pack_dist** 2) + 1e-7) # if you are far away you get only the reward from the distance
+
         self.package_position = pack_world_coords
         self.package_dropped = True
         x = eval(self.actionvalue_heading_action[7][self.heading])
@@ -632,7 +622,7 @@ class GridworldEnv(gym.Env):
         # Do the action (drone is moving)
         x = eval(self.actionvalue_heading_action[action][self.heading])
 
-        observation = self.generate_observation()
+        # observation = self.generate_observation() # You took out this one in Jun 6, 2019 and you substitute the return(observation,...) with self.generate_observation (except the last one which is the return of the whole function)
         drone = np.where(
             self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
         self.dist = np.linalg.norm(np.array(drone[-2:]) - np.array(hiker[-2:])) # we remove height from the equation so we avoid going diagonally down
@@ -645,37 +635,41 @@ class GridworldEnv(gym.Env):
             done = True
             print("CRASH")
             if self.restart_once_done: # HAVE IT ALWAYS TRUE!!! It learned the first time WITHOUT RESETING FROM CRASH
-                return (observation, reward, done, info)
+                return (self.generate_observation(), reward, done, info)
 
         if self.no_action_flag == True:
             reward = self.reward#-1#TODO: it was 0 in all successful training session with PPO. TRY -1 so it avoids dropping at the edges!!!! ahouls be = self.reward and fix self. reward in the drop package function
             done = True
             if self.restart_once_done: # HAVE IT ALWAYS TRUE!!!
-                return (observation, reward, done, info)
+                return (self.generate_observation(), reward, done, info)
 
         # Multiple packages
-        # if self.drop:
-        #     reward = self.reward
-        #     self.countdrop = self.countdrop + 1
-        #     if self.countdrop > 2: # 3 drops
-        #         done = True
-        #         if self.restart_once_done:  # HAVE IT ALWAYS TRUE!!!
-        #             return (observation, reward, done, info)
+        if self.drop:
+            self.drop = 0
+            reward = self.reward
+            print('DROP!!!', 'self.reward=', self.reward, 'alt_reward=', self.alt_rewards[self.altitude],
+                  'hiker-package distance=', self.pack_dist)
+            self.countdrop = self.countdrop + 1
+            if self.countdrop >= 1: # 3 drops
+                done = True
+                if self.restart_once_done:  # HAVE IT ALWAYS TRUE!!!
+                    return (self.generate_observation(), reward, done, info)
             # reward = self.reward + self.alt_rewards[self.altitude] # (try to multiply them and see if it makes a difference!!! Here tho u reward for dropping low alt
 
-            print('DROP!!!', 'self.reward=', self.reward, 'alt_reward=', self.alt_rewards[self.altitude], 'hiker-package distance=', self.pack_dist)
+            # print('DROP!!!', 'self.reward=', self.reward, 'alt_reward=', self.alt_rewards[self.altitude], 'hiker-package distance=', self.pack_dist)
             # Below you should commented out so you just continue without the return. You put this inside the if self.countdrop>2
             # if self.restart_once_done: # HAVE IT ALWAYS TRUE!!!
             #     return (observation, reward, done, info)
 
-        # One package
-        if self.drop:
-            done = True
-            # reward = self.reward + self.alt_rewards[self.altitude] # (try to multiply them and see if it makes a difference!!! Here tho u reward for dropping low alt
-            reward = self.reward
-            print('DROP!!!', 'self.reward=', self.reward, 'alt_reward=', self.alt_rewards[self.altitude], 'hiker-package distance=', self.pack_dist)
-            if self.restart_once_done: # HAVE IT ALWAYS TRUE!!!
-                return (observation, reward, done, info)
+        # # One package
+        # if self.drop:
+        #     done = True
+        #     # reward = self.reward + self.alt_rewards[self.altitude] # (try to multiply them and see if it makes a difference!!! Here tho u reward for dropping low alt
+        #     reward = self.reward
+        #     print('DROP!!!', 'self.reward=', self.reward, 'alt_reward=', self.alt_rewards[self.altitude], 'hiker-package distance=', self.pack_dist)
+        #     if self.restart_once_done: # HAVE IT ALWAYS TRUE!!!
+        #         return (observation, reward, done, info)
+
         # print("state", [ self.observation[self.altitude]['drone'].nonzero()[0][0],self.observation[self.altitude]['drone'].nonzero()[1][0]] )
         self.dist_old = self.dist
         reward = -0.0001#-0.01#(self.alt_rewards[self.altitude]*0.1)*((1/((self.dist**2)+1e-7))) # -0.01 + # The closer we are to the hiker the more important is to be close to its altitude
@@ -693,7 +687,7 @@ class GridworldEnv(gym.Env):
         self.crash = 0
         self.package_dropped = 0
         self.package_position = ()
-        # _map = random.choice(self.maps)
+        # self._map = random.choice(self.maps)
         # start DRAWN world (Un)comment BELOW this part if you want a custom map
         # drawn_map = [[2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
         #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
@@ -753,7 +747,7 @@ class GridworldEnv(gym.Env):
         # # #add 10% (1-p) of any value
         # # other_features = np.full((20,20),33)
         # # random_integers[flag==0] = other_features[flag==0]
-        # # self.map_volume = CNP.create_custom_map(random_integers)#CNP.create_custom_map(np.random.random_integers(start,stop,(self.mapw,self.maph)))#CNP.map_to_volume_dict(_map[0],_map[1], self.mapw, self.maph)#CNP.create_custom_map(np.random.random_integers(start,stop,(self.mapw,self.maph))) #CNP.create_custom_map(random.choice(self.custom_maps))
+        # # self.map_volume = CNP.create_custom_map(random_integers)#CNP.create_custom_map(np.random.random_integers(start,stop,(self.mapw,self.maph)))#CNP.map_to_volume_dict(self._map[0],self._map[1], self.mapw, self.maph)#CNP.create_custom_map(np.random.random_integers(start,stop,(self.mapw,self.maph))) #CNP.create_custom_map(random.choice(self.custom_maps))
         # # # Set hiker's and drone's locations
         # # #hiker = (random.randint(2, self.map_volume['vol'].shape[1] - 1), random.randint(2, self.map_volume['vol'].shape[1] - 2)) #(8,8) #
         # # #if self.dropping:
@@ -787,7 +781,7 @@ class GridworldEnv(gym.Env):
         #
         # self.map_volume = CNP.create_custom_map(updated_map)
         #
-        # # self.map_volume = CNP.create_custom_map(np.random.random_integers(start, stop, (20, 20)))#CNP.create_custom_map(np.random.random_integers(start, stop, (20, 20)))#CNP.map_to_volume_dict(_map[0],_map[1], self.mapw, self.maph)#CNP.create_custom_map(self.custom_map)#CNP.create_custom_map(np.random.random_integers(start, stop, (20, 20)))#CNP.map_to_volume_dict(_map[0],_map[1], self.mapw, self.maph)#CNP.create_custom_map(np.random.random_integers(start, stop, (10, 10)))#CNP.create_custom_map(self.custom_map)#CNP.create_custom_map(np.random.random_integers(start, stop, (10, 10)))
+        # # self.map_volume = CNP.create_custom_map(np.random.random_integers(start, stop, (20, 20)))#CNP.create_custom_map(np.random.random_integers(start, stop, (20, 20)))#CNP.map_to_volume_dict(self._map[0],self._map[1], self.mapw, self.maph)#CNP.create_custom_map(self.custom_map)#CNP.create_custom_map(np.random.random_integers(start, stop, (20, 20)))#CNP.map_to_volume_dict(self._map[0],self._map[1], self.mapw, self.maph)#CNP.create_custom_map(np.random.random_integers(start, stop, (10, 10)))#CNP.create_custom_map(self.custom_map)#CNP.create_custom_map(np.random.random_integers(start, stop, (10, 10)))
         #
         # # Set hiker's and drone's location
         # # hiker = (random.randint(2, self.map_volume['vol'].shape[1] - 1), random.randint(2, self.map_volume['vol'].shape[1] - 2)) #(8,8) #
@@ -801,8 +795,8 @@ class GridworldEnv(gym.Env):
         ##################
 
         ####actual maps### (Un)comment below if you DONT want to use custom maps
-        _map = random.choice(self.maps)
-        self.map_volume = CNP.map_to_volume_dict(_map[0], _map[1], self.mapw, self.maph)
+        self._map = random.choice(self.maps)
+        self.map_volume = CNP.map_to_volume_dict(self._map[0], self._map[1], self.mapw, self.maph)
         map_ = self.map_volume['flat']
 ##########################
         # place the hiker
@@ -833,7 +827,7 @@ class GridworldEnv(gym.Env):
         indx = np.argpartition(D[0],k) # Return the indices of the k closest distances to the hiker. The [0] is VITAL!!!
         # # Use the index to retrieve the k closest safe coords to the hiker
         closest_neighs = np.array(drone_safe_points)[indx[:k]] # You need to have the safe points as array and not list
-        drone = tuple(random.choice(closest_neighs))
+        # drone = tuple(random.choice(closest_neighs))
 
         # NOTES: The first element might be the hiker position
         # To move away from hiker increase k and define h=k/2 and discard the h first closest_neighs - 9 suppose to be the max of the closest in an open area. So just use dividends of 9 to discard
@@ -854,7 +848,9 @@ class GridworldEnv(gym.Env):
         #         hiker = random.choice(hiker_safe_points)
         #         times = 0
         #     times = times + 1
-        # drone = random.choice(drone_safe_points)
+
+        # all safe points included for final training
+        drone = random.choice(drone_safe_points)
         # drone = (18,18)
 
 ############################
@@ -878,7 +874,7 @@ class GridworldEnv(gym.Env):
 
         # self.local_coordinates = [local_x,local_y]
         # self.world_coordinates = [70,50]
-        self.reference_coordinates = [_map[0], _map[1]]
+        self.reference_coordinates = [self._map[0], self._map[1]]
 
 
         self.real_actions = False
@@ -1017,8 +1013,9 @@ class GridworldEnv(gym.Env):
                 self.map_volume['feature_value_map']['drone'][self.altitude]['color']
 
         # maybe put the package in
-
+        # print('pack drop flag',self.package_dropped)
         if self.package_dropped:
+            self.package_dropped = 0
             package_position = (int(self.package_position[0] * 5), int(self.package_position[1]) * 5)
             for point in self.package[self.package_state][0]:
                 # print(point, package_position)

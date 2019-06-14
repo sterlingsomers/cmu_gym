@@ -11,7 +11,7 @@ from common.util import calculate_n_step_reward, general_n_step_advantage, combi
 import tensorflow as tf
 from absl import flags
 # from time import sleep
-from actorcritic.policy import FullyConvPolicy, MetaPolicy
+from actorcritic.policy import FullyConvPolicy, MetaPolicy, RelationalPolicy
 
 PPORunParams = namedtuple("PPORunParams", ["lambda_par", "batch_size", "n_epochs"])
 
@@ -40,7 +40,14 @@ class Runner(object):
         self.batch_counter = 0
         self.episode_counter = 0
         self.score = 0.0
-        self.policy_type = MetaPolicy if policy_type == 'MetaPolicy' else FullyConvPolicy
+        # self.policy_type = FullyConvPolicy if ( (policy_type == 'FullyConv') or (policy_type == 'Relational')) else MetaPolicy
+        if policy_type == 'FullyConv':
+            self.policy_type = FullyConvPolicy
+        elif policy_type == 'Relational':
+            self.policy_type = RelationalPolicy
+        else:
+            self.policy_type = MetaPolicy
+
         assert self.agent.mode in [ACMode.A2C, ACMode.PPO]
         self.is_ppo = self.agent.mode == ACMode.PPO
         if self.is_ppo:
@@ -282,7 +289,7 @@ class Runner(object):
         latest_obs = self.latest_obs # (MINE) =state(t)
 
         # action = agent(state)
-        action_ids, value_estimate, representation = self.agent.step_eval(latest_obs) # (MINE) AGENT STEP = INPUT TO NN THE CURRENT STATE AND OUTPUT ACTION
+        action_ids, value_estimate, fc, action_probs = self.agent.step_eval(latest_obs) # (MINE) AGENT STEP = INPUT TO NN THE CURRENT STATE AND OUTPUT ACTION
         print('|actions:', action_ids)
         obs_raw = self.envs.step(action_ids) # It will also visualize the next observation if all the episodes have ended as after success it retunrs the obs from reset
         latest_obs = self.obs_processer.process(obs_raw[0:-3])  # Take only the first element which is the rgb image and ignore the reward, done etc
@@ -296,4 +303,4 @@ class Runner(object):
         self.batch_counter += 1
         #print('Batch %d finished' % self.batch_counter)
         sys.stdout.flush()
-        return obs_raw[0:-3], action_ids[0], value_estimate[0], obs_raw[1], obs_raw[2]
+        return obs_raw[0:-3], action_ids[0], value_estimate[0], obs_raw[1], obs_raw[2], fc, action_probs

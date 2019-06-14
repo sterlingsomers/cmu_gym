@@ -402,7 +402,7 @@ class RelationalPolicy:
         conv1 = layers.conv2d(
             inputs=inputs,
             data_format="NHWC",
-            num_outputs=16,#32,#12,
+            num_outputs=32,#32,#12,
             kernel_size=8,#2
             stride=4,#1
             padding='SAME',
@@ -413,9 +413,9 @@ class RelationalPolicy:
         conv2 = layers.conv2d(
             inputs=conv1,
             data_format="NHWC",
-            num_outputs=32,#64, #24
+            num_outputs=64,#64, #24
             kernel_size=4, #2
-            stride=2,#1
+            stride=1,#1
             padding='SAME',
             activation_fn=tf.nn.relu,
             scope="%s/conv2" % name,
@@ -436,17 +436,32 @@ class RelationalPolicy:
         self.screen_output = self._build_convs(screen_px, "screen_network")
         self.alt_output = self._build_convs(alt_px, "alt_network")
 
-        self.cnn_outputs = tf.concat([self.screen_output, self.alt_output], axis=3)
+        self.cnn_outputs = tf.concat([self.screen_output, self.alt_output], axis=3) # if you use 2 then you calculate relations between the ego and the allo
 
-        self.relation = build_Relation(self.cnn_outputs)
-        ## Stacked MHDPA Blocks with shared weights
+        # self.cnn_outputs = tf.layers.max_pooling2d(
+        #     self.cnn_outputs,
+        #     3,
+        #     2,
+        #     padding='valid',
+        #     data_format='channels_last',
+        #     name='max_pool_for_inputs'
+        # ) #for 3,2 then out is 12,12,128
+        # with tf.device("/cpu:0"):
+        #     self.relation = build_Relation(self.cnn_outputs)
+
+        shape = self.cnn_outputs.get_shape().as_list()
+        channels = shape[3]
+        dim = shape[1]
+        self.relation = tf.reshape(self.cnn_outputs, [-1, shape[1] * shape[2], shape[3]])
+        # Stacked MHDPA Blocks with shared weights
         for i in range(self.MHDPA_blocks):
             with tf.variable_scope("num_blocks_{}".format(i)):
                 self.relation, self.attention_w = multihead_attention(queries=self.relation,
                                                  keys=self.relation,
                                                  num_units=64,  # how many dims you want the keys to be, None gives you the dims of ur entity. Should be 528/8=64+2
                                                  num_heads=2,
-                                                 trainable = self.trainable
+                                                 trainable = self.trainable,
+                                                 channels = channels
                                                  # dropout_rate=hp.dropout_rate,
                                                  # is_training=is_training,
                                                  # causality=False
@@ -454,11 +469,11 @@ class RelationalPolicy:
 
         # self.cnn1d = feedforward(self.MHDPA, num_units=[4 * 66, 66])  # You can use MLP instead of conv1d
         # The max pooling which converts a nxnxk to a k vector
-        self.relation = tf.reshape(self.relation, [-1, 13, 13, 66]) #[-1, 25, 25, 130]
-        self.max_pool = tf.layers.max_pooling2d(self.relation, 13, 13)
+        self.relation = tf.reshape(self.relation, [-1, dim, dim, channels]) # [-1, 13, 13, 66] [-1, 25, 25, 130]
+        self.max_pool = tf.layers.max_pooling2d(self.relation, dim, dim)
         map_output_flat = layers.flatten(self.max_pool)
         # map_output_flat = layers.flatten(self.spatial_softmax)
-        # (MINE) This is the last layer (fully connected -fc) for the non-spatial (categorical) actions
+
         fc1 = layers.fully_connected(
             map_output_flat,
             num_outputs=256,
@@ -466,31 +481,32 @@ class RelationalPolicy:
             scope="fc1",
             trainable=self.trainable
         )
-        fc2 = layers.fully_connected(
-            fc1,
-            num_outputs=256,
-            activation_fn=tf.nn.relu,
-            scope="fc2",
-            trainable=self.trainable
-        )
-        fc3 = layers.fully_connected(
-            fc2,
-            num_outputs=256,
-            activation_fn=tf.nn.relu,
-            scope="fc3",
-            trainable=self.trainable
-        )
-        fc4 = layers.fully_connected(
-            fc3,
-            num_outputs=256,
-            activation_fn=tf.nn.relu,
-            scope="fc4",
-            trainable=self.trainable
-        )
+        fc1 = layers.layer_norm(fc1, trainable=self.trainable)
+        # fc2 = layers.fully_connected(
+        #     fc1,
+        #     num_outputs=256,
+        #     activation_fn=tf.nn.relu,
+        #     scope="fc2",
+        #     trainable=self.trainable
+        # )
+        # fc3 = layers.fully_connected(
+        #     fc2,
+        #     num_outputs=256,
+        #     activation_fn=tf.nn.relu,
+        #     scope="fc3",
+        #     trainable=self.trainable
+        # )
+        # fc4 = layers.fully_connected(
+        #     fc3,
+        #     num_outputs=256,
+        #     activation_fn=tf.nn.relu,
+        #     scope="fc4",
+        #     trainable=self.trainable
+        # )
 
         # Policy
         action_id_probs = layers.fully_connected(
-            fc4,
+            fc1,
             num_outputs=self.num_actions,  # actions are from 0 to num_actions-1 || len(actions.FUNCTIONS),
             activation_fn=tf.nn.softmax,
             scope="action_id",
@@ -498,7 +514,7 @@ class RelationalPolicy:
         )
         value_estimate = tf.squeeze(layers.fully_connected(
             # squeeze removes a dimension of 1 elements. e.g.: [n_batches,1,value_est_dim]--->[n_batches,value_est_dim]
-            fc4,
+            fc1,
             num_outputs=1,
             activation_fn=None,
             scope='value',
