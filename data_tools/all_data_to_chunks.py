@@ -15,7 +15,7 @@ from pandas import DataFrame
 
 include_fc = True
 
-all_data = pickle.load(open('all_data100.lst', "rb"))
+all_data = pickle.load(open('all_data2000.lst', "rb"))
 
 possible_actions_map = {
         1: [[0, -1], [-1, -1], [-1, 0], [-1, 1], [0, 1]],
@@ -747,8 +747,8 @@ for key,value in nav_by_action_clusters_chunks.items():
     count = 0
     for chunk in value:
         count += 1
-        if count >= 4:
-            pass#break
+        if count >= 7:
+            break
         nav_complete_list.append(chunk)
 
 
@@ -757,7 +757,7 @@ for key,value in nav_by_action_clusters_chunks.items():
 #ms.fit(X)
 #labels = ms.labels_
 #cluster_centers = ms.cluster_centers_
-with open('chunks_cluster_centers_15actions_2000_fc.pkl','wb') as handle:
+with open('chunks_cluster_centers_15actions_2000_fc_7examplesmax.pkl','wb') as handle:
     pickle.dump(nav_complete_list,handle)
 
 print('stop')
