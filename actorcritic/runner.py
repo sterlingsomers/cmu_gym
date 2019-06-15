@@ -251,7 +251,7 @@ def similarity(val1, val2):
 
     if val1[0] == 'FC':
         dist = np.linalg.norm(np.array(val1[1]) - np.array(val2[1]))
-        return remap(dist, min(fc_distances),max(fc_distances),0,1) * -1
+        return remap(dist, min(fc_distances),max(fc_distances),0,2) * -1
     max_val = max(min_max[val1[0].lower()])
     min_val = min(min_max[val1[0].lower()])
 
@@ -368,7 +368,7 @@ def reset_actr():
     model_name = 'egocentric_allocentric_salience.lisp'
     model_path = '/Users/paulsomers/COGLE/gym-gridworld/'
 
-    chunk_file_name = 'chunks_cluster_centers_15actions_2000_fc.pkl'
+    chunk_file_name = 'chunks_cluster_centers_15actions_2000_fc_4examplesmax.pkl'
     #chunk_path = os.path.join(model_path,'data')
     chunk_path = ''
     actr.add_command('similarity_function',similarity)
@@ -750,4 +750,4 @@ class Runner(object):
         self.batch_counter += 1
         #print('Batch %d finished' % self.batch_counter)
         sys.stdout.flush()
-        return obs_raw[0:-3], action_ids[0], value_estimate[0], obs_raw[1], obs_raw[2], representation, fc, action_probs, grad_V_allo,grad_V_ego, mask_allo, mask_ego#, grad_pi
+        return obs_raw[0:-3], action_ids[0], value_estimate[0], obs_raw[1], obs_raw[2], obs_raw[3], representation, fc, action_probs, grad_V_allo,grad_V_ego, mask_allo, mask_ego#, grad_pi

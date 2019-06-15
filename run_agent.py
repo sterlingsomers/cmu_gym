@@ -380,7 +380,7 @@ def main():
             BLACK = (0, 0, 0)
             WHITE = (255, 255, 255)
 
-            sleep_time = 0
+            sleep_time = 1.5
 
             pygame.init()
             gameDisplay = pygame.display.set_mode((display_w, display_h))
@@ -472,14 +472,14 @@ def main():
 
 
 
-                    if nav_runner.envs.check_for_crash():
-                        done = True
-                        done2 = True
-                        stats['crashes'] += 1
-                    if nav_runner.envs.check_for_hiker():
-                        done = True
-                        done2 = True
-                        stats['successes'] += 1
+                    # if nav_runner.envs.check_for_crash():
+                    #     done = True
+                    #     done2 = True
+                    #     stats['crashes'] += 1
+                    # if nav_runner.envs.check_for_hiker():
+                    #     done = True
+                    #     done2 = True
+                    #     stats['successes'] += 1
 
                     #angle test code
                     # x1,x2 = step_data['drone'][-2:]
@@ -507,7 +507,7 @@ def main():
 
                     # obs, action, value, reward, done, representation, fc, grad_V, grad_pi = nav_runner.run_trained_batch(drop_flag) # Just one step. There is no monitor here so no info section
                     #obs, action, value, reward, done, representation, fc, action_probs, grad_V_allo, grad_V_ego, mask_allo, mask_ego = nav_runner.run_trained_batch(drop_flag) # Just one step. There is no monitor here so no info section
-                    obs, action, value, reward, done, representation, fc, action_probs, grad_V_allo, grad_V_ego, masked1, masked2 = nav_runner.run_trained_batch(drop_flag) # Just one step. There is no monitor here so no info section
+                    obs, action, value, reward, done, info, representation, fc, action_probs, grad_V_allo, grad_V_ego, masked1, masked2 = nav_runner.run_trained_batch(drop_flag) # Just one step. There is no monitor here so no info section
 
                     # step_data['action'] = action
                     # step_data['reward'] = reward
@@ -515,7 +515,7 @@ def main():
                     # step_data['action_probs'] = action_probs
 
                     #START WITH RANDOM AGENT
-                    obs = nav_runner.envs.generate_observation()
+                    # obs = nav_runner.envs.generate_observation()
                     #value = random.randint(5,15)
                     #nav_runner.envs.step(value)
                     reward = 0
@@ -563,8 +563,8 @@ def main():
                     # BLIT!!!
                     # First Background covering everything from previous session
                     gameDisplay.fill(DARK_BLUE)
-                    map_xy = obs['img']
-                    map_alt = obs['nextstepimage']
+                    map_xy = obs[0]['img']
+                    map_alt = obs[0]['nextstepimage']
                     process_img(map_xy, 20, 20)
                     process_img(map_alt, 20, 400)
 
@@ -576,6 +576,10 @@ def main():
 
                     # Dropping Agent
                     if done==1:
+
+                        if not info['success']:
+                            break
+
 
                         print('=== DROPPING AGENT IN CHARGE ===')
                         drop_runner.latest_obs = nav_runner.latest_obs
@@ -609,7 +613,7 @@ def main():
                                                               nav_runner.envs.altitude]['val'])
 
                             # Step
-                            obs, action, value, reward, done2, representation, fc, action_probs, grad_V_allo, grad_V_ego, mask_allo, mask_ego = drop_runner.run_trained_batch(drop_flag)
+                            obs, action, value, reward, done2, info, representation, fc, action_probs, grad_V_allo, grad_V_ego, mask_allo, mask_ego = drop_runner.run_trained_batch(drop_flag)
                             # obs, action, value, reward, done2, representation, fc, action_probs, grad_V_allo, grad_V_ego = drop_runner.run_trained_batch(drop_flag)
 
                             mb_rewards.append(reward)
