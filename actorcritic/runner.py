@@ -63,9 +63,13 @@ class Runner(object):
         obs = self.envs.reset()
         self.latest_obs = self.obs_processer.process(obs)
 
-    def reset_demo(self):
+    def reset_demo(self, drone_initial_position=None, hiker_initial_position=None):
         #self.score = 0.0
-        obs = self.envs.reset()
+        print("Runner.reset_demo(drone_initial_position={},hiker_initial_position={}"
+              .format(drone_initial_position,hiker_initial_position))
+        obs = self.envs.reset(drone_initial_position, hiker_initial_position)
+
+        #obs = self.envs.reset()
         self.latest_obs = self.obs_processer.process([obs])
 
     def _log_score_to_tb(self, score):

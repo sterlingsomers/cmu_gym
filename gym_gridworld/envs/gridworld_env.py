@@ -17,6 +17,7 @@ import threading
 import random
 import pygame
 from scipy.misc import imresize
+import matplotlib.pyplot as plt
 
 from gym_gridworld.envs import create_np_map as CNP
 
@@ -676,7 +677,7 @@ class GridworldEnv(gym.Env):
         #print("scale:",(1/((self.dist**2+1e-7))), "dist=",self.dist+1e-7, "alt=", self.altitude, "drone:",drone, "hiker:", hiker,"found:", self.check_for_hiker())
         return (self.generate_observation(), reward, done, info)
 
-    def reset(self):
+    def reset(self, drone_initial_position=None, hiker_initial_position=None):
         self.dist_old = 1000
         self.drop = False
         self.countdrop = 0
@@ -800,58 +801,67 @@ class GridworldEnv(gym.Env):
         map_ = self.map_volume['flat']
 ##########################
         # place the hiker
-        hiker_safe_points = []
-        for val in self.masks['hiker']:
-            where_array = np.where(map_ == val)
-            hiker_safe_points = hiker_safe_points + [(x, y) for x, y in zip(where_array[0], where_array[1]) if
-                                                     x >= 3 and y >= 3 and x <= self.map_volume['vol'].shape[
-                                                         1] - 3 and y <= self.map_volume['vol'].shape[1] - 3]
-        hiker = random.choice(hiker_safe_points)
-        # int(self.original_map_volume['vol'][hiker])
+
+        if hiker_initial_position==None:
+
+            hiker_safe_points = []
+            for val in self.masks['hiker']:
+                where_array = np.where(map_ == val)
+                hiker_safe_points = hiker_safe_points + [(x, y) for x, y in zip(where_array[0], where_array[1]) if
+                                                         x >= 3 and y >= 3 and x <= self.map_volume['vol'].shape[
+                                                             1] - 3 and y <= self.map_volume['vol'].shape[1] - 3]
+            hiker = random.choice(hiker_safe_points)
+            # int(self.original_map_volume['vol'][hiker])
+        else:
+            hiker = hiker_initial_position
+
         # place the drone
         # self.altitude = random.choice([1, 2, 3])
-        drone_safe_points = []
-        for val in self.masks[self.altitude]:
-            where_array = np.where(map_ == val)
-            drone_safe_points = drone_safe_points + [(x, y) for x, y in zip(where_array[0], where_array[1]) if
-                                                     x >= 3 and y >= 3 and x <= self.map_volume['vol'].shape[
-                                                         1] - 3 and y <= self.map_volume['vol'].shape[1] - 3]
-        D = distance.cdist([hiker], drone_safe_points, 'chebyshev').astype(int) # Distances from hiker to all drone safe points
-        # print('Distance:',D[0])
-        # print('Hiker',hiker)
-        # print('safe_drone',drone_safe_points)
-        # print('safe_hiker', hiker_safe_points)
-        k = 50 # k closest. There might be cases in which you have very few drone safe points (e.g. 3) and only one will be really close
-        if k> np.array(drone_safe_points).shape[0]:
-            k = np.array(drone_safe_points).shape[0] - 1 # Cauz we index from 0 but shape starts from 1 to max shape
-        indx = np.argpartition(D[0],k) # Return the indices of the k closest distances to the hiker. The [0] is VITAL!!!
-        # # Use the index to retrieve the k closest safe coords to the hiker
-        closest_neighs = np.array(drone_safe_points)[indx[:k]] # You need to have the safe points as array and not list
-        # drone = tuple(random.choice(closest_neighs))
+        if drone_initial_position==None:
+            drone_safe_points = []
+            for val in self.masks[self.altitude]:
+                where_array = np.where(map_ == val)
+                drone_safe_points = drone_safe_points + [(x, y) for x, y in zip(where_array[0], where_array[1]) if
+                                                         x >= 3 and y >= 3 and x <= self.map_volume['vol'].shape[
+                                                             1] - 3 and y <= self.map_volume['vol'].shape[1] - 3]
+            D = distance.cdist([hiker], drone_safe_points, 'chebyshev').astype(int) # Distances from hiker to all drone safe points
+            # print('Distance:',D[0])
+            # print('Hiker',hiker)
+            # print('safe_drone',drone_safe_points)
+            # print('safe_hiker', hiker_safe_points)
+            k = 50 # k closest. There might be cases in which you have very few drone safe points (e.g. 3) and only one will be really close
+            if k> np.array(drone_safe_points).shape[0]:
+                k = np.array(drone_safe_points).shape[0] - 1 # Cauz we index from 0 but shape starts from 1 to max shape
+            indx = np.argpartition(D[0],k) # Return the indices of the k closest distances to the hiker. The [0] is VITAL!!!
+            # # Use the index to retrieve the k closest safe coords to the hiker
+            closest_neighs = np.array(drone_safe_points)[indx[:k]] # You need to have the safe points as array and not list
+            # drone = tuple(random.choice(closest_neighs))
 
-        # NOTES: The first element might be the hiker position
-        # To move away from hiker increase k and define h=k/2 and discard the h first closest_neighs - 9 suppose to be the max of the closest in an open area. So just use dividends of 9 to discard
-        # drone = (hiker[0]-2, hiker[1]-3)
-        # drone = random.choice([(hiker[0] - 1, hiker[1] - 1), (hiker[0] - 1, hiker[1] ), (hiker[0], hiker[1] - 1 )])
+            # NOTES: The first element might be the hiker position
+            # To move away from hiker increase k and define h=k/2 and discard the h first closest_neighs - 9 suppose to be the max of the closest in an open area. So just use dividends of 9 to discard
+            # drone = (hiker[0]-2, hiker[1]-3)
+            # drone = random.choice([(hiker[0] - 1, hiker[1] - 1), (hiker[0] - 1, hiker[1] ), (hiker[0], hiker[1] - 1 )])
 
-        # random away location + safe check
-        # drone = random.choice([(hiker[0] - 5, hiker[1] - 3), (hiker[0] - 6, hiker[1]), (hiker[0], hiker[1] - 4), (hiker[0] - 6, hiker[1] - 7)])
-        # drone = random.choice([(hiker[0] - 8, hiker[1] - 3), (hiker[0] - 10, hiker[1]), (hiker[0], hiker[1] - 9),
-        #                        (hiker[0] - 6, hiker[1] - 7)])
-        # times = 0
-        # while drone not in drone_safe_points:
-        #     drone = random.choice([(hiker[0] - 5, hiker[1] - 3), (hiker[0] - 6, hiker[1]), (hiker[0], hiker[1] - 4),
-        #                            (hiker[0] - 6, hiker[1] - 7)])
-        #     # print('non safe reset drone pos')
-        #     if times==10:
-        #         print('max reps reached so reset hiker')
-        #         hiker = random.choice(hiker_safe_points)
-        #         times = 0
-        #     times = times + 1
+            # random away location + safe check
+            # drone = random.choice([(hiker[0] - 5, hiker[1] - 3), (hiker[0] - 6, hiker[1]), (hiker[0], hiker[1] - 4), (hiker[0] - 6, hiker[1] - 7)])
+            # drone = random.choice([(hiker[0] - 8, hiker[1] - 3), (hiker[0] - 10, hiker[1]), (hiker[0], hiker[1] - 9),
+            #                        (hiker[0] - 6, hiker[1] - 7)])
+            # times = 0
+            # while drone not in drone_safe_points:
+            #     drone = random.choice([(hiker[0] - 5, hiker[1] - 3), (hiker[0] - 6, hiker[1]), (hiker[0], hiker[1] - 4),
+            #                            (hiker[0] - 6, hiker[1] - 7)])
+            #     # print('non safe reset drone pos')
+            #     if times==10:
+            #         print('max reps reached so reset hiker')
+            #         hiker = random.choice(hiker_safe_points)
+            #         times = 0
+            #     times = times + 1
 
-        # all safe points included for final training
-        drone = random.choice(drone_safe_points)
-        # drone = (18,18)
+            # all safe points included for final training
+            drone = random.choice(drone_safe_points)
+            # drone = (18,18)
+        else:
+            drone = drone_initial_position
 
 ############################
         # # Set hiker's and drone's locations
