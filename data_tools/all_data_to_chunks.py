@@ -717,7 +717,7 @@ for key, val in navs_by_action.items():
 #put those examples as chunks
 for key in navs_by_action:
     random.shuffle(navs_by_action[key])
-    navs_by_action[key] = navs_by_action[key][:200]
+    navs_by_action[key] = navs_by_action[key][:100]
 
 print('stop')
 
@@ -758,8 +758,8 @@ for key,value in navs_by_action.items():#nav_by_action_clusters_chunks.items()
     count = 0
     for chunk in value:
         count += 1
-        if count >= 7:
-            continue#break
+        # if count >= 7:
+        #     continue#break
         nav_complete_list.append(chunk)
 
 
@@ -768,7 +768,7 @@ for key,value in navs_by_action.items():#nav_by_action_clusters_chunks.items()
 #ms.fit(X)
 #labels = ms.labels_
 #cluster_centers = ms.cluster_centers_
-with open('chunks_cluster_centers_15actions_2000_fc_200randommax.pkl','wb') as handle:
+with open('chunks_cluster_centers_15actions_2000_fc_100randommax.pkl','wb') as handle:
     pickle.dump(nav_complete_list,handle)
 
 print('stop')
