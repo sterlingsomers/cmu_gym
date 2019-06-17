@@ -303,4 +303,4 @@ class Runner(object):
         self.batch_counter += 1
         #print('Batch %d finished' % self.batch_counter)
         sys.stdout.flush()
-        return obs_raw[0:-3], action_ids[0], value_estimate[0], obs_raw[1], obs_raw[2], fc, action_probs
+        return obs_raw[0:-3], action_ids[0], value_estimate[0], obs_raw[1], obs_raw[2], obs_raw[3], fc, action_probs

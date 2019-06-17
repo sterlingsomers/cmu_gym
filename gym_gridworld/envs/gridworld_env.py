@@ -619,8 +619,6 @@ class GridworldEnv(gym.Env):
         drone_old = np.where(
             self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
         hiker = self.hiker_position
-        # Do the action (drone is moving)
-        x = eval(self.actionvalue_heading_action[action][self.heading])
 
         # observation = self.generate_observation() # You took out this one in Jun 6, 2019 and you substitute the return(observation,...) with self.generate_observation (except the last one which is the return of the whole function)
         drone = np.where(
@@ -635,8 +633,10 @@ class GridworldEnv(gym.Env):
             done = True
             print("CRASH")
             if self.restart_once_done: # HAVE IT ALWAYS TRUE!!! It learned the first time WITHOUT RESETING FROM CRASH
-                return (self.generate_observation(), reward, done, info)
+                return (self.generate_observation(), reward, done, info) # You should get the previous obs so no change here, or return obs=None
 
+        # Do the action (drone is moving). If we crash we dont perform an action so no new observation
+        x = eval(self.actionvalue_heading_action[action][self.heading])
         if self.no_action_flag == True:
             reward = self.reward#-1#TODO: it was 0 in all successful training session with PPO. TRY -1 so it avoids dropping at the edges!!!! ahouls be = self.reward and fix self. reward in the drop package function
             done = True

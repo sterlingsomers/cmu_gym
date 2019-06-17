@@ -33,12 +33,12 @@ import gym_gridworld
 
 FLAGS = flags.FLAGS
 flags.DEFINE_bool("visualize", True, "Whether to render with pygame.")
-flags.DEFINE_float("sleep_time", 0.8, "Time-delay in the demo")
+flags.DEFINE_float("sleep_time", 0, "Time-delay in the demo")
 flags.DEFINE_integer("resolution", 32, "Resolution for screen and minimap feature layers.")
 flags.DEFINE_integer("step_mul", 100, "Game steps per agent step.")
 flags.DEFINE_integer("step2save", 1000, "Game step to save the model.") #A2C every 1000, PPO 250
 flags.DEFINE_integer("n_envs", 10, "Number of environments to run in parallel")
-flags.DEFINE_integer("episodes", 10, "Number of complete episodes")
+flags.DEFINE_integer("episodes", 5, "Number of complete episodes")
 flags.DEFINE_integer("n_steps_per_batch", 32,
     "Number of steps per batch, if None use 8 for a2c and 128 for ppo")  # (MINE) TIMESTEPS HERE!!! You need them cauz you dont want to run till it finds the beacon especially at first episodes - will take forever
 flags.DEFINE_integer("all_summary_freq", 50, "Record all summaries every n batch")
@@ -280,6 +280,9 @@ def main():
                 surf = pygame.transform.scale(surf, (300, 300))
                 gameDisplay.blit(surf, (x, y))
 
+            #all_data = [{'nav':[],'drop':[]}] * FLAGS.episodes #each entry is an episode, sorted into nav or drop steps
+            all_data = [{'nav':[],'stuck':False} for x in range(FLAGS.episodes)]
+            step_data = {}
             dictionary = {}
             running = True
             while runner.episode_counter <= (FLAGS.episodes - 1) and running==True:
@@ -322,7 +325,9 @@ def main():
                 t=0
 
                 drop_flag = 0
+                stuck_flag = 0
                 done = 0
+
                 while done==0:
 
                     mb_obs.append(runner.latest_obs)
@@ -334,12 +339,25 @@ def main():
                     mb_map_volume.append(runner.envs.map_volume) # what is contained here?
                     mb_ego.append(runner.envs.ego)
 
+                    step_data = {'stuck':False}
+                    #I need the egocentric view + hiker's position
+                    #then drone steps, need action
+                    step_data['volume'] = np.array(runner.envs.map_volume['vol'],copy=True)
+                    step_data['heading'] = runner.envs.heading
+                    step_data['hiker'] = runner.envs.hiker_position
+                    step_data['altitude'] = runner.envs.altitude
+                    step_data['drone'] = np.where(step_data['volume'] == runner.envs.map_volume['feature_value_map']['drone'][runner.envs.altitude]['val'])
+
 
                     # dictionary[nav_runner.episode_counter]['observations'].append(nav_runner.latest_obs)
                     # dictionary[nav_runner.episode_counter]['flag'].append(drop_flag)
 
-                    # RUN THE MAIN LOOP
-                    obs, action, value, reward, done, fc, action_probs = runner.run_trained_batch()
+                    # INTERACTION
+                    obs, action, value, reward, done, info, fc, action_probs = runner.run_trained_batch()
+
+                    if done and not info['success']:
+                        print('Crash, terminate episode')
+                        break # Also we prevent new data for the new time step to be saved
 
                     mb_actions.append(action)
                     mb_action_probs.append(action_probs)
@@ -347,9 +365,14 @@ def main():
                     mb_fc.append(fc)
                     mb_values.append(value)
                     mb_crash.append(runner.envs.crash)
-                    if done:
-                        score = sum(mb_rewards)
-                        print(">>>>>>>>>>>>>>>>>>>>>>>>>>> episode %d ended in %d steps. Score %f" % (runner.episode_counter, t, score))
+
+                    step_data['action'] = action
+                    step_data['reward'] = reward
+                    step_data['fc'] = fc
+                    step_data['action_probs'] = action_probs
+
+                    all_data[runner.episode_counter]['nav'].append(step_data)
+
 
                     screen_mssg_variable("Value    : ", np.round(value,3), (168, 350))
                     screen_mssg_variable("Reward: ", np.round(reward,3), (168, 372))
@@ -366,6 +389,11 @@ def main():
                         pygame.event.get()  # Update the screen
                         sleep(sleep_time)
                     mb_flag.append(drop_flag)
+
+                    if done:
+                        score = sum(mb_rewards)
+                        print(">>>>>>>>>>>>>>>>>>>>>>>>>>> episode %d ended in %d steps. Score %f" % (runner.episode_counter, t, score))
+
                     # BLIT!!!
                     # First Background covering everyything from previous session
                     gameDisplay.fill(DARK_BLUE)
@@ -377,18 +405,22 @@ def main():
                     pygame.display.update() # Updates only the blitted parts of the screen, pygame.display.flip() updates the whole screen
                     pygame.event.get() # Show the last state and then reset
                     sleep(sleep_time)
+
                     t += 1
                     if t == 70:
                         stuck_flag = 1
+                        step_data['stuck'] = True
+                        all_data[runner.episode_counter]['stuck'] = True
+                        all_data[runner.episode_counter]['nav'].append(step_data)
                         break
-                    else:
-                        stuck_flag = 0
+                    # else:
+                    #     stuck_flag = 0
 
                 dictionary[runner.episode_counter]['map_volume'] = mb_map_volume # You might need to save only for epis=0
                 dictionary[runner.episode_counter]['ego'] = mb_ego
                 dictionary[runner.episode_counter]['flag'] = mb_flag
                 dictionary[runner.episode_counter]['actions'] = mb_actions
-                dictionary[runner.episode_counter]['actions'] = mb_action_probs
+                dictionary[runner.episode_counter]['action_probs'] = mb_action_probs
                 dictionary[runner.episode_counter]['rewards'] = mb_rewards
                 dictionary[runner.episode_counter]['fc'] = mb_fc
                 dictionary[runner.episode_counter]['values'] = mb_values
@@ -404,12 +436,17 @@ def main():
                 clock.tick(15)
 
             print("...saving dictionary.")
-            # hiker_pos =
-            # drone_pos =
-            # num_epis =
-            # BoxCanyon_D1118_H1010_200
-            pickle_in = open('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/testing.tj','wb')
+            folder = '/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/'
+            map_name = str(runner.envs._map[0]) + '-' + str(runner.envs._map[1])
+            drone_init_loc = 'D1118'
+            hiker_loc = 'H1010'
+            type = '.tj'
+            path = folder + map_name + '_' + drone_init_loc + '_' + hiker_loc + '_' + str(FLAGS.episodes) + type
+            pickle_in = open(path,'wb')
             pickle.dump(dictionary, pickle_in)
+
+            with open('./data/all_data' + map_name + '_' + drone_init_loc + '_' + hiker_loc + str(FLAGS.episodes) + '.lst', 'wb') as handle:
+                pickle.dump(all_data, handle)
             # with open('./data/All_maps_20x20_500.tj', 'wb') as handle:
             #     pickle.dump(dictionary, handle)
 
