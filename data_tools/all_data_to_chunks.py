@@ -712,43 +712,54 @@ navs_by_action_array = {}
 for key, val in navs_by_action.items():
     navs_by_action_array[key],original_labels_nav = convert_data_to_ndarray(val)
 
-#nav by action clusters will hold the center cluster for each action type
-#it can then be used to make a single centroid chunk - just to try
-######MEAN SHIFT VERSION
-nav_by_action_clusters = {}
-keys_to_delete = []
-for key in navs_by_action_array:
-    X = navs_by_action_array[key]
-    if X.shape[0] <= 3:
-        keys_to_delete.append(key)
-        continue
-    ms = MeanShift()
-    ms.fit(X)
-    nav_by_action_clusters[key] = ms.cluster_centers_
-#######K-MEANS VERSION
-# nav_by_action_k_clusters = {}
+#don't cluster, just pick randomly 100 examples from each bin.
+#if it doesn't have 100, it doesn't continue
+#put those examples as chunks
+for key in navs_by_action:
+    random.shuffle(navs_by_action[key])
+    navs_by_action[key] = navs_by_action[key][:200]
+
+print('stop')
+
+
+
+# #nav by action clusters will hold the center cluster for each action type
+# #it can then be used to make a single centroid chunk - just to try
+# ######MEAN SHIFT VERSION
+# nav_by_action_clusters = {}
 # keys_to_delete = []
 # for key in navs_by_action_array:
-
-
-#don't delete them, use them as centers - they are so rare
-#keep commented out below to keep them
-# for key in keys_to_delete:
-#     del nav_by_action_clusters[key]
-
-#convert whatever centroids there are into chunks again
-nav_by_action_clusters_chunks = {}
-for key in nav_by_action_clusters:
-    nav_by_action_clusters_chunks[key] = convert_centroids_to_chunks(key, nav_by_action_clusters[key],original_labels_nav,kind='nav')
+#     X = navs_by_action_array[key]
+#     if X.shape[0] <= 3:
+#         keys_to_delete.append(key)
+#         continue
+#     ms = MeanShift()
+#     ms.fit(X)
+#     nav_by_action_clusters[key] = ms.cluster_centers_
+# #######K-MEANS VERSION
+# # nav_by_action_k_clusters = {}
+# # keys_to_delete = []
+# # for key in navs_by_action_array:
+#
+#
+# #don't delete them, use them as centers - they are so rare
+# #keep commented out below to keep them
+# # for key in keys_to_delete:
+# #     del nav_by_action_clusters[key]
+#
+# #convert whatever centroids there are into chunks again
+# nav_by_action_clusters_chunks = {}
+# for key in nav_by_action_clusters:
+#     nav_by_action_clusters_chunks[key] = convert_centroids_to_chunks(key, nav_by_action_clusters[key],original_labels_nav,kind='nav')
 
 #convert the dictionary back into a list of all chunks
 nav_complete_list = []
-for key,value in nav_by_action_clusters_chunks.items():
+for key,value in navs_by_action.items():#nav_by_action_clusters_chunks.items()
     count = 0
     for chunk in value:
         count += 1
         if count >= 7:
-            break
+            continue#break
         nav_complete_list.append(chunk)
 
 
@@ -757,7 +768,7 @@ for key,value in nav_by_action_clusters_chunks.items():
 #ms.fit(X)
 #labels = ms.labels_
 #cluster_centers = ms.cluster_centers_
-with open('chunks_cluster_centers_15actions_2000_fc_7examplesmax.pkl','wb') as handle:
+with open('chunks_cluster_centers_15actions_2000_fc_200randommax.pkl','wb') as handle:
     pickle.dump(nav_complete_list,handle)
 
 print('stop')
