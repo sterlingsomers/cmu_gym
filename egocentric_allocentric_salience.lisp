@@ -77,7 +77,7 @@
        hiker_left =HL
        fc =FC
        type NAV
-       :ignore-slots (altitude distance_to_hiker ego_right ego_diagonal_right ego_center ego_diagonal_left ego_left hiker_right hiker_diagonal_right hiker_center hiker_diagonal_left hiker_left))
+       :ignore-slots (altitude distance_to_hiker))
 
 
   
