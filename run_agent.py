@@ -380,7 +380,7 @@ def main():
             BLACK = (0, 0, 0)
             WHITE = (255, 255, 255)
 
-            sleep_time = 1.5
+            sleep_time = 0
 
             pygame.init()
             gameDisplay = pygame.display.set_mode((display_w, display_h))
@@ -714,4 +714,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-    print(stats)
+    # print(stats)

@@ -16,8 +16,7 @@
 (define-model test-blending
     (sgp :sim-hook "similarity_function"
          ;:blending-request-hook "new_blend_request"
-         :tmp 1
-         ;:seed (1 1) :bll nil :blc 5 :mp 1 :v t :blt t :esc t :ans .25 :rt -5)
+         :tmp 1         ;:seed (1 1) :bll nil :blc 5 :mp 1 :v t :blt t :esc t :ans .25 :rt -5)
          :seed (1 1) :bll nil :blc 5 :mp 1 :v t :blt t :esc t :ans nil :rt -5 :value->mag second)
 
   ;(chunk-type observation needsRadio needsFood needsFA needsWater actual)
@@ -77,7 +76,7 @@
        hiker_left =HL
        fc =FC
        type NAV
-       :ignore-slots (altitude distance_to_hiker))
+       :ignore-slots (altitude distance_to_hiker hiker_left hiker_diagonal_left hiker_center hiker_diagonal_right hiker_right ego_left ego_diagonal_left ego_center ego_diagonal_right ego_right))
 
 
   

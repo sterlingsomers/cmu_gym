@@ -21,6 +21,7 @@ import json
 import operator
 import pickle
 import actr #Version 7.11.1 tested (may work on others)
+from scipy import spatial
 
 PPORunParams = namedtuple("PPORunParams", ["lambda_par", "batch_size", "n_epochs"])
 #ADD some global stuff for ACT-R
@@ -90,7 +91,7 @@ combos_to_actions = {'left_down':0,'diagonal_left_down':1,'center_down':2,
                      'left_up':10,'diagonal_left_up':11,'center_up':12,
                      'diagonal_right_up':13,'right_up':14,'drop':15}
 
-
+allchunks = []
 
 fc_distances = []
 
@@ -251,7 +252,10 @@ def similarity(val1, val2):
 
     if val1[0] == 'FC':
         dist = np.linalg.norm(np.array(val1[1]) - np.array(val2[1]))
-        return remap(dist, min(fc_distances),max(fc_distances),0,2) * -1
+        #print("FC", remap(dist, min(fc_distances),max(fc_distances),0,1) * -1)
+        return remap(dist, min(fc_distances),max(fc_distances),0,3) * -1#spatial.distance.cosine(val1[1],val2[1])* -1#
+
+
     max_val = max(min_max[val1[0].lower()])
     min_val = min(min_max[val1[0].lower()])
 
@@ -278,6 +282,11 @@ def similarity(val1, val2):
     #     return abs(val1_t - val2_t) * -2
 
     return_value = abs(val1_t - val2_t) * -1#/max_val
+
+    if 'HIKER' in val1[0] or 'EGO' in val1[0]:
+        return_value = 0
+    # if 'EGO' in val1[0]:
+    #     return_value = return_value - (return_value * 0.5)
 
     return return_value#(abs(value1 - value2) * - 1)/max_val
 
@@ -368,7 +377,7 @@ def reset_actr():
     model_name = 'egocentric_allocentric_salience.lisp'
     model_path = '/Users/paulsomers/COGLE/gym-gridworld/'
 
-    chunk_file_name = 'chunks_cluster_centers_15actions_2000_fc_4examplesmax.pkl'
+    chunk_file_name = 'chunks_cluster_centers_15actions_2000_fc_100randommax.pkl'
     #chunk_path = os.path.join(model_path,'data')
     chunk_path = ''
     actr.add_command('similarity_function',similarity)
@@ -377,7 +386,7 @@ def reset_actr():
 
     max_mins_name = 'max_mins_from_data.pkl'
     max_mins = pickle.load(open(os.path.join(chunk_path,max_mins_name),'rb'))
-
+    global allchunks
     #load all the chunks
     allchunks = pickle.load(open(os.path.join(chunk_path,chunk_file_name),'rb'))
     for chunk in allchunks:
@@ -422,7 +431,7 @@ def reset_actr():
     for chunk in allchunks:
         fc_pair = access_by_key('fc', chunk)
         fcs.append(fc_pair[1])
-        print('ok')
+
     for pair in itertools.combinations(fcs,2):
         fc_distances.append(float(np.linalg.norm(np.array(pair[0]) - np.array(pair[1]))))
     print("reset done.")
@@ -727,14 +736,28 @@ class Runner(object):
 
         step_data['fc'] = fc
 
+        chunks_and_distances = []
+        #look at the fc
+        for chunk in allchunks:
+            fc_tuple = access_by_key('fc', chunk)
+            fc_from_memory = fc_tuple[1]
+            dist = np.linalg.norm(np.array(fc) - np.array(fc_from_memory))
+            chunks_and_distances.append([chunk,dist])
 
+        #order the chunks_and_distances
+        chunks_and_distances = sorted(chunks_and_distances, key=operator.itemgetter(1))
+        print("ok")
+
+
+
+        network_action_ids = np.array(action_ids,copy=True)
         actr_observation = create_actr_observation(step_data)
         actr_action = handle_observation(actr_observation)
         action_ids = np.array([actr_action])
         #nav_runner.envs.step(action)
         reset_actr()
 
-        print('|actions:', action_ids)
+        print('|actions:', network_action_ids, action_ids)
         if drop_on:
             obs_raw = self.envs.step_drop(action_ids) # It will also visualize the next observation if all the episodes have ended as after success it retunrs the obs from reset
         else:
