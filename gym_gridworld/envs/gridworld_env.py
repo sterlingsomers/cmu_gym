@@ -827,12 +827,22 @@ class GridworldEnv(gym.Env):
 
         """Random away location + safe check"""
         # drone = random.choice([(hiker[0] - 5, hiker[1] - 3), (hiker[0] - 6, hiker[1]), (hiker[0], hiker[1] - 4), (hiker[0] - 6, hiker[1] - 7)])
-        self.drone = random.choice([(self.hiker[0] - 8, self.hiker[1] - 3), (self.hiker[0] - 10, self.hiker[1]), (self.hiker[0], self.hiker[1] - 9),
-                               (self.hiker[0] - 12, self.hiker[1] - 7)])
+        # self.drone = random.choice([(self.hiker[0] - 8, self.hiker[1] - 3), (self.hiker[0] - 10, self.hiker[1]), (self.hiker[0], self.hiker[1] - 9),
+        #                        (self.hiker[0] - 12, self.hiker[1] - 7)])
+        self.drone = random.choice([(self.hiker[0] - 12, self.hiker[1] ), (self.hiker[0] - 10, self.hiker[1]), (self.hiker[0]-11, self.hiker[1]),
+                               (self.hiker[0] - 12, self.hiker[1] - 12), (self.hiker[0] - 10, self.hiker[1] - 10), (self.hiker[0] - 11, self.hiker[1] - 11),
+                               (self.hiker[0], self.hiker[1] - 12), (self.hiker[0], self.hiker[1] - 10), (self.hiker[0], self.hiker[1] - 11),
+                                    ])
         times = 0
         while self.drone not in drone_safe_points:
-            self.drone = random.choice([(self.hiker[0] - 5, self.hiker[1] - 3), (self.hiker[0] - 6, self.hiker[1]), (self.hiker[0], self.hiker[1] - 4),
-                                   (self.hiker[0] - 6, self.hiker[1] - 7)])
+            # self.drone = random.choice([(self.hiker[0] - 5, self.hiker[1] - 3), (self.hiker[0] - 6, self.hiker[1]), (self.hiker[0], self.hiker[1] - 4),
+            #                        (self.hiker[0] - 6, self.hiker[1] - 7)])
+            self.drone = random.choice([(self.hiker[0] - 12, self.hiker[1]), (self.hiker[0] - 10, self.hiker[1]),
+                                        (self.hiker[0] - 11, self.hiker[1]), (self.hiker[0] - 12, self.hiker[1] - 12),
+                                        (self.hiker[0] - 10, self.hiker[1] - 10), (self.hiker[0] - 11, self.hiker[1] - 11),
+                                        (self.hiker[0], self.hiker[1] - 12), (self.hiker[0], self.hiker[1] - 10),
+                                        (self.hiker[0], self.hiker[1] - 11),
+                                        ])
             # print('non safe reset drone pos')
             if times==10:
                 print('max reps reached so reset hiker')
