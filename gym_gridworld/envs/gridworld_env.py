@@ -1,4 +1,5 @@
 import gym
+import pickle
 import sys
 import os
 import time
@@ -15,7 +16,7 @@ from PIL import Image as Image
 # import matplotlib.pyplot as plt
 import threading
 import random
-import pygame
+# import pygame
 from scipy.misc import imresize
 
 from gym_gridworld.envs import create_np_map as CNP
@@ -37,18 +38,16 @@ class GridworldEnv(gym.Env):
     def __init__(self, map_x=0, map_y=0, local_x=0, local_y=0, heading=1, altitude=2, hiker_x=5, hiker_y=5, width=20,
                  height=20, verbose=False):
 
-        # # TODO: Pass the environment with arguments
-
-        #num_alts = 4
         self.verbose = verbose # to show the environment or not
         self.dropping = True # This is for the reset to select the proper starting locations for hiker and drone
         self.restart_once_done = True  # restart or not once done
         self.drop = False
         self.countdrop = 0
         self.no_action_flag = False
-        self.maps =[(265,308),(20,94),(146,456),(149,341),(164,90),(167,174),
-                        (224,153),(241,163),(260,241),(265,311),(291,231),
-                        (308,110),(334,203),(360,112),(385,291),(330,352),(321,337)]#[(400,35), (350,90), (430,110),(390,50), (230,70)] #[(86, 266)] (70,50) # For testing, 70,50 there is no where to drop in the whole map
+        self.maps =[(1,1), (1,2), (1,3), (1,4), (1,5), (1,6), (1,7)]
+            # [(265,308),(20,94),(146,456),(149,341),(164,90),(167,174),
+            #             (224,153),(241,163),(260,241),(265,311),(291,231),
+            #             (308,110),(334,203),(360,112),(385,291),(330,352),(321,337)]#[(400,35), (350,90), (430,110),(390,50), (230,70)] #[(86, 266)] (70,50) # For testing, 70,50 there is no where to drop in the whole map
         #[(149, 341)]#[(149, 341),(241,163), (260,241),(291,231),(308,110),(330,352)]
         self.mapw = 20
         self.maph = 20
@@ -399,7 +398,7 @@ class GridworldEnv(gym.Env):
         self.altitude = new_alt
         self.heading = new_heading
 
-        if self.real_actions:
+        if self.real_actions: # ONLY WHEN MAVSIM IS ACTIVE
             drone_position = np.where(
                 self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
 
@@ -672,7 +671,7 @@ class GridworldEnv(gym.Env):
 
         # print("state", [ self.observation[self.altitude]['drone'].nonzero()[0][0],self.observation[self.altitude]['drone'].nonzero()[1][0]] )
         self.dist_old = self.dist
-        reward = -0.0001#-0.01#(self.alt_rewards[self.altitude]*0.1)*((1/((self.dist**2)+1e-7))) # -0.01 + # The closer we are to the hiker the more important is to be close to its altitude
+        reward = -0.01#-0.01#(self.alt_rewards[self.altitude]*0.1)*((1/((self.dist**2)+1e-7))) # -0.01 + # The closer we are to the hiker the more important is to be close to its altitude
         #print("scale:",(1/((self.dist**2+1e-7))), "dist=",self.dist+1e-7, "alt=", self.altitude, "drone:",drone, "hiker:", hiker,"found:", self.check_for_hiker())
         return (self.generate_observation(), reward, done, info)
 
@@ -687,56 +686,35 @@ class GridworldEnv(gym.Env):
         self.crash = 0
         self.package_dropped = 0
         self.package_position = ()
-        # self._map = random.choice(self.maps)
-        # start DRAWN world (Un)comment BELOW this part if you want a custom map
-        # drawn_map = [[2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 2, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 2, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2], ]
-        # BOXCANYON
-        # drawn_map = [[1.0, 1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 1.0, 2.0, 2.0, 2.0, 1.0, 2.0, 2.0, 1.0, 2.0, 2.0, 2.0, 2.0, 2.0],
-        #             [1.0, 1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 25.0, 25.0, 25.0, 25.0, 2.0, 2.0, 2.0, 1.0, 2.0, 2.0, 1.0, 2.0, 2.0],
-        #             [2.0, 1.0, 2.0, 2.0, 2.0, 2.0, 25.0, 25.0, 25.0, 25.0, 25.0, 25.0, 25.0, 25.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0],
-        #             [2.0, 1.0, 1.0, 1.0, 2.0, 25.0, 25.0, 25.0, 25.0, 26.0, 26.0, 25.0, 25.0, 25.0, 25.0, 25.0, 2.0, 2.0, 1.0, 2.0],
-        #             [2.0, 2.0, 1.0, 2.0, 2.0, 25.0, 25.0, 25.0, 25.0, 26.0, 26.0, 26.0, 25.0, 25.0, 25.0, 25.0, 2.0, 2.0, 1.0, 2.0],
-        #             [2.0, 2.0, 1.0, 2.0, 2.0, 25.0, 25.0, 25.0, 25.0, 2.0, 25.0, 25.0, 25.0, 25.0, 25.0, 25.0, 2.0, 1.0, 2.0, 2.0],
-        #             [2.0, 2.0, 1.0, 2.0, 2.0, 25.0, 26.0, 25.0, 25.0, 2.0, 2.0, 25.0, 25.0, 25.0, 25.0, 25.0, 2.0, 1.0, 2.0, 2.0],
-        #             [2.0, 2.0, 1.0, 2.0, 2.0, 25.0, 26.0, 25.0, 25.0, 2.0, 2.0, 25.0, 26.0, 25.0, 25.0, 25.0, 2.0, 2.0, 1.0, 2.0],
-        #             [1.0, 1.0, 2.0, 2.0, 2.0, 25.0, 26.0, 25.0, 25.0, 2.0, 1.0, 25.0, 26.0, 25.0, 25.0, 25.0, 2.0, 2.0, 2.0, 2.0],
-        #             [1.0, 2.0, 1.0, 2.0, 25.0, 25.0, 25.0, 25.0, 25.0, 24.0, 24.0, 25.0, 26.0, 25.0, 25.0, 25.0, 2.0, 2.0, 1.0, 2.0],
-        #             [2.0, 2.0, 1.0, 2.0, 25.0, 25.0, 25.0, 25.0, 25.0, 24.0, 24.0, 25.0, 26.0, 25.0, 25.0, 25.0, 2.0, 1.0, 1.0, 2.0],
-        #             [2.0, 2.0, 1.0, 2.0, 25.0, 25.0, 25.0, 25.0, 25.0, 24.0, 24.0, 25.0, 26.0, 25.0, 25.0, 25.0, 2.0, 1.0, 2.0, 2.0],
-        #             [1.0, 1.0, 1.0, 2.0, 2.0, 25.0, 25.0, 25.0, 25.0, 2.0, 2.0, 25.0, 25.0, 25.0, 25.0, 25.0, 2.0, 2.0, 2.0, 2.0],
-        #             [1.0, 1.0, 2.0, 2.0, 2.0, 25.0, 25.0, 25.0, 25.0, 2.0, 2.0, 25.0, 25.0, 25.0, 25.0, 25.0, 2.0, 2.0, 2.0, 2.0],
-        #             [2.0, 1.0, 1.0, 2.0, 2.0, 2.0, 25.0, 25.0, 25.0, 2.0, 2.0, 25.0, 25.0, 25.0, 25.0, 25.0, 2.0, 2.0, 1.0, 2.0],
-        #             [2.0, 2.0, 2.0, 2.0, 22.0, 22.0, 22.0, 22.0, 22.0, 2.0, 2.0, 2.0, 25.0, 25.0, 25.0, 2.0, 2.0, 2.0, 2.0, 2.0],
-        #             [2.0, 1.0, 1.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 1.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0],
-        #             [2.0, 2.0, 2.0, 1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 1.0, 1.0, 1.0, 2.0, 2.0, 1.0, 1.0, 2.0, 1.0, 2.0, 2.0],
-        #             [2.0, 2.0, 2.0, 2.0, 2.0, 1.0, 1.0, 1.0, 1.0, 2.0, 2.0, 1.0, 1.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0],
-        #             [2.0, 1.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 1.0, 1.0, 2.0]
-        #             ]
+
+        """ start DRAWN world (Un)comment BELOW this part if you want a custom map """
+        # drawn_map = \
+        #     [[2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        #      [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        #      [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        #      [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        #      [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        #      [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        #      [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 26, 2, 2, 2, 2, 2, 2, 2],
+        #      [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 26, 26, 2, 2, 2, 2, 2, 2, 2, 2],
+        #      [2, 2, 2, 2, 2, 2, 2, 2, 2, 26, 26, 25, 2, 2, 2, 2, 2, 2, 2, 2],
+        #      [2, 2, 2, 2, 2, 2, 2, 2, 26, 26, 25, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        #      [2, 2, 2, 2, 2, 2, 2, 2, 26, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        #      [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        #      [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        #      [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        #      [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        #      [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        #      [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        #      [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        #      [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        #      [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]]
         # drawn_map = np.array(drawn_map)
         # self.map_volume = CNP.create_custom_map(drawn_map)
-        # hiker = (10, 10)
-        # drone = (18, 10)
+        # self.hiker = (3, 3)
+        # self.drone = (7, 7)
         # self.altitude = 1
-        # end DRAWN world
+        """ end DRAWN world """
 
         #####START COMMMENT OUT
         # #Random generated map
@@ -795,10 +773,18 @@ class GridworldEnv(gym.Env):
         ##################
 
         ####actual maps### (Un)comment below if you DONT want to use custom maps
+        #######################################
         self._map = random.choice(self.maps)
-        self.map_volume = CNP.map_to_volume_dict(self._map[0], self._map[1], self.mapw, self.maph)
+        if self._map[0]==1:
+            path = './gym_gridworld/'
+            filename = '{}-{}.mp'.format(self._map[0], self._map[1])
+            # Create custom map needs a numpy array
+            cust_map = pickle.load(open(path + 'maps/' + filename, 'rb'))
+            self.map_volume = cust_map#CNP.create_custom_map(cust_map)
+        else:
+            self.map_volume = CNP.map_to_volume_dict(self._map[0], self._map[1], self.mapw, self.maph)
+
         map_ = self.map_volume['flat']
-##########################
         # place the hiker
         hiker_safe_points = []
         for val in self.masks['hiker']:
@@ -806,90 +792,77 @@ class GridworldEnv(gym.Env):
             hiker_safe_points = hiker_safe_points + [(x, y) for x, y in zip(where_array[0], where_array[1]) if
                                                      x >= 3 and y >= 3 and x <= self.map_volume['vol'].shape[
                                                          1] - 3 and y <= self.map_volume['vol'].shape[1] - 3]
-        hiker = random.choice(hiker_safe_points)
+        """ Specify Hiker location"""
+        self.hiker = random.choice(hiker_safe_points)
+        # self.hiker = (8,7) #(18, 16)
+
         # int(self.original_map_volume['vol'][hiker])
         # place the drone
-        # self.altitude = random.choice([1, 2, 3])
         drone_safe_points = []
         for val in self.masks[self.altitude]:
             where_array = np.where(map_ == val)
             drone_safe_points = drone_safe_points + [(x, y) for x, y in zip(where_array[0], where_array[1]) if
                                                      x >= 3 and y >= 3 and x <= self.map_volume['vol'].shape[
                                                          1] - 3 and y <= self.map_volume['vol'].shape[1] - 3]
-        D = distance.cdist([hiker], drone_safe_points, 'chebyshev').astype(int) # Distances from hiker to all drone safe points
-        # print('Distance:',D[0])
-        # print('Hiker',hiker)
-        # print('safe_drone',drone_safe_points)
-        # print('safe_hiker', hiker_safe_points)
-        k = 50 # k closest. There might be cases in which you have very few drone safe points (e.g. 3) and only one will be really close
-        if k> np.array(drone_safe_points).shape[0]:
-            k = np.array(drone_safe_points).shape[0] - 1 # Cauz we index from 0 but shape starts from 1 to max shape
-        indx = np.argpartition(D[0],k) # Return the indices of the k closest distances to the hiker. The [0] is VITAL!!!
-        # # Use the index to retrieve the k closest safe coords to the hiker
-        closest_neighs = np.array(drone_safe_points)[indx[:k]] # You need to have the safe points as array and not list
-        # drone = tuple(random.choice(closest_neighs))
+        """ Around the hiker """
+        # D = distance.cdist([self.hiker], drone_safe_points, 'chebyshev').astype(int) # Distances from hiker to all drone safe points
+        #
+        # # print('Distance:',D[0])
+        # # print('Hiker',hiker)
+        # # print('safe_drone',drone_safe_points)
+        # # print('safe_hiker', hiker_safe_points)
+        #
+        # k = 50 # k closest. There might be cases in which you have very few drone safe points (e.g. 3) and only one will be really close
+        # if k> np.array(drone_safe_points).shape[0]:
+        #     k = np.array(drone_safe_points).shape[0] - 1 # Cauz we index from 0 but shape starts from 1 to max shape
+        # indx = np.argpartition(D[0],k) # Return the indices of the k closest distances to the hiker. The [0] is VITAL!!!
+        # # # Use the index to retrieve the k closest safe coords to the hiker
+        # closest_neighs = np.array(drone_safe_points)[indx[:k]] # You need to have the safe points as array and not list
+        # self.drone = tuple(random.choice(closest_neighs))
 
-        # NOTES: The first element might be the hiker position
+        # NOTES: The first element in the array of safe points might be the hiker position
         # To move away from hiker increase k and define h=k/2 and discard the h first closest_neighs - 9 suppose to be the max of the closest in an open area. So just use dividends of 9 to discard
         # drone = (hiker[0]-2, hiker[1]-3)
         # drone = random.choice([(hiker[0] - 1, hiker[1] - 1), (hiker[0] - 1, hiker[1] ), (hiker[0], hiker[1] - 1 )])
 
-        # random away location + safe check
+        """Random away location + safe check"""
         # drone = random.choice([(hiker[0] - 5, hiker[1] - 3), (hiker[0] - 6, hiker[1]), (hiker[0], hiker[1] - 4), (hiker[0] - 6, hiker[1] - 7)])
-        # drone = random.choice([(hiker[0] - 8, hiker[1] - 3), (hiker[0] - 10, hiker[1]), (hiker[0], hiker[1] - 9),
-        #                        (hiker[0] - 6, hiker[1] - 7)])
-        # times = 0
-        # while drone not in drone_safe_points:
-        #     drone = random.choice([(hiker[0] - 5, hiker[1] - 3), (hiker[0] - 6, hiker[1]), (hiker[0], hiker[1] - 4),
-        #                            (hiker[0] - 6, hiker[1] - 7)])
-        #     # print('non safe reset drone pos')
-        #     if times==10:
-        #         print('max reps reached so reset hiker')
-        #         hiker = random.choice(hiker_safe_points)
-        #         times = 0
-        #     times = times + 1
+        self.drone = random.choice([(self.hiker[0] - 8, self.hiker[1] - 3), (self.hiker[0] - 10, self.hiker[1]), (self.hiker[0], self.hiker[1] - 9),
+                               (self.hiker[0] - 12, self.hiker[1] - 7)])
+        times = 0
+        while self.drone not in drone_safe_points:
+            self.drone = random.choice([(self.hiker[0] - 5, self.hiker[1] - 3), (self.hiker[0] - 6, self.hiker[1]), (self.hiker[0], self.hiker[1] - 4),
+                                   (self.hiker[0] - 6, self.hiker[1] - 7)])
+            # print('non safe reset drone pos')
+            if times==10:
+                print('max reps reached so reset hiker')
+                self.hiker = random.choice(hiker_safe_points)
+                # self.altitude = random.randint(1, 3) # NO cauz then you have to recalculate drone safe points
+                times = 0
+            times = times + 1
 
-        # all safe points included for final training
-        drone = random.choice(drone_safe_points)
-        # drone = (18,18)
-
-############################
-        # # Set hiker's and drone's locations
-        # #hiker = (random.randint(2, self.map_volume['vol'].shape[1] - 1), random.randint(2, self.map_volume['vol'].shape[1] - 2)) #(8,8) #
-        # #if self.dropping:
-        # hiker = (10,10)#(random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))  # (7,8) #
-        # # drone = (random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 1))
-        # drone = random.choice([(hiker[0]-1, hiker[1]-1),(hiker[0]-1, hiker[1]),(hiker[0], hiker[1]-1)])## Package drop starts close to hiker!!! #(random.randint(2, self.map_volume['vol'].shape[1] - 1), random.randint(2, self.map_volume['vol'].shape[1] - 2)) # (8,8) #
-        # drone = random.choice([(hiker[0] - 5, hiker[1] - 7), (hiker[0] - 7, hiker[1]), (hiker[0], hiker[1] - 7)])
-        #else:
-            # hiker = (random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))  # (7,8) #
-            # drone = (random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))
-
-        # while drone == hiker:
-        #     print('$$$$$$$$ AWAY !!! $$$$$$$')
-        #     drone = (random.randint(2, self.map_volume['vol'].shape[1] - 1),
-        #              random.randint(2, self.map_volume['vol'].shape[1] - 2))
+        """ All safe points included for final training """
+        # self.drone = random.choice(drone_safe_points)
+        """ Custom location """
+        # self.drone = (10,16)
 
         self.original_map_volume = copy.deepcopy(self.map_volume)
-
-        # self.local_coordinates = [local_x,local_y]
-        # self.world_coordinates = [70,50]
-        self.reference_coordinates = [self._map[0], self._map[1]]
-
+        self.hiker_drone_dist = max(abs(np.array(self.hiker) - np.array(self.drone)))
+        print('>>>> hiker-drone initial distance = ',self.hiker_drone_dist)
 
         self.real_actions = False
         # put the drone in
-        self.map_volume['vol'][self.altitude][drone[0], drone[1]] = \
+        self.map_volume['vol'][self.altitude][self.drone[0], self.drone[1]] = \
         self.map_volume['feature_value_map']['drone'][self.altitude]['val']
         # self.map_volume['flat'][drone[0], drone[1]] = self.map_volume['feature_value_map']['drone'][self.altitude][
         #     'val']
-        self.map_volume['img'][drone[0], drone[1]] = self.map_volume['feature_value_map']['drone'][self.altitude][
+        self.map_volume['img'][self.drone[0], self.drone[1]] = self.map_volume['feature_value_map']['drone'][self.altitude][
             'color']
         # self.map_volume[altitude]['drone'][local_y, local_x] = 1.0
         # put the hiker in@ altitude 0
-        self.map_volume['vol'][0][hiker[0], hiker[1]] = self.map_volume['feature_value_map']['hiker']['val']
+        self.map_volume['vol'][0][self.hiker[0], self.hiker[1]] = self.map_volume['feature_value_map']['hiker']['val']
         # self.map_volume['flat'][hiker[0], hiker[1]] = self.map_volume['feature_value_map']['hiker']['val']
-        self.map_volume['img'][hiker[0], hiker[1]] = self.map_volume['feature_value_map']['hiker']['color']
+        self.map_volume['img'][self.hiker[0], self.hiker[1]] = self.map_volume['feature_value_map']['hiker']['color']
         self.hiker_position = np.where(self.map_volume['vol'] == self.map_volume['feature_value_map']['hiker']['val'])
 
         self.image_layers[0] = self.create_image_from_volume(0)

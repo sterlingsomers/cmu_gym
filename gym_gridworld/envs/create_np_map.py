@@ -243,6 +243,7 @@ def create_custom_map(map):
     return_dict['feature_value_map'] = features_to_values
     return_dict['value_feature_map'] = values_to_features
     return_dict['vol'] = vol
+    return_dict['flat'] = map
     return_dict['img'] = img
     print("OK")
     return return_dict
