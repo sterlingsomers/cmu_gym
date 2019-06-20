@@ -31,12 +31,251 @@ COLORS = {0: [0.0, 0.0, 0.0], 1: [0.5, 0.5, 0.5], \
           7: [1.0, 1.0, 0.0]}
 
 
+class HeadingEnumeration:
+
+    """Class provides heading translation between integer constants and descriptive strings.
+       There is a singleton instance called HEADING that can be used for convenience.
+
+       current_heading = HEADING.EAST
+
+       print( HEADING.to_string(current_heading) )
+
+       --> "East"
+
+       ToDo: Odd that headings are one based instead of zero based ...
+       
+    """
+
+    def __init__(self):
+
+        self.heading_to_description = {
+            1:'North',        # X++
+            2:'North East',
+            3:'East',         # Y++
+            4:'South East',   # X--
+            5:'South',        # X--
+            6:'South West',
+            7:'West',         # Y--
+            8:'North West'
+        }
+
+        self.heading_to_short_description = {
+            1:'N',        # X++
+            2:'NE',
+            3:'E',         # Y++
+            4:'SE',   # X--
+            5:'S',        # X--
+            6:'SW',
+            7:'W',         # Y--
+            8:'NW'
+        }
+
+        self.NORTH      = 1
+        self.NORTH_EAST = 2
+        self.EAST       = 3
+        self.SOUTH_EAST = 4
+        self.SOUTH      = 5
+        self.SOUTH_WEST = 6
+        self.WEST       = 7
+        self.NORTH_WEST = 8
+
+    def to_string(self,heading_int):
+        return self.heading_to_description[heading_int]
+
+    def to_short_string(self,heading_int):
+        return self.heading_to_short_description[heading_int]
+
+HEADING = HeadingEnumeration()
+
+
+
+class ActionEnumeration:
+
+    """Class provides action translation between integer constants and descriptive strings.
+       There is a singleton instance called ACTION that can be used for convenience.
+
+       current_action = ACTION.LEVEL_FORWARD
+
+       print( ACTION.to_string(current_action) )
+
+       --> "level forward"
+
+    """
+
+    def __init__(self):
+
+        self.action_to_description = {
+
+            0:'down left 90',
+            1:'down left 45',
+            2:'down forward',
+            3:'down right 45',
+            4:'down right 90',
+
+            5:'level left 90',
+            6:'level left 45',
+            7:'level forward',
+            8:'level right 45',
+            9:'level right 90',
+
+            10:'up left 90',
+            11:'up left 45',
+            12:'up forward',
+            13:'up right 45',
+            14:'up right 90',
+
+            15:'drop'
+        }
+
+        self.action_to_short_description = {
+
+            0:'DL90',
+            1:'DL45',
+            2:'DF',
+            3:'DR45',
+            4:'DR90',
+
+            5:'LL90',
+            6:'LL45',
+            7:'LF',
+            8:'LR45',
+            9:'LR90',
+
+            10:'UL90',
+            11:'UL45',
+            12:'UF',
+            13:'UR45',
+            14:'UR90',
+
+            15:'DRP'
+        }
+
+        self.DOWN_LEFT_90  =  0
+        self.DOWN_LEFT_45  =  1
+        self.DOWN_FORWARD  =  2
+        self.DOWN_RIGHT_45 =  3
+        self.DOWN_RIGHT_90 =  4
+
+        self.LEVEL_LEFT_90    =  5
+        self.LEVEL_LEFT_45    =  6
+        self.LEVEL_FORWARD    =  7
+        self.LEVEL_RIGHT_45   =  8
+        self.LEVEL_RIGHT_90   =  9
+
+        self.UP_LEFT_90   = 10
+        self.UP_LEFT_45   = 11
+        self.UP_FORWARD   = 12
+        self.UP_RIGHT_45  = 13
+        self.UP_RIGHT_90  = 14
+
+        self.DROP             = 15
+
+
+    def delta_z(self,action_int):
+        
+        """Returns an integer in {-1,0,1} corresponding to descending, level or ascending flight respectively"""
+        
+        if action_int<5:
+            return -1
+        else:
+            if action_int< 10:
+                return 0
+            else:
+                return 1
+            
+    def delta_h(self,action_int):
+        
+        """Returns an integer in {-2,-1,0,1,2} corresponding to left 90, left 45, forward, right 45 or right 90 turn respectively
+           for flight actions and None for other actions such as DROP """
+        
+        if action_int > 14:
+            return None
+        else:
+            return (action_int % 5) - 2
+        
+        
+    def to_string(self,action_int):
+        return self.action_to_description[action_int]
+
+    def to_short_string(self,action_int):
+        return self.action_to_short_description[action_int]
+
+ACTION = ActionEnumeration()
+
+
+open_map = np.array(
+
+           [ [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+             [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+             [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+             [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+             [2, 2, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+             [2, 2, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+             [2, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+             [2, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+             [2, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+             [2, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+             [2, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+             [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+             [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+             [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+             [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+             [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+             [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+             [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+             [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+             [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
+           ])
+
+            
+box_canyon_map = np.array(
+
+          [ [  1,  1,  1,  1,  2,  2,  2,  1,  2,  2,  2,  1,  2,  2,  1,  2,  2,  2,  2, 2 ],
+            [  1,  1,  1,  1,  2,  2,  2, 25, 25, 25, 25,  2,  2,  2,  1,  2,  2,  1,  2, 2 ],
+            [  2,  1,  2,  2,  2,  2, 25, 25, 25, 25, 25, 25, 25, 25,  2,  2,  2,  2,  2, 2 ],
+            [  2,  1,  1,  1,  2, 25, 25, 25, 25, 26, 26, 25, 25, 25, 25, 25,  2,  2,  1, 2 ],
+            [  2,  2,  1,  2,  2, 25, 25, 25, 25, 26, 26, 26, 25, 25, 25, 25,  2,  2,  1, 2 ],
+            [  2,  2,  1,  2,  2, 25, 25, 25, 25,  2, 25, 25, 25, 25, 25, 25,  2,  1,  2, 2 ],
+            [  2,  2,  1,  2,  2, 25, 26, 25, 25,  2,  2, 25, 25, 25, 25, 25,  2,  1,  2, 2 ],
+            [  2,  2,  1,  2,  2, 25, 26, 25, 25,  2,  2, 25, 26, 25, 25, 25,  2,  2,  1, 2 ],
+            [  1,  1,  2,  2,  2, 25, 26, 25, 25,  2,  1, 25, 26, 25, 25, 25,  2,  2,  2, 2 ],
+            [  1,  2,  1,  2, 25, 25, 25, 25, 25, 24, 24, 25, 26, 25, 25, 25,  2,  2,  1, 2 ],
+            [  2,  2,  1,  2, 25, 25, 25, 25, 25, 24, 24, 25, 26, 25, 25, 25,  2,  1,  1, 2 ],
+            [  2,  2,  1,  2, 25, 25, 25, 25, 25, 24, 24, 25, 26, 25, 25, 25,  2,  1,  2, 2 ],
+            [  1,  1,  1,  2,  2, 25, 25, 25, 25,  2,  2, 25, 25, 25, 25, 25,  2,  2,  2, 2 ],
+            [  1,  1,  2,  2,  2, 25, 25, 25, 25,  2,  2, 25, 25, 25, 25, 25,  2,  2,  2, 2 ],
+            [  2,  1,  1,  2,  2,  2, 25, 25, 25,  2,  2, 25, 25, 25, 25, 25,  2,  2,  1, 2 ],
+            [  2,  2,  2,  2, 22, 22, 22, 22, 22,  2,  2,  2, 25, 25, 25,  2,  2,  2,  2, 2 ],
+            [  2,  1,  1,  2,  2,  2,  2,  2,  2,  1,  2,  2,  2,  2,  2,  2,  2,  2,  2, 2 ],
+            [  2,  2,  2,  1,  1,  1,  2,  2,  2,  1,  1,  1,  2,  2,  1,  1,  2,  1,  2, 2 ],
+            [  2,  2,  2,  2,  2,  1,  1,  1,  1,  2,  2,  1,  1,  2,  2,  2,  2,  2,  2, 2 ],
+            [  2,  1,  2,  2,  2,  2,  2,  2,  2,  2,  2,  2,  2,  2,  2,  2,  2,  1,  1, 2 ]
+          ])
+
+
+
 class GridworldEnv(gym.Env):
+
     metadata = {'render.modes': ['human']}
     num_envs = 1
 
-    def __init__(self, map_x=0, map_y=0, local_x=0, local_y=0, heading=1, altitude=2, hiker_x=5, hiker_y=5, width=20,
-                 height=20, verbose=False):
+    def __init__(self,
+                 hiker_initial_position=None, drone_initial_position=None, drone_initial_altitude=None, drone_initial_heading=None,
+                 timestep_limit=1,
+                 width=20, height=20,
+                 verbose=False,
+                 curriculum_radius=None,
+                 goal_mode=None,
+                 episode_length=None):
+
+
+        self.hiker_initial_position=hiker_initial_position
+        self.drone_initial_position=drone_initial_position
+        self.drone_initial_altitude=drone_initial_altitude
+        self.drone_initial_heading=drone_initial_heading
+        self.curriculum_radius=curriculum_radius
+        self.goal_mode = goal_mode
+        self.episode_length=episode_length
 
         # # TODO: Pass the environment with arguments
 
@@ -47,9 +286,9 @@ class GridworldEnv(gym.Env):
         self.drop = False
         self.countdrop = 0
         self.no_action_flag = False
-        self.maps =[(265,308),(20,94),(146,456),(149,341),(164,90),(167,174),
-                        (224,153),(241,163),(260,241),(265,311),(291,231),
-                        (308,110),(334,203),(360,112),(385,291),(330,352),(321,337)]#[(400,35), (350,90), (430,110),(390,50), (230,70)] #[(86, 266)] (70,50) # For testing, 70,50 there is no where to drop in the whole map
+        self.submap_offsets =[(265, 308), (20, 94), (146, 456), (149, 341), (164, 90), (167, 174),
+                              (224,153), (241,163), (260,241), (265,311), (291,231),
+                              (308,110), (334,203), (360,112), (385,291), (330,352), (321,337)]#[(400,35), (350,90), (430,110),(390,50), (230,70)] #[(86, 266)] (70,50) # For testing, 70,50 there is no where to drop in the whole map
         #[(149, 341)]#[(149, 341),(241,163), (260,241),(291,231),(308,110),(330,352)]
         self.mapw = 20
         self.maph = 20
@@ -67,8 +306,8 @@ class GridworldEnv(gym.Env):
         self.package_position = ()
         # self._max_episode_steps = 10 # Max timesteps
 
-        self.masks = {
-            'hiker': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 16, 18, 21, 22],
+        self.tile_ids_compatible_with_hiker = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 16, 18, 21, 22]
+        self.tile_ids_compatible_with_drone_altitude = {
             1: [2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 16, 18, 21, 22],
             2: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 16, 18, 21, 22, 19, 24, 30, 32],
             3: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 16, 18, 21, 22, 19, 24, 30, 32, 13, 17, 19, 25, 28]
@@ -106,10 +345,14 @@ class GridworldEnv(gym.Env):
                                    np.zeros((5, 5, 3))]
 
         self.drop_probabilities = {"damage_probability": {0: 0.00, 1: 0.01, 2: 0.40, 3: 0.80},
-                                   "stuck_probability": {"pine trees": 0.50, "pine tree": 0.25, "cabin": 0.50,
-                                                         "flight tower": 0.15, "firewatch tower": 0.20},
+                                   "stuck_probability": {"pine trees": 0.50,
+                                                         "pine tree": 0.25,
+                                                         "cabin": 0.50,
+                                                         "flight tower": 0.15,
+                                                         "firewatch tower": 0.20},
                                    "sunk_probability": {"water": 0.50}
                                    }
+
         self.drop_rewards = {"OK": 1,#10, # try all positive rewards
                              # "OK_STUCK": 5,
                              # "OK_SUNK": 5,
@@ -118,6 +361,7 @@ class GridworldEnv(gym.Env):
                              # "DAMAGED_SUNK": -15,
                              # "CRASHED": -30
                              }
+
         # self.alt_rewards = {0:-1, 1:1, 2:-0.5, 3:-0.8} # This is bad!
         self.alt_rewards = {0: 0, 1: 1, 2: 0.5, 3: 0.08}
 
@@ -133,6 +377,8 @@ class GridworldEnv(gym.Env):
             8: [[1, -1], [0, -1], [-1, -1], [-1, 0], [-1, 1]]
 
         }
+
+        # Given <ActionID> and <previousHeadingID>, move agent and set new heading
 
         self.actionvalue_heading_action = {
             0: {1: 'self.take_action(delta_alt=-1,delta_x=-1,delta_y=0,new_heading=7)',
@@ -266,10 +512,16 @@ class GridworldEnv(gym.Env):
 
         }
 
-        print("here")
+
+        print("GridWorldEnv initialization complete")
+
 
 
     def neighbors(self, arr, x, y, N):
+
+        """returns a bounding box [window, left, top,right,bottom] or radius N around point X,Y
+           where window is the elements in this box extracted from given array 'arr'.
+           Method properly truncates the neighbor window at boundaries of arr."""
 
         # https://stackoverflow.com/questions/32604856/slicing-outside-numpy-array
         # new_arr = np.zeros((N,N))
@@ -290,8 +542,11 @@ class GridworldEnv(gym.Env):
         # return newArr
         return [window, left, top, right, bottom]
 
+
     def position_value(self, terrain, altitude, reward_dict, probability_dict):
+
         damage_probability = probability_dict['damage_probability'][altitude]
+
         # if terrain in probability_dict['stuck_probability'].keys():
         #     stuck_probability = probability_dict['stuck_probability'][terrain]
         # else:
@@ -300,17 +555,21 @@ class GridworldEnv(gym.Env):
         #     sunk_probability = probability_dict['sunk_probability'][terrain]
         # else:
         #     sunk_probability = 0.0
+
         damaged = np.random.random() < damage_probability
         # stuck = np.random.random() < stuck_probability
         # sunk = np.random.random() < sunk_probability
+
         self.package_state = 'DAMAGED' if damaged else 'OK'
         # package_state += '_STUCK' if stuck else ''
         # package_state += '_SUNK' if sunk else ''
+
         print("Package state:", self.package_state)
         reward = reward_dict[self.package_state]
         return reward
 
     def drop_package(self):
+
         # cannot drop at edge because next move could leave map
         local_coordinates = np.where(
             self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
@@ -355,12 +614,15 @@ class GridworldEnv(gym.Env):
         self.package_dropped = True
         x = eval(self.actionvalue_heading_action[7][self.heading])
 
+
     def take_action(self, delta_alt=0, delta_x=0, delta_y=0, new_heading=1):
+
         # print("stop")
         vol_shape = self.map_volume['vol'].shape
 
         local_coordinates = np.where(
             self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
+
         if int(local_coordinates[1]) + delta_y < 0 or \
                 int(local_coordinates[2]) + delta_x < 0 or \
                 int(local_coordinates[1] + delta_y > vol_shape[1] - 1) or \
@@ -410,229 +672,60 @@ class GridworldEnv(gym.Env):
 
         return 1
 
-    def check_for_hiker(self):
-        drone_position = np.where(
-            self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
-        # hiker_position = np.where(self.map_volume['vol'] == self.map_volume['feature_value_map']['hiker'][0])
-        # print("drone",drone_position)
-        # print("hiker",self.hiker_position)
-        # drone or hiker coords format (alt,x,y)
-        if (drone_position[1], drone_position[2]) == (self.hiker_position[1], self.hiker_position[2]):
-            return 1
-        return 0
-        # return int(self.map_volume[0]['hiker'][int(local_coordinates[0]),int(local_coordinates[1])])
 
-    def check_for_crash(self):
-        # if drone on altitude 0, crash
+    def check_for_drone_over_hiker(self,drone_position):
+
+        """returns true if drone is over hiker"""
+
+        return (drone_position[1], drone_position[2]) == (self.hiker_position[1], self.hiker_position[2])
+
+
+    def check_for_crash(self,drone_position):
+
+        """Returns non zero if drone is at altitude zero
+           or there is something in the volume at the position of the drone
+           as defined by the ORIGINAL map"""
+
         if self.altitude == 0:
             return 1
 
-        # if len(self.map_volume[0]['drone'].nonzero()[0]):
-        #     return 1
-        # at any other altutidue, check for an object at the drone's position
-        drone_position = np.where(
-            self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
         return int(self.original_map_volume['vol'][drone_position])
-        # drone_position = self.map_volume[self.altitude]['drone'].nonzero()
-        # for i in range(self.altitude,4):
-        #
-        #     for key in self.map_volume[i]:
-        #         if key == 'drone' or key == 'map':
-        #             continue
-        #         #just check if drone position is returns a non-zero
-        #         if self.map_volume[i][key][int(drone_position[0]),int(drone_position[1])]:
-        #             return 1
-        # return 0
 
-    #PREVIOUS WORKING STEP
-
-    # def step(self, action):
-    #         ''' return next observation, reward, finished, success '''
-    #
-    #         action = int(action)
-    #         info = {}
-    #         info['success'] = False
-    #
-    #         done = False
-    #         drone = np.where(
-    #             self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
-    #         hiker = self.hiker_position
-    #         # You should never reach as this is the state(t-1) distane. After eval you get the new distance
-    #         self.dist = np.linalg.norm(np.array(drone[-2:]) - np.array(hiker[-2:]))  # we remove height from the equation so we avoid going diagonally down
-    #
-    #         # Here the action takes place
-    #         x = eval(self.actionvalue_heading_action[action][self.heading])
-    #         # Here you should have the distance, after the drone has moved and the map has been updated
-    #         # A new observation is generated which we do not see cauz we reset() and render in the step function
-    #         observation = self.generate_observation()
-    #
-    #         crash = self.check_for_crash()
-    #         info['success'] = not crash
-    #         #self.render()
-    #         self.crash = crash
-    #         if crash:
-    #             reward = -1
-    #             done = True
-    #             print("CRASH")
-    #             if self.restart_once_done:  # HAVE IT ALWAYS TRUE!!! It learned the first time WITHOUT RESETING FROM CRASH
-    #                 #observation = self.reset()
-    #                 return (observation, reward, done, info)
-    #             # return (self.generate_observation(), reward, done, info)
-    #         # if self.dist < self.dist_old:
-    #         #     reward = 1 / self.dist  # Put it here to avoid dividing by zero when you crash on the hiker
-    #         # else:
-    #         #     reward = -1 / self.dist
-    #         if self.check_for_hiker():
-    #             done = True
-    #             reward = 1# + self.alt_rewards[self.altitude]
-    #             # reward = 1 + 1 / self.dist
-    #             print('SUCCESS!!!')
-    #             if self.restart_once_done:  # HAVE IT ALWAYS TRUE!!!
-    #                 #observation = self.reset()
-    #                 return (observation, reward, done, info)
-    #         # print("state", [ self.observation[self.altitude]['drone'].nonzero()[0][0],self.observation[self.altitude]['drone'].nonzero()[1][0]] )
-    #         self.dist_old = self.dist
-    #         #reward = (self.alt_rewards[self.altitude] * 0.1) * ( 1/((self.dist** 2) + 1e-7) )  # -0.01 + # previous reward = (self.alt_rewards[self.altitude] * 0.1) * ( 1 / self.dist** 2 + 1e-7 )  # -0.01 + #
-    #         reward = -0.01 # If you put -0.1 then it prefers to go down and crash all the time for (n-step=32)!!!
-    #         return (observation, reward, done, info)
-
-    # TRAINING WITH THIS TILL May 3, 2019
-    # def step(self, action):
-    #     ''' return next observation, reward, finished, success '''
-    #
-    #     action = int(action)
-    #     info = {}
-    #     info['success'] = False
-    #
-    #     done = False
-    #     drone_old = np.where(
-    #         self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
-    #     hiker = self.hiker_position
-    #     # Do the action (drone is moving)
-    #     x = eval(self.actionvalue_heading_action[action][self.heading])
-    #
-    #     observation = self.generate_observation()
-    #     drone = np.where(
-    #         self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
-    #     self.dist = np.linalg.norm(np.array(drone[-2:]) - np.array(hiker[-2:])) # we remove height from the equation so we avoid going diagonally down
-    #
-    #     crash = self.check_for_crash()
-    #     info['success'] = not crash
-    #     self.crash = crash
-    #     # BELOW WAS WORKING FINE FOR FINDING HIKER
-    #     # reward = (self.alt_rewards[self.altitude]*0.1)*(1/self.dist**2+1e-7)# + self.drop*self.reward (and comment out the reward when you drop and terminate episode
-    #     #reward = (self.alt_rewards[self.altitude]*0.1)*((1/(self.dist**2)+1e-7)) # -0.01 + # The closer we are to the hiker the more important is to be close to its altitude
-    #     if crash:
-    #         reward = -1
-    #         done = True
-    #         print("CRASH")
-    #         if self.restart_once_done: # HAVE IT ALWAYS TRUE!!! It learned the first time WITHOUT RESETING FROM CRASH
-    #             return (observation, reward, done, info)
-    #         #return (self.generate_observation(), reward, done, info)
-    #     if self.no_action_flag == True:
-    #         reward = 0
-    #         done = True
-    #         if self.restart_once_done: # HAVE IT ALWAYS TRUE!!!
-    #             return (observation, reward, done, info)
-    #     # if self.dist < self.dist_old:
-    #     #     reward = 1 / self.dist  # Put it here to avoid dividing by zero when you crash on the hiker
-    #     # else:
-    #     #     reward = -1 / self.dist
-    #     if self.drop:#self.check_for_hiker():
-    #         done = True
-    #         #reward = 1 + self.alt_rewards[self.altitude] # THIS WORKS FOR FINDING THE HIKER
-    #         if self.check_for_hiker(): # If you are on top of the hiker you get additional 1 point
-    #             reward = 1 + self.reward + self.alt_rewards[self.altitude]
-    #         else:
-    #             reward = self.reward + self.alt_rewards[self.altitude] # (try to multiply them and see if it makes a difference!!! Here tho u reward for dropping low alt
-    #         print('DROP!!!', 'self.reward=', self.reward, 'alt_reward=', self.alt_rewards[self.altitude])
-    #         if self.restart_once_done: # HAVE IT ALWAYS TRUE!!!
-    #             return (observation, reward, done, info)
-    #     # print("state", [ self.observation[self.altitude]['drone'].nonzero()[0][0],self.observation[self.altitude]['drone'].nonzero()[1][0]] )
-    #     self.dist_old = self.dist
-    #     # HERE YOU SHOULD HAVE THE REWARD IN CASE IT CRASHES AT ALT=0 OR IN GENERAL AFTER ALL CASES HAVE BEEN CHECKED!!!
-    #     if self.check_for_hiker(): # On top of the hiker avoiding infinity with distance depenedent reward function
-    #         #print("hiker found:", self.check_for_hiker())
-    #         # reward = (self.alt_rewards[self.altitude]*0.1)*(1/self.dist**2+1e-7) + self.drop*self.reward (and comment out the reward when you drop and terminate episode
-    #         reward = 0 #1 + self.alt_rewards[self.altitude]
-    #     else:
-    #         # We don't want the drone to wonder around away from the hiker so we keep it close
-    #         # The reward below though with PPO will make the drone just going close and around the hiker forever as it gather reward all the time
-    #         reward = (self.alt_rewards[self.altitude]*0.1)*((1/((self.dist**2)+1e-7))) # -0.01 + # The closer we are to the hiker the more important is to be close to its altitude
-    #         #print("scale:",(1/((self.dist**2+1e-7))), "dist=",self.dist+1e-7, "alt=", self.altitude, "drone:",drone, "hiker:", hiker,"found:", self.check_for_hiker())
-    #     return (self.generate_observation(), reward, done, info)
-
-    # def step(self, action):
-    #     ''' return next observation, reward, finished, success '''
-    #
-    #     action = int(action)
-    #     info = {}
-    #     info['success'] = False
-    #
-    #     done = False
-    #     drone_old = np.where(
-    #         self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
-    #     hiker = self.hiker_position
-    #     # Do the action (drone is moving)
-    #     x = eval(self.actionvalue_heading_action[action][self.heading])
-    #
-    #     observation = self.generate_observation()
-    #     drone = np.where(
-    #         self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
-    #     self.dist = np.linalg.norm(np.array(drone[-2:]) - np.array(hiker[-2:])) # we remove height from the equation so we avoid going diagonally down
-    #
-    #     crash = self.check_for_crash()
-    #     info['success'] = not crash
-    #
-    #     if crash:
-    #         reward = -1
-    #         done = True
-    #         print("CRASH")
-    #         if self.restart_once_done: # HAVE IT ALWAYS TRUE!!! It learned the first time WITHOUT RESETING FROM CRASH
-    #             return (observation, reward, done, info)
-    #
-    #     if self.no_action_flag == True:
-    #         reward = 0
-    #         done = True
-    #         if self.restart_once_done: # HAVE IT ALWAYS TRUE!!!
-    #             return (observation, reward, done, info)
-    #
-    #     if self.drop:
-    #         done = True
-    #         reward = self.reward + self.alt_rewards[self.altitude] # (try to multiply them and see if it makes a difference!!! Here tho u reward for dropping low alt
-    #         print('DROP!!!', 'self.reward=', self.reward, 'alt_reward=', self.alt_rewards[self.altitude])
-    #         if self.restart_once_done: # HAVE IT ALWAYS TRUE!!!
-    #             return (observation, reward, done, info)
-    #     # print("state", [ self.observation[self.altitude]['drone'].nonzero()[0][0],self.observation[self.altitude]['drone'].nonzero()[1][0]] )
-    #     self.dist_old = self.dist
-    #     reward = -0.01#(self.alt_rewards[self.altitude]*0.1)*((1/((self.dist**2)+1e-7))) # -0.01 + # The closer we are to the hiker the more important is to be close to its altitude
-    #     #print("scale:",(1/((self.dist**2+1e-7))), "dist=",self.dist+1e-7, "alt=", self.altitude, "drone:",drone, "hiker:", hiker,"found:", self.check_for_hiker())
-    #     return (self.generate_observation(), reward, done, info)
 
     def step(self, action):
+
         ''' return next observation, reward, finished, success '''
 
         action = int(action)
         info = {}
         info['success'] = False
 
+
         done = False
-        drone_old = np.where(
-            self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
+
+        self.step_number = self.step_number + 1
+        if self.episode_length!=None and self.step_number >= self.episode_length:
+            done = True
+            reward = 0
+            info['success'] = False
+            info['ex'] = 'Timeout'
+
+            return (self.generate_observation(), reward, done, info)
+
         hiker = self.hiker_position
 
         # observation = self.generate_observation() # You took out this one in Jun 6, 2019 and you substitute the return(observation,...) with self.generate_observation (except the last one which is the return of the whole function)
-        drone = np.where(
-            self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
-        self.dist = np.linalg.norm(np.array(drone[-2:]) - np.array(hiker[-2:])) # we remove height from the equation so we avoid going diagonally down
+        drone_position = self.get_drone_position()
+        self.dist = np.linalg.norm(np.array(drone_position[-2:]) - np.array(hiker[-2:])) # we remove height from the equation so we avoid going diagonally down
 
-        crash = self.check_for_crash()
+        crash = self.check_for_crash(drone_position)
         info['success'] = not crash
 
         if crash:
             reward = -1
             done = True
             print("CRASH")
+            info['ex'] = 'crash'
             if self.restart_once_done: # HAVE IT ALWAYS TRUE!!! It learned the first time WITHOUT RESETING FROM CRASH
                 return (self.generate_observation(), reward, done, info) # You should get the previous obs so no change here, or return obs=None
 
@@ -644,8 +737,16 @@ class GridworldEnv(gym.Env):
             if self.restart_once_done: # HAVE IT ALWAYS TRUE!!!
                 return (self.generate_observation(), reward, done, info)
 
+        if self.goal_mode=='navigate':
+            if self.check_for_drone_over_hiker(drone_position):
+                done = True
+                reward=1
+                info['ex']='got hiker'
+                return (self.generate_observation(), reward, done, info)
+
         # Multiple packages
-        if self.drop:
+
+        if (not self.goal_mode=='navigate') and self.drop:
             self.drop = 0
             reward = self.reward
             print('DROP!!!', 'self.reward=', self.reward, 'alt_reward=', self.alt_rewards[self.altitude],
@@ -677,191 +778,157 @@ class GridworldEnv(gym.Env):
         #print("scale:",(1/((self.dist**2+1e-7))), "dist=",self.dist+1e-7, "alt=", self.altitude, "drone:",drone, "hiker:", hiker,"found:", self.check_for_hiker())
         return (self.generate_observation(), reward, done, info)
 
-    def reset(self, drone_initial_position=None, hiker_initial_position=None):
+
+    def reset(self):
+
+        """ goal_mode in { None, 'navigate' } """
+
+        #print("GridworldEnv.reset\n   initial drone position={}, heading={}, altitude={}, ... "
+        #      .format(drone_initial_position,drone_initial_heading, drone_initial_altitude))
+
+        #print("   initial hiker position={} )".format( hiker_initial_position))
+        #print("   curriculum_radius {}".format(curriculum_radius))
+
+        self.step_number = 0
+
         self.dist_old = 1000
         self.drop = False
         self.countdrop = 0
         self.no_action_flag = False
-        self.heading = random.randint(1, 8)
-        self.altitude = random.randint(1,3)
+
+        if self.drone_initial_heading==None:
+            self.heading = random.randint(1, 8)
+        else:
+            self.heading=self.drone_initial_heading
+
+        if self.drone_initial_altitude==None:
+            self.altitude = random.randint(1,3)
+        else:
+            self.altitude = self.drone_initial_altitude
+
         self.reward = 0
         self.crash = 0
         self.package_dropped = 0
         self.package_position = ()
-        # self._map = random.choice(self.maps)
-        # start DRAWN world (Un)comment BELOW this part if you want a custom map
-        # drawn_map = [[2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 2, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 2, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-        #              [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2], ]
-        # BOXCANYON
-        # drawn_map = [[1.0, 1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 1.0, 2.0, 2.0, 2.0, 1.0, 2.0, 2.0, 1.0, 2.0, 2.0, 2.0, 2.0, 2.0],
-        #             [1.0, 1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 25.0, 25.0, 25.0, 25.0, 2.0, 2.0, 2.0, 1.0, 2.0, 2.0, 1.0, 2.0, 2.0],
-        #             [2.0, 1.0, 2.0, 2.0, 2.0, 2.0, 25.0, 25.0, 25.0, 25.0, 25.0, 25.0, 25.0, 25.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0],
-        #             [2.0, 1.0, 1.0, 1.0, 2.0, 25.0, 25.0, 25.0, 25.0, 26.0, 26.0, 25.0, 25.0, 25.0, 25.0, 25.0, 2.0, 2.0, 1.0, 2.0],
-        #             [2.0, 2.0, 1.0, 2.0, 2.0, 25.0, 25.0, 25.0, 25.0, 26.0, 26.0, 26.0, 25.0, 25.0, 25.0, 25.0, 2.0, 2.0, 1.0, 2.0],
-        #             [2.0, 2.0, 1.0, 2.0, 2.0, 25.0, 25.0, 25.0, 25.0, 2.0, 25.0, 25.0, 25.0, 25.0, 25.0, 25.0, 2.0, 1.0, 2.0, 2.0],
-        #             [2.0, 2.0, 1.0, 2.0, 2.0, 25.0, 26.0, 25.0, 25.0, 2.0, 2.0, 25.0, 25.0, 25.0, 25.0, 25.0, 2.0, 1.0, 2.0, 2.0],
-        #             [2.0, 2.0, 1.0, 2.0, 2.0, 25.0, 26.0, 25.0, 25.0, 2.0, 2.0, 25.0, 26.0, 25.0, 25.0, 25.0, 2.0, 2.0, 1.0, 2.0],
-        #             [1.0, 1.0, 2.0, 2.0, 2.0, 25.0, 26.0, 25.0, 25.0, 2.0, 1.0, 25.0, 26.0, 25.0, 25.0, 25.0, 2.0, 2.0, 2.0, 2.0],
-        #             [1.0, 2.0, 1.0, 2.0, 25.0, 25.0, 25.0, 25.0, 25.0, 24.0, 24.0, 25.0, 26.0, 25.0, 25.0, 25.0, 2.0, 2.0, 1.0, 2.0],
-        #             [2.0, 2.0, 1.0, 2.0, 25.0, 25.0, 25.0, 25.0, 25.0, 24.0, 24.0, 25.0, 26.0, 25.0, 25.0, 25.0, 2.0, 1.0, 1.0, 2.0],
-        #             [2.0, 2.0, 1.0, 2.0, 25.0, 25.0, 25.0, 25.0, 25.0, 24.0, 24.0, 25.0, 26.0, 25.0, 25.0, 25.0, 2.0, 1.0, 2.0, 2.0],
-        #             [1.0, 1.0, 1.0, 2.0, 2.0, 25.0, 25.0, 25.0, 25.0, 2.0, 2.0, 25.0, 25.0, 25.0, 25.0, 25.0, 2.0, 2.0, 2.0, 2.0],
-        #             [1.0, 1.0, 2.0, 2.0, 2.0, 25.0, 25.0, 25.0, 25.0, 2.0, 2.0, 25.0, 25.0, 25.0, 25.0, 25.0, 2.0, 2.0, 2.0, 2.0],
-        #             [2.0, 1.0, 1.0, 2.0, 2.0, 2.0, 25.0, 25.0, 25.0, 2.0, 2.0, 25.0, 25.0, 25.0, 25.0, 25.0, 2.0, 2.0, 1.0, 2.0],
-        #             [2.0, 2.0, 2.0, 2.0, 22.0, 22.0, 22.0, 22.0, 22.0, 2.0, 2.0, 2.0, 25.0, 25.0, 25.0, 2.0, 2.0, 2.0, 2.0, 2.0],
-        #             [2.0, 1.0, 1.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 1.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0],
-        #             [2.0, 2.0, 2.0, 1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 1.0, 1.0, 1.0, 2.0, 2.0, 1.0, 1.0, 2.0, 1.0, 2.0, 2.0],
-        #             [2.0, 2.0, 2.0, 2.0, 2.0, 1.0, 1.0, 1.0, 1.0, 2.0, 2.0, 1.0, 1.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0],
-        #             [2.0, 1.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 1.0, 1.0, 2.0]
-        #             ]
-        # drawn_map = np.array(drawn_map)
-        # self.map_volume = CNP.create_custom_map(drawn_map)
+
+        # self.map_volume = CNP.create_custom_map(box_canyon_map)
+        # self.generate_random_map()
+
         # hiker = (10, 10)
         # drone = (18, 10)
         # self.altitude = 1
         # end DRAWN world
 
-        #####START COMMMENT OUT
-        # #Random generated map
-        # # start = random.choice([1,1,1,1,1,1,1,1,1,1])
-        # # stop = random.choice([13,13,13,13,13,13,13,13,13,13])
-        # # random_integers = np.random.random_integers(start,stop,(20,20))
-        # # flag = bn.rvs(p=0.99, size=(20,20))
-        # # #add 10% (1-p) of any value
-        # # other_features = np.full((20,20),33)
-        # # random_integers[flag==0] = other_features[flag==0]
-        # # self.map_volume = CNP.create_custom_map(random_integers)#CNP.create_custom_map(np.random.random_integers(start,stop,(self.mapw,self.maph)))#CNP.map_to_volume_dict(self._map[0],self._map[1], self.mapw, self.maph)#CNP.create_custom_map(np.random.random_integers(start,stop,(self.mapw,self.maph))) #CNP.create_custom_map(random.choice(self.custom_maps))
-        # # # Set hiker's and drone's locations
-        # # #hiker = (random.randint(2, self.map_volume['vol'].shape[1] - 1), random.randint(2, self.map_volume['vol'].shape[1] - 2)) #(8,8) #
-        # # #if self.dropping:
-        # # hiker = (random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))#(10,10)#(random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))  #random.choice([(4,5),(5,5),(5,4),(4,4)]) (7,8) #
-        # all_no_goes = [] # all points hiker is not allowed to go (e.g. water)
-        # # better random map
-        # just_grass = np.full((20, 20), 2)
-        # # add some trail, trees
-        # updated_map = self.add_blob(just_grass, 15, 5)[0]
-        # for i in range(random.randint(1, 10)):
-        #     updated_map = self.add_blob(updated_map, 50, random.choice([1, 3]))[0]
-        #
-        # # add some water (maybe)
-        # if random.randint(0, 1):
-        #     updated_map, no_go_points = self.add_blob(updated_map, 100, 15)
-        #     all_no_goes.append(no_go_points)
-        # # add some mountain ridges
-        # updated_map, no_go_points = self.add_blob(updated_map, 75, 26)
-        # all_no_goes.append(no_go_points)
-        # # a few small mountain ridges
-        # for i in range(random.randint(1, 5)):
-        #     updated_map, no_go_points = self.add_blob(updated_map, random.randint(1, 10), 25)
-        #     all_no_goes.append(no_go_points)
-        # # add some bushes
-        # # small clusters, 5 times
-        # for i in range(random.randint(1, 8)):
-        #     updated_map = self.add_blob(updated_map, random.randint(1, 5), 4)[0]
-        # # add one campfire
-        # updated_map, no_go_points = self.add_blob(updated_map, 0, 33)
-        # all_no_goes.append(no_go_points)
-        #
-        # self.map_volume = CNP.create_custom_map(updated_map)
-        #
-        # # self.map_volume = CNP.create_custom_map(np.random.random_integers(start, stop, (20, 20)))#CNP.create_custom_map(np.random.random_integers(start, stop, (20, 20)))#CNP.map_to_volume_dict(self._map[0],self._map[1], self.mapw, self.maph)#CNP.create_custom_map(self.custom_map)#CNP.create_custom_map(np.random.random_integers(start, stop, (20, 20)))#CNP.map_to_volume_dict(self._map[0],self._map[1], self.mapw, self.maph)#CNP.create_custom_map(np.random.random_integers(start, stop, (10, 10)))#CNP.create_custom_map(self.custom_map)#CNP.create_custom_map(np.random.random_integers(start, stop, (10, 10)))
-        #
-        # # Set hiker's and drone's location
-        # # hiker = (random.randint(2, self.map_volume['vol'].shape[1] - 1), random.randint(2, self.map_volume['vol'].shape[1] - 2)) #(8,8) #
-        # # (8, 1)  # (6,3)#
-        # hiker = (
-        #     random.randint(3, self.map_volume['vol'].shape[1] - 3),
-        #     random.randint(3, self.map_volume['vol'].shape[1] - 3))
-        # while self.hiker_in_no_go_list(hiker, all_no_goes): Place the hiker but check if is placed on a no go feature
-        #     hiker = (random.randint(3, self.map_volume['vol'].shape[1] - 3),
-        #              random.randint(3, self.map_volume['vol'].shape[1] - 3))
-        ##################
+        self.submap_offset = random.choice(self.submap_offsets)
 
-        ####actual maps### (Un)comment below if you DONT want to use custom maps
-        self._map = random.choice(self.maps)
-        self.map_volume = CNP.map_to_volume_dict(self._map[0], self._map[1], self.mapw, self.maph)
+        self.map_volume = CNP.map_to_volume_dict( self.submap_offset[0], self.submap_offset[1], self.mapw, self.maph )
         map_ = self.map_volume['flat']
-##########################
+
+
         # place the hiker
 
-        if hiker_initial_position==None:
+        valid_hiker_drone_pair = False
 
-            hiker_safe_points = []
-            for val in self.masks['hiker']:
-                where_array = np.where(map_ == val)
-                hiker_safe_points = hiker_safe_points + [(x, y) for x, y in zip(where_array[0], where_array[1]) if
-                                                         x >= 3 and y >= 3 and x <= self.map_volume['vol'].shape[
-                                                             1] - 3 and y <= self.map_volume['vol'].shape[1] - 3]
-            hiker = random.choice(hiker_safe_points)
-            # int(self.original_map_volume['vol'][hiker])
-        else:
-            hiker = hiker_initial_position
+        while not valid_hiker_drone_pair:
 
-        # place the drone
-        # self.altitude = random.choice([1, 2, 3])
-        if drone_initial_position==None:
-            drone_safe_points = []
-            for val in self.masks[self.altitude]:
-                where_array = np.where(map_ == val)
-                drone_safe_points = drone_safe_points + [(x, y) for x, y in zip(where_array[0], where_array[1]) if
-                                                         x >= 3 and y >= 3 and x <= self.map_volume['vol'].shape[
-                                                             1] - 3 and y <= self.map_volume['vol'].shape[1] - 3]
-            D = distance.cdist([hiker], drone_safe_points, 'chebyshev').astype(int) # Distances from hiker to all drone safe points
+            if self.hiker_initial_position==None:
+
+                # ToDo: investigate this: hiker_safe_points = np.isin(map_, self.tile_ids_compatible_with_hiker)
+
+                hiker_safe_points = []
+
+                for val in self.tile_ids_compatible_with_hiker:
+
+                    where_array = np.where(map_ == val)
+
+                    hiker_safe_points = hiker_safe_points + [ (x, y) for x, y in zip(where_array[0], where_array[1])
+                                                              if     x >= 3 and y >= 3
+                                                                 and x <= self.map_volume['vol'].shape[1] - 3    # ToDo: BOB - should one of these be shape[2]??
+                                                                 and y <= self.map_volume['vol'].shape[1] - 3       ]  #ToDo: Bob -replace with mapw, maph?
+
+                hiker = random.choice(hiker_safe_points)
+                # int(self.original_map_volume['vol'][hiker])
+            else:
+                hiker = hiker_initial_position
+
+            if self.drone_initial_position==None:
+
+                drone_safe_points = []
+                for val in self.tile_ids_compatible_with_drone_altitude[self.altitude]:
+
+                    where_array = np.where(map_ == val)
+
+                    drone_safe_points = drone_safe_points + [(x, y) for x, y in zip(where_array[0], where_array[1])
+                                                              if      x >= 3 and y >= 3
+                                                                  and x <= self.map_volume['vol'].shape[1] - 3    # ToDo: BOB - should one of these be shape[2]??
+                                                                  and y <= self.map_volume['vol'].shape[1] - 3 ]
+
+
+
+                D = distance.cdist([hiker], drone_safe_points, 'chebyshev').astype(int) # Distances from hiker to all drone safe points
+
+                if self.curriculum_radius!=None:
+                    close_location_idxs = D[0] < self.curriculum_radius
+                    if sum(close_location_idxs)==0:
+                        print("WARNING - no safe locations next to hiker location {} -- trying again ".format(hiker))
+                    else:
+                        valid_hiker_drone_pair=True
+                        drone_safe_points = np.array(drone_safe_points)[close_location_idxs,:]
+                    #print("Curriculum with radius {}".format(self.curriculum_radius))
+                    #print("Satisfying points {}".format(drone_safe_points))
+
+                drone = random.choice(drone_safe_points)
+                valid_hiker_drone_pair=True
+
+            else:
+                valid_hiker_drone_pair=True
+                drone = self.drone_initial_position
+
+            #print("Chose hiker position ",hiker)
+            #print("Chose drone position ",drone)
             # print('Distance:',D[0])
             # print('Hiker',hiker)
             # print('safe_drone',drone_safe_points)
             # print('safe_hiker', hiker_safe_points)
-            k = 50 # k closest. There might be cases in which you have very few drone safe points (e.g. 3) and only one will be really close
-            if k> np.array(drone_safe_points).shape[0]:
-                k = np.array(drone_safe_points).shape[0] - 1 # Cauz we index from 0 but shape starts from 1 to max shape
-            indx = np.argpartition(D[0],k) # Return the indices of the k closest distances to the hiker. The [0] is VITAL!!!
-            # # Use the index to retrieve the k closest safe coords to the hiker
-            closest_neighs = np.array(drone_safe_points)[indx[:k]] # You need to have the safe points as array and not list
-            # drone = tuple(random.choice(closest_neighs))
 
-            # NOTES: The first element might be the hiker position
-            # To move away from hiker increase k and define h=k/2 and discard the h first closest_neighs - 9 suppose to be the max of the closest in an open area. So just use dividends of 9 to discard
-            # drone = (hiker[0]-2, hiker[1]-3)
-            # drone = random.choice([(hiker[0] - 1, hiker[1] - 1), (hiker[0] - 1, hiker[1] ), (hiker[0], hiker[1] - 1 )])
+            if False:
 
-            # random away location + safe check
-            # drone = random.choice([(hiker[0] - 5, hiker[1] - 3), (hiker[0] - 6, hiker[1]), (hiker[0], hiker[1] - 4), (hiker[0] - 6, hiker[1] - 7)])
-            # drone = random.choice([(hiker[0] - 8, hiker[1] - 3), (hiker[0] - 10, hiker[1]), (hiker[0], hiker[1] - 9),
-            #                        (hiker[0] - 6, hiker[1] - 7)])
-            # times = 0
-            # while drone not in drone_safe_points:
-            #     drone = random.choice([(hiker[0] - 5, hiker[1] - 3), (hiker[0] - 6, hiker[1]), (hiker[0], hiker[1] - 4),
-            #                            (hiker[0] - 6, hiker[1] - 7)])
-            #     # print('non safe reset drone pos')
-            #     if times==10:
-            #         print('max reps reached so reset hiker')
-            #         hiker = random.choice(hiker_safe_points)
-            #         times = 0
-            #     times = times + 1
+                k = 50 # k closest. There might be cases in which you have very few drone safe points (e.g. 3) and only one will be really close
+                k = 5
+
+                if k> np.array(drone_safe_points).shape[0]:
+                    k = np.array(drone_safe_points).shape[0] - 1 # Cauz we index from 0 but shape starts from 1 to max shape
+                indx = np.argpartition(D[0],k) # Return the indices of the k closest distances to the hiker. The [0] is VITAL!!!
+                # # Use the index to retrieve the k closest safe coords to the hiker
+                closest_neighs = np.array(drone_safe_points)[indx[:k]] # You need to have the safe points as array and not list
+
+
+                # drone = tuple(random.choice(closest_neighs))
+
+                # NOTES: The first element might be the hiker position
+                # To move away from hiker increase k and define h=k/2 and discard the h first closest_neighs - 9 suppose to be the max of the closest in an open area. So just use dividends of 9 to discard
+                # drone = (hiker[0]-2, hiker[1]-3)
+                # drone = random.choice([(hiker[0] - 1, hiker[1] - 1), (hiker[0] - 1, hiker[1] ), (hiker[0], hiker[1] - 1 )])
+
+                # random away location + safe check
+                # drone = random.choice([(hiker[0] - 5, hiker[1] - 3), (hiker[0] - 6, hiker[1]), (hiker[0], hiker[1] - 4), (hiker[0] - 6, hiker[1] - 7)])
+                # drone = random.choice([(hiker[0] - 8, hiker[1] - 3), (hiker[0] - 10, hiker[1]), (hiker[0], hiker[1] - 9),
+                #                        (hiker[0] - 6, hiker[1] - 7)])
+                # times = 0
+                # while drone not in drone_safe_points:
+                #     drone = random.choice([(hiker[0] - 5, hiker[1] - 3), (hiker[0] - 6, hiker[1]), (hiker[0], hiker[1] - 4),
+                #                            (hiker[0] - 6, hiker[1] - 7)])
+                #     # print('non safe reset drone pos')
+                #     if times==10:
+                #         print('max reps reached so reset hiker')
+                #         hiker = random.choice(hiker_safe_points)
+                #         times = 0
+                #     times = times + 1
 
             # all safe points included for final training
-            drone = random.choice(drone_safe_points)
+            #print("Chose drone location {}".format(drone))
             # drone = (18,18)
-        else:
-            drone = drone_initial_position
+
 
 ############################
         # # Set hiker's and drone's locations
@@ -884,22 +951,35 @@ class GridworldEnv(gym.Env):
 
         # self.local_coordinates = [local_x,local_y]
         # self.world_coordinates = [70,50]
-        self.reference_coordinates = [self._map[0], self._map[1]]
+        self.reference_coordinates = [self.submap_offset[0], self.submap_offset[1]]
 
 
         self.real_actions = False
+
         # put the drone in
         self.map_volume['vol'][self.altitude][drone[0], drone[1]] = \
-        self.map_volume['feature_value_map']['drone'][self.altitude]['val']
+                   self.map_volume['feature_value_map']['drone'][self.altitude]['val']
+
         # self.map_volume['flat'][drone[0], drone[1]] = self.map_volume['feature_value_map']['drone'][self.altitude][
         #     'val']
+
         self.map_volume['img'][drone[0], drone[1]] = self.map_volume['feature_value_map']['drone'][self.altitude][
             'color']
+
+
+        #print("GridworldEnv reset extracted drone position {} (Z,X,Y) ".format(self.get_drone_position()))
+
         # self.map_volume[altitude]['drone'][local_y, local_x] = 1.0
         # put the hiker in@ altitude 0
+
         self.map_volume['vol'][0][hiker[0], hiker[1]] = self.map_volume['feature_value_map']['hiker']['val']
+
         # self.map_volume['flat'][hiker[0], hiker[1]] = self.map_volume['feature_value_map']['hiker']['val']
+
         self.map_volume['img'][hiker[0], hiker[1]] = self.map_volume['feature_value_map']['hiker']['color']
+
+        # ToDo: BOB This next line seems redundant - why calculate hiker_position from map from hiker?
+
         self.hiker_position = np.where(self.map_volume['vol'] == self.map_volume['feature_value_map']['hiker']['val'])
 
         self.image_layers[0] = self.create_image_from_volume(0)
@@ -911,6 +991,64 @@ class GridworldEnv(gym.Env):
         observation = self.generate_observation()
         self.render()
         return observation
+
+    def generate_random_map(self):
+
+        ####START COMMMENT OUT
+        #Random generated map
+        # start = random.choice([1,1,1,1,1,1,1,1,1,1])
+        # stop = random.choice([13,13,13,13,13,13,13,13,13,13])
+        # random_integers = np.random.random_integers(start,stop,(20,20))
+        # flag = bn.rvs(p=0.99, size=(20,20))
+        # #add 10% (1-p) of any value
+        # other_features = np.full((20,20),33)
+        # random_integers[flag==0] = other_features[flag==0]
+        # self.map_volume = CNP.create_custom_map(random_integers)#CNP.create_custom_map(np.random.random_integers(start,stop,(self.mapw,self.maph)))#CNP.map_to_volume_dict(self._map[0],self._map[1], self.mapw, self.maph)#CNP.create_custom_map(np.random.random_integers(start,stop,(self.mapw,self.maph))) #CNP.create_custom_map(random.choice(self.custom_maps))
+        # # Set hiker's and drone's locations
+        # #hiker = (random.randint(2, self.map_volume['vol'].shape[1] - 1), random.randint(2, self.map_volume['vol'].shape[1] - 2)) #(8,8) #
+        # #if self.dropping:
+        # hiker = (random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))#(10,10)#(random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))  #random.choice([(4,5),(5,5),(5,4),(4,4)]) (7,8) #
+        all_no_goes = [] # all points hiker is not allowed to go (e.g. water)
+        # better random map
+        just_grass = np.full((20, 20), 2)
+        # add some trail, trees
+        updated_map = self.add_blob(just_grass, 15, 5)[0]
+        for i in range(random.randint(1, 10)):
+            updated_map = self.add_blob(updated_map, 50, random.choice([1, 3]))[0]
+
+        # add some water (maybe)
+        if random.randint(0, 1):
+            updated_map, no_go_points = self.add_blob(updated_map, 100, 15)
+            all_no_goes.append(no_go_points)
+        # add some mountain ridges
+        updated_map, no_go_points = self.add_blob(updated_map, 75, 26)
+        all_no_goes.append(no_go_points)
+        # a few small mountain ridges
+        for i in range(random.randint(1, 5)):
+            updated_map, no_go_points = self.add_blob(updated_map, random.randint(1, 10), 25)
+            all_no_goes.append(no_go_points)
+        # add some bushes
+        # small clusters, 5 times
+        for i in range(random.randint(1, 8)):
+            updated_map = self.add_blob(updated_map, random.randint(1, 5), 4)[0]
+        # add one campfire
+        updated_map, no_go_points = self.add_blob(updated_map, 0, 33)
+        all_no_goes.append(no_go_points)
+
+        self.map_volume = CNP.create_custom_map(updated_map)
+
+        # self.map_volume = CNP.create_custom_map(np.random.random_integers(start, stop, (20, 20)))#CNP.create_custom_map(np.random.random_integers(start, stop, (20, 20)))#CNP.map_to_volume_dict(self._map[0],self._map[1], self.mapw, self.maph)#CNP.create_custom_map(self.custom_map)#CNP.create_custom_map(np.random.random_integers(start, stop, (20, 20)))#CNP.map_to_volume_dict(self._map[0],self._map[1], self.mapw, self.maph)#CNP.create_custom_map(np.random.random_integers(start, stop, (10, 10)))#CNP.create_custom_map(self.custom_map)#CNP.create_custom_map(np.random.random_integers(start, stop, (10, 10)))
+
+        # Set hiker's and drone's location
+        # hiker = (random.randint(2, self.map_volume['vol'].shape[1] - 1), random.randint(2, self.map_volume['vol'].shape[1] - 2)) #(8,8) #
+        # (8, 1)  # (6,3)#
+        hiker = (
+            random.randint(3, self.map_volume['vol'].shape[1] - 3),
+            random.randint(3, self.map_volume['vol'].shape[1] - 3))
+        
+        while self.hiker_in_no_go_list(hiker, all_no_goes): # Place the hiker but check if is placed on a no go feature
+            hiker = (random.randint(3, self.map_volume['vol'].shape[1] - 3),
+                     random.randint(3, self.map_volume['vol'].shape[1] - 3))
 
     def add_blob(self, map_array, n_cycles, value):
         points = []
@@ -934,14 +1072,23 @@ class GridworldEnv(gym.Env):
         return self.planes[heading][1]
 
     def create_image_from_volume(self, altitude):
-        canvas = np.zeros((self.map_volume['vol'].shape[1], self.map_volume['vol'].shape[1], 3), dtype=np.uint8)
+
+        """Returns a single 3-channel RGB image corresponding to a horizontal slice through volume at given altitude"""
+
+        canvas = np.zeros( ( self.map_volume['vol'].shape[1],
+                             self.map_volume['vol'].shape[1],
+                             3),
+                            dtype=np.uint8)
+
         og_vol = self.original_map_volume
-        combinations = list(itertools.product(range(0, canvas.shape[0]), range(0, canvas.shape[0])))
+        combinations = list( itertools.product( range(0, canvas.shape[0]),
+                                                range(0, canvas.shape[0])  ))
+
         for x, y in combinations:
             if og_vol['vol'][altitude][x, y] == 0.0:
                 canvas[x, y, :] = [255, 255, 255]
             else:
-                canvas[x, y, :] = og_vol['value_feature_map'][og_vol['vol'][altitude][x, y]]['color']
+                canvas[x, y, :] = og_vol['value_feature_map'][ og_vol['vol'][altitude][x, y] ]['color']
 
         return imresize(canvas, self.factor * 100, interp='nearest')
 
@@ -1045,6 +1192,36 @@ class GridworldEnv(gym.Env):
         obs['image_layers'] = image_layers
         return obs
 
+
+    def get_drone_position(self):
+
+        """returns the position of the drone as a tuple with altitude first and then x and y positions (Z,X,Y)"""
+
+        # The appearance (tile type) of the drone is altitude dependent so we need to look this up every time
+
+        drone_tile_id = self.map_volume['feature_value_map']['drone'][self.altitude]['val']
+
+        # Find tile that looks like the drone
+
+        drone_zxy = np.where( self.map_volume['vol'] == drone_tile_id  )
+
+        return drone_zxy
+
+
+    def get_hiker_position(self):
+
+        """returns the position of the hiker as a tuple with altitude first and then x and y positions (Z,X,Y)"""
+        # Here the appearance of the drone is altitude dependent so we need to look this up every time
+
+        drone_tile_id = self.map_volume['feature_value_map']['hiker'][self.altitude]['val']
+
+        # Find tile that looks like the drone
+
+        drone_zxy = np.where( self.map_volume['vol'] == drone_tile_id  )
+
+        return drone_zxy
+
+
     def render(self, mode='human', close=False):
 
         # return
@@ -1078,23 +1255,4 @@ class GridworldEnv(gym.Env):
         return
 
 
-# a = GridworldEnv(map_x=70, map_y=50, local_x=2, local_y=2, hiker_x=10, heading=1, altitude=3)
-# a.reset()
-# # a.step(12)
-# #
-# # def show_img():
-#
-# for i in range(10000):
-#     a.step(random.randint(1, 14))
-#     # local_coordinates = a.map_volume[a.altitude]['drone'].nonzero()
-#     # print("coordinates", local_coordinates, a.heading)
-#     if a.check_for_crash():
-#         print("crash at altitude", a.altitude)
-#         a.reset()
-#         time.sleep(0.5)
-#     if a.check_for_hiker():
-#         print("hiker after", i)
-#         break
-
-# print(a.check_for_crash())
 print('complete')

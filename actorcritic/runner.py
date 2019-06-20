@@ -17,6 +17,7 @@ PPORunParams = namedtuple("PPORunParams", ["lambda_par", "batch_size", "n_epochs
 
 
 class Runner(object):
+
     def __init__(
             self,
             envs,
@@ -40,6 +41,7 @@ class Runner(object):
         self.batch_counter = 0
         self.episode_counter = 0
         self.score = 0.0
+
         # self.policy_type = FullyConvPolicy if ( (policy_type == 'FullyConv') or (policy_type == 'Relational')) else MetaPolicy
         if policy_type == 'FullyConv':
             self.policy_type = FullyConvPolicy
@@ -58,16 +60,16 @@ class Runner(object):
             assert n_steps * self.envs.num_envs >= ppo_par.batch_size
             self.ppo_par = ppo_par
 
-    def reset(self):
+    def reset(self, **kwargs):
         #self.score = 0.0
-        obs = self.envs.reset()
+        obs = self.envs.reset(**kwargs)
+        #print("runnery.py Runner.reset #of envs {}".format(len(self.envs)))
+
         self.latest_obs = self.obs_processer.process(obs)
 
-    def reset_demo(self, drone_initial_position=None, hiker_initial_position=None):
-        #self.score = 0.0
-        print("Runner.reset_demo(drone_initial_position={},hiker_initial_position={}"
-              .format(drone_initial_position,hiker_initial_position))
-        obs = self.envs.reset(drone_initial_position, hiker_initial_position)
+    def reset_demo(self, **kwargs):
+
+        obs = self.envs.reset(**kwargs)
 
         #obs = self.envs.reset()
         self.latest_obs = self.obs_processer.process([obs])
@@ -112,7 +114,7 @@ class Runner(object):
         for b in batches:
             self.agent.train_recurrent(b, rnn_state) # IMPORTANT : όταν κανεις training δεν χρειαζεσαι την rnn_State, ξεκινας απο το 0 και αθτη παιρνη την μορφή πουπρεπει να εχει
 
-    def run_batch(self):
+    def run_batch(self,episode):
         #(MINE) MAIN LOOP!!!
         # The reset is happening through Monitor (except the first one of the first batch (is in hte run_agent)
         mb_actions = []
@@ -127,8 +129,8 @@ class Runner(object):
             # could calculate value estimate from obs when do training
             # but saving values here will make n step reward calculation a bit easier
             action_ids, value_estimate = self.agent.step(latest_obs)
-            print('|step:', n, '|actions:', action_ids)  # (MINE) If you put it after the envs.step the SUCCESS appears at the envs.step so it will appear oddly
-            # (MINE) Store actions and value estimates for all steps
+            print('|episode:',episode,'|step:', n, '|actions:', action_ids,'|values {}'.format(value_estimate))  # (MINE) If you put it after the envs.step the SUCCESS appears at the envs.step so it will appear oddly
+            # (MINE) Store actions and value estimates for all steps:
             mb_values[:, n] = value_estimate
             mb_obs.append(latest_obs)
             mb_actions.append((action_ids))

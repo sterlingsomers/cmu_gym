@@ -111,6 +111,9 @@ class ActorCriticAgent:
         self.unit_type_emb_dim = unit_type_emb_dim
         self.summary_path = summary_path
         os.makedirs(summary_path, exist_ok=True)
+        print("Tensorboard summary FileWriter path: {}".format(summary_path))
+        print("To setup tensorboard, type: tensorboard --logdir={}".format(summary_path))
+
         self.summary_writer = tf.summary.FileWriter(summary_path)
         self.all_summary_freq = all_summary_freq
         self.scalar_summary_freq = scalar_summary_freq

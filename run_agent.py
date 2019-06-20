@@ -7,6 +7,8 @@ from datetime import datetime
 from time import sleep
 import numpy as np
 import pickle
+
+import pandas as pd
 #from functools import partial
 
 from absl import flags
@@ -23,7 +25,9 @@ from baselines import logger
 from baselines.bench import Monitor
 #from baselines.common.misc_util import boolean_flag
 from baselines.common import set_global_seeds
-from baselines.common.vec_env.subproc_vec_env import SubprocVecEnv
+#from baselines.common.vec_env.subproc_vec_env import SubprocVecEnv
+from subproc_vec_env_custom import SubprocVecEnv
+
 from baselines.common.vec_env.vec_frame_stack import VecFrameStack
 #from baselines.common.vec_env.vec_normalize import VecNormalize
 import gym
@@ -31,30 +35,50 @@ import gym
 #from gym_grid.envs import GridEnv
 import gym_gridworld
 
+from gym_gridworld.envs.gridworld_env import HEADING
+from gym_gridworld.envs.gridworld_env import ACTION
+
+
 FLAGS = flags.FLAGS
-flags.DEFINE_bool("visualize", False, "Whether to render with pygame.")
+flags.DEFINE_bool("visualize", True, "Whether to render with pygame.")
+flags.DEFINE_boolean("training", False,
+                     "if should train the model, if false then save only episode score summaries"  )
+
 flags.DEFINE_float("sleep_time", 0, "Time-delay in the demo")
-flags.DEFINE_integer("resolution", 32, "Resolution for screen and minimap feature layers.")
-flags.DEFINE_integer("step_mul", 100, "Game steps per agent step.")
-flags.DEFINE_integer("step2save", 1000, "Game step to save the model.") #A2C every 1000, PPO 250
+
+
 flags.DEFINE_integer("n_envs", 10, "Number of environments to run in parallel")
 flags.DEFINE_integer("episodes", 5, "Number of complete episodes")
 flags.DEFINE_integer("n_steps_per_batch", 32,
-    "Number of steps per batch, if None use 8 for a2c and 128 for ppo")  # (MINE) TIMESTEPS HERE!!! You need them cauz you dont want to run till it finds the beacon especially at first episodes - will take forever
+                     "Number of steps per batch, if None use 8 for a2c and 128 for ppo")  # (MINE) TIMESTEPS HERE!!! You need them cauz you dont want to run till it finds the beacon especially at first episodes - will take forever
+
+flags.DEFINE_integer("K_batches", 1003, # Batch is like a training epoch!
+                     "Number of training batches to run in thousands, use -1 to run forever") #(MINE) not for now
+
+
+flags.DEFINE_integer("resolution", 32, "Resolution for screen and minimap feature layers.")
+flags.DEFINE_integer("step_mul", 100, "Game steps per agent step.")
+flags.DEFINE_integer("step2save", 1000, "Game step to save the model.") #A2C every 1000, PPO 250
+
+
+# Tensorboard Summaries
+
 flags.DEFINE_integer("all_summary_freq", 50, "Record all summaries every n batch")
 flags.DEFINE_integer("scalar_summary_freq", 5, "Record scalar summaries every n batch")
 flags.DEFINE_string("checkpoint_path", "_files/models", "Path for agent checkpoints")
 flags.DEFINE_string("summary_path", "_files/summaries", "Path for tensorboard summaries")
 flags.DEFINE_string("model_name", "A2C_multiple_packs", "Name for checkpoints and tensorboard summaries") # DONT touch TESTING is the best (take out normalization layer in order to work! -- check which parts exist in the restore session if needed)
-flags.DEFINE_integer("K_batches", 15000, # Batch is like a training epoch!
-    "Number of training batches to run in thousands, use -1 to run forever") #(MINE) not for now
+flags.DEFINE_enum("if_output_exists", "fail", ["fail", "overwrite", "continue"],
+                  "What to do if summary and model output exists, only for training, is ignored if notraining")
+
+
 flags.DEFINE_string("map_name", "DefeatRoaches", "Name of a map to use.")
+
+
+# Learner Parameters
+
 flags.DEFINE_float("discount", 0.95, "Reward-discount for the agent")
-flags.DEFINE_boolean("training", True,
-    "if should train the model, if false then save only episode score summaries"
-)
-flags.DEFINE_enum("if_output_exists", "overwrite", ["fail", "overwrite", "continue"],
-    "What to do if summary and model output exists, only for training, is ignored if notraining")
+
 flags.DEFINE_float("max_gradient_norm", 10.0, "good value might depend on the environment") # orig: 1000
 flags.DEFINE_float("loss_value_weight", 0.5, "good value might depend on the environment") # orig:1.0
 flags.DEFINE_float("entropy_weight_spatial", 0.00000001,
@@ -97,7 +121,24 @@ def _print(i):
     sys.stdout.flush()
 
 
+def extract_trajectory(result):
 
+    traj_all_columns = result[0]['nav']
+    traj_key_columns = [ (  (step['drone'][1][0] ,step['drone'][2][0]),
+                            step['heading'], HEADING.to_short_string(step['heading']),
+                            step['altitude'],
+                            step['action'], ACTION.to_short_string(step['action']),
+                            step['reward'],
+                            step['map'],
+                            "{}".format(step['info']))
+                         for step in traj_all_columns ]
+
+    return traj_key_columns
+
+def list_of_tuples_to_dataframe(list_of_tuples):
+
+    df  = pd.DataFrame(list_of_tuples,columns=['location','head','hname','alt','act','aname','reward','map','info'])
+    return df
 
 def make_custom_env(env_id, num_env, seed, wrapper_kwargs=None, start_index=0):
     """
@@ -106,7 +147,7 @@ def make_custom_env(env_id, num_env, seed, wrapper_kwargs=None, start_index=0):
     if wrapper_kwargs is None: wrapper_kwargs = {}
     def make_env(rank): # pylint: disable=C0111
         def _thunk():
-            env = gym.make(env_id)
+            env = gym.make(env_id, **wrapper_kwargs)
             env.seed(seed + rank)
             # Monitor should take care of reset!
             env = Monitor(env, logger.get_dir() and os.path.join(logger.get_dir(), str(rank)), allow_early_resets=True) # SUBPROC NEEDS 4 OUTPUS FROM STEP FUNCTION
@@ -118,30 +159,46 @@ def make_custom_env(env_id, num_env, seed, wrapper_kwargs=None, start_index=0):
 
 class Simulation:
 
-    def __init__(self):
+    def __init__(self,
+                 training=FLAGS.training,
+                 visualize = FLAGS.visualize,
 
+                 drone_initial_position=None,
+                 drone_initial_heading = None,
+                 drone_initial_altitude= None,
+                 hiker_initial_position=None,
+                 curriculum_radius=None,
+                 goal_mode=None,
+                 episode_length=None):
+
+        self.training = training
+        self.visualize = visualize
 
         #TODO this runner is maybe too long and too messy..
-        self.full_chekcpoint_path = os.path.join(FLAGS.checkpoint_path, FLAGS.model_name)
+        self.full_checkpoint_path = os.path.join(FLAGS.checkpoint_path, FLAGS.model_name)
 
-        if FLAGS.training:
+        if self.training:
             self.full_summary_path = os.path.join(FLAGS.summary_path, FLAGS.model_name)
         else:
             self.full_summary_path = os.path.join(FLAGS.summary_path, "no_training", FLAGS.model_name)
 
 
-        if FLAGS.training:
-            check_and_handle_existing_folder(self.full_chekcpoint_path)
+        if self.training:
+            check_and_handle_existing_folder(self.full_checkpoint_path)
             check_and_handle_existing_folder(self.full_summary_path)
 
+        kwargs= { 'drone_initial_position':drone_initial_position, 'drone_initial_heading':drone_initial_heading,
+                  'drone_initial_altitude':drone_initial_altitude,
+                  'goal_mode':goal_mode, 'episode_length':episode_length, 'curriculum_radius':curriculum_radius }
+
         #(MINE) Create multiple parallel environements (or a single instance for testing agent)
-        if FLAGS.training and FLAGS.visualize==False:
+        if self.training and self.visualize==False:
             #envs = SubprocVecEnv((partial(make_sc2env, **env_args),) * FLAGS.n_envs)
             #envs = SubprocVecEnv([make_env(i,**env_args) for i in range(FLAGS.n_envs)])
-            self.envs = make_custom_env('gridworld{}-v3'.format('visualize' if FLAGS.visualize else ''), FLAGS.n_envs, 1)
-        elif FLAGS.training==False:
+            self.envs = make_custom_env('gridworld{}-v3'.format('visualize' if self.visualize else ''), FLAGS.n_envs, 1, wrapper_kwargs=kwargs)
+        elif self.training==False:
             #envs = make_custom_env('gridworld-v0', 1, 1)
-            self.envs = gym.make('gridworld{}-v0'.format('visualize' if FLAGS.visualize else ''))
+            self.envs = gym.make('gridworld{}-v0'.format('visualize' if self.visualize else ''), **kwargs)
         else:
             print('Wrong choices in FLAGS training and visualization')
             return
@@ -181,9 +238,11 @@ class Simulation:
         )
         # Build Agent
         self.agent.build_model()
-        if os.path.exists(self.full_chekcpoint_path):
-            self.agent.load(self.full_chekcpoint_path) #(MINE) LOAD!!!
+        if os.path.exists(self.full_checkpoint_path):
+            print("Found existing model, loading weights")
+            self.agent.load(self.full_checkpoint_path) #(MINE) LOAD!!!
         else:
+            print("No model, random weights")
             self.agent.init()
 
         # (MINE) Define TIMESTEPS per episode (batch as each worker has its own episodes -- different timelines)
@@ -207,20 +266,18 @@ class Simulation:
             agent=self.agent,
             discount=FLAGS.discount,
             n_steps=self.n_steps_per_batch,
-            do_training=FLAGS.training,
+            do_training=self.training,
             ppo_par=ppo_par,
             policy_type = FLAGS.policy_type
         )
 
     def _save_if_training(self,agent):
-        agent.save(self.full_chekcpoint_path)
+        agent.save(self.full_checkpoint_path)
         agent.flush_summaries()
         sys.stdout.flush()
 
     def run(self,
             episodes_to_run=FLAGS.episodes,
-            drone_initial_position=None,
-            hiker_initial_position=None,
             sleep_time = FLAGS.sleep_time):
 
         self.episodes_to_run = episodes_to_run
@@ -238,7 +295,7 @@ class Simulation:
         all_data = [{'nav':[],'stuck':False} for x in range(episodes_to_run)]
 
 
-        if FLAGS.training:
+        if self.training:
             i = 0
 
             try:
@@ -258,7 +315,7 @@ class Simulation:
                     if FLAGS.policy_type == 'MetaPolicy':
                         self.runner.run_meta_batch()
                     else:
-                        self.runner.run_batch()  # (MINE) HERE WE RUN MAIN LOOP for while true
+                        self.runner.run_batch(i)  # (MINE) HERE WE RUN MAIN LOOP for while true
                     #runner.run_batch_solo_env()
                     i += 1
                     if 0 <= n_batches <= i: #when you reach the certain amount of batches break
@@ -325,8 +382,9 @@ class Simulation:
                     mb_map_volume = [] # obs[0]['volume']==envs.map_volume
                     mb_ego = []
 
-                    self.runner.reset_demo(drone_initial_position,hiker_initial_position)  # Cauz of differences in the arrangement of the dictionaries
-                    map_name = str(self.runner.envs._map)
+                    self.runner.reset_demo()  # Cauz of differences in the arrangement of the dictionaries
+
+                    map_name = str(self.runner.envs.submap_offset)
                     map_xy = self.runner.envs.map_image
                     map_alt = self.runner.envs.alt_view
                     process_img(map_xy, 20, 20)
@@ -373,12 +431,23 @@ class Simulation:
 
                         # dictionary[nav_runner.episode_counter]['observations'].append(nav_runner.latest_obs)
                         # dictionary[nav_runner.episode_counter]['flag'].append(drop_flag)
-
+                        print("Agent taking step")
                         # INTERACTION
                         obs, action, value, reward, done, info, fc, action_probs = self.runner.run_trained_batch()
 
                         print("Is done?? ",done)
-                        
+
+                        step_data['action'] = action
+                        step_data['reward'] = reward
+                        step_data['fc'] = fc
+                        step_data['action_probs'] = action_probs
+                        step_data['info'] = info
+                        step_data['map'] = self.runner.envs.submap_offset
+
+                        print("run_agent.py:run episode {} appending step_data ".format(self.runner.episode_counter))
+                        all_data[self.runner.episode_counter]['nav'].append(step_data)
+
+
                         if done and not info['success']:
                             print('Crash, terminate episode')
                             break # Also we prevent new data for the new time step to be saved
@@ -390,13 +459,6 @@ class Simulation:
                         mb_values.append(value)
                         mb_crash.append(self.runner.envs.crash)
 
-                        step_data['action'] = action
-                        step_data['reward'] = reward
-                        step_data['fc'] = fc
-                        step_data['action_probs'] = action_probs
-
-                        print("run_agent.py:run episode {} appending step_data ".format(self.runner.episode_counter))
-                        all_data[self.runner.episode_counter]['nav'].append(step_data)
 
 
                         screen_mssg_variable("Value    : ", np.round(value,3), (168, 350))
@@ -470,7 +532,7 @@ class Simulation:
                 if not os.path.exists( self.data_folder):
                     os.mkdir( self.data_folder)
 
-                map_name = str(self.runner.envs._map[0]) + '-' + str(self.runner.envs._map[1])
+                map_name = str(self.runner.envs.submap_offset[0]) + '-' + str(self.runner.envs.submap_offset[1])
                 drone_init_loc = 'D1118'
                 hiker_loc = 'H1010'
                 type = '.tj'
@@ -497,10 +559,8 @@ if __name__ == "__main__":
 
     sim = Simulation()
 
-    result = sim.run( )
+    result = sim.run(  )
 
-    print("Drone initial position {} Hiker Initial Position {}")
-    print("Trajectory")
 
-    print(result)
+
 

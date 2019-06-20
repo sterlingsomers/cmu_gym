@@ -171,6 +171,11 @@ def convert_map_to_volume_dict(x,y,map,width,height):
     return return_dict
 
 def map_to_volume_dict(x=0,y=0,width=5,height=5):
+
+    """Looks for a map with filename corresponding to x,y coordinates corresponding to pickled cache.
+       If it can't find a version cached on disk it requests a new map.
+       Finally it converts it to a volume dictionary and returns it."""
+
     #does the map already exist in the maps/ folder?
     return_dict = {}
     filename = '{}-{}.mp'.format(x,y)
@@ -184,6 +189,7 @@ def map_to_volume_dict(x=0,y=0,width=5,height=5):
         if filename == files:
             #print("loading existing map.")
             map = pickle.load(open(path+'maps/' + filename,'rb'))
+
     if not map:
         print("generating map. YOU NEED MAVSIM RUNNING!!!")
         map = terrain_request(x,y,width,height)
@@ -194,6 +200,7 @@ def map_to_volume_dict(x=0,y=0,width=5,height=5):
             pickle.dump(map, handle)
     #convert_map_to_volume_dict(x,y,map)
     return convert_map_to_volume_dict(x,y,map,width,height)
+
 
 def create_custom_map(map):
     features_to_values, values_to_features = get_feature_value_maps(0, 0, 0)
