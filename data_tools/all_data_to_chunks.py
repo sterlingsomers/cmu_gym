@@ -96,9 +96,9 @@ def convert_data_to_chunks(all_data):
     drop = []
     for episode in all_data:
         for step in episode['nav']:
-            action_values = {'drop': 0, 'left': 0, 'diagonal_left': 0,
-                             'center': 0, 'diagonal_right': 0, 'right': 0,
-                             'up': 0, 'down': 0, 'level': 0}
+            # action_values = {'drop': 0, 'left': 0, 'diagonal_left': 0,
+            #                  'center': 0, 'diagonal_right': 0, 'right': 0,
+            #                  'up': 0, 'down': 0, 'level': 0}
             # angle to hiker: negative = left, positive right
             egocentric_angle_to_hiker = heading_to_hiker(step['heading'], step['drone'], step['hiker'])
             angle_categories_to_hiker = angle_categories(egocentric_angle_to_hiker)
@@ -135,6 +135,9 @@ def convert_data_to_chunks(all_data):
                 fc_list = step['fc'].tolist()[0]
                 chunk.extend(['fc', ['fc', fc_list]])
 
+            # if step['action'] == 15:
+            #     print('15')
+
             #no longer splitting the actions. Use all 15
             #actr_actions = ['_'.join(x) if len(x) > 1 else x for x in action_to_category_map.values()]
             for key,value in action_to_category_map.items():
@@ -146,15 +149,15 @@ def convert_data_to_chunks(all_data):
                     chunk.extend([actr_action,[actr_action,1]])
                 else:
                     chunk.extend([actr_action,[actr_action,0]])
-            drop_val = access_by_key('drop',chunk)[1]
-            chunk.extend(['drop',['drop',drop_val]])
-            chunk.extend(['type', 'nav'])
+
+            # chunk.extend(['drop',['drop',drop_val]])
+            # chunk.extend(['type', 'nav'])
 
 
 
 
             nav.append(chunk)
-            print('step')
+            # print('step')
         # for step in episode['drop']:
         #     action_values = {'drop': 0, 'left': 0, 'diagonal_left': 0,
         #                      'center': 0, 'diagonal_right': 0, 'right': 0,
@@ -190,15 +193,15 @@ def convert_data_to_chunks(all_data):
 
             # no longer splitting the actions. Use all 15
             # actr_actions = ['_'.join(x) if len(x) > 1 else x for x in action_to_category_map.values()]
-            for key, value in action_to_category_map.items():
-                if len(value) > 1:
-                    actr_action = '_'.join(value)
-                else:
-                    actr_action = value[0]
-                if key == step['action']:
-                    chunk.extend([actr_action, [actr_action, 1]])
-                else:
-                    chunk.extend([actr_action, [actr_action, 0]])
+            # for key, value in action_to_category_map.items():
+            #     if len(value) > 1:
+            #         actr_action = '_'.join(value)
+            #     else:
+            #         actr_action = value[0]
+            #     if key == step['action']:
+            #         chunk.extend([actr_action, [actr_action, 1]])
+            #     else:
+            #         chunk.extend([actr_action, [actr_action, 0]])
 
             # if include_fc:
             #     chunk.extend(['fc', ['fc', step['fc']]])
@@ -624,7 +627,7 @@ def sort_chunks_by_action(chunksList,drop=False):
 
 #down_left = get_chunks_with_action(memory[0], 'down', 'left')
 memory = convert_data_to_chunks(all_data)#[[nav list,drop list]]
-navs_by_action = sort_chunks_by_action(memory[0])
+navs_by_action = sort_chunks_by_action(memory[0],drop=True)
 drops_by_action = sort_chunks_by_action(memory[1])
 
 #once binned, the chunks should not contain their action data anymore
