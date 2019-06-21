@@ -15,7 +15,7 @@ from pandas import DataFrame
 
 include_fc = True
 
-all_data = pickle.load(open('all_data149-341_10-16_8-1_8-75.lst', "rb"))
+all_data = pickle.load(open('all_data308-110_9-7_4-1_9-115000.lst', "rb"))
 
 possible_actions_map = {
         1: [[0, -1], [-1, -1], [-1, 0], [-1, 1], [0, 1]],
@@ -771,7 +771,7 @@ for key,value in navs_by_action.items():#nav_by_action_clusters_chunks.items()
 #ms.fit(X)
 #labels = ms.labels_
 #cluster_centers = ms.cluster_centers_
-with open('chunks_cluster_centers_15actions_2000_fc_200randommax.pkl','wb') as handle:
+with open('chunks_cluster_centers_15actions_2000_fc_ALLMAPS_200randommax.pkl','wb') as handle:
     pickle.dump(nav_complete_list,handle)
 
 print('stop')
