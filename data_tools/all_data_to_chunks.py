@@ -146,6 +146,8 @@ def convert_data_to_chunks(all_data):
                     chunk.extend([actr_action,[actr_action,1]])
                 else:
                     chunk.extend([actr_action,[actr_action,0]])
+            drop_val = access_by_key('drop',chunk)[1]
+            chunk.extend(['drop',['drop',drop_val]])
             chunk.extend(['type', 'nav'])
 
 
