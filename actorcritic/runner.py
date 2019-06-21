@@ -10,7 +10,8 @@ from common.util import calculate_n_step_reward, general_n_step_advantage, combi
     dict_of_lists_to_list_of_dicst
 import tensorflow as tf
 from absl import flags
-from time import sleep
+# from time import sleep
+from actorcritic.policy import FullyConvPolicy, MetaPolicy, RelationalPolicy
 
 
 import copy
@@ -248,7 +249,7 @@ def similarity(val1, val2):
     if not type(val1) == list:
         return 0
 
-    if val1[0] == 'ALTITUDE' or val1[0] == 'DISTANCE_TO_HIKER':
+    if val1[0] == 'ALTITUDE':# or val1[0] == 'DISTANCE_TO_HIKER':
         return 0
 
     if val1[0] == 'FC':
@@ -258,7 +259,7 @@ def similarity(val1, val2):
         #print("FC", remap(dist, min(fc_distances),max(fc_distances),0,1) * -1)
         return remap(dist, min(fc_distances),max(fc_distances),0,1) * -1#spatial.distance.cosine(val1[1],val2[1])* -1#
 
-
+    return 0
     max_val = max(min_max[val1[0].lower()])
     min_val = min(min_max[val1[0].lower()])
 
@@ -383,7 +384,7 @@ def reset_actr():
     model_name = 'egocentric_allocentric_salience.lisp'
     model_path = '/Users/paulsomers/COGLE/gym-gridworld/'
 
-    chunk_file_name = 'chunks_cluster_centers_15actions_2000_fc_500randommax.pkl'
+    chunk_file_name = 'chunks_cluster_centers_15actions_2000_fc_ALLMAPS_200examplesmax.pkl'
     #chunk_path = os.path.join(model_path,'data')
     chunk_path = ''
     actr.add_command('similarity_function',similarity)
