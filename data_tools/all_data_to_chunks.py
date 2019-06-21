@@ -15,7 +15,7 @@ from pandas import DataFrame
 
 include_fc = True
 
-all_data = pickle.load(open('all_data2000.lst', "rb"))
+all_data = pickle.load(open('all_data149-341_10-16_8-1_8-75.lst', "rb"))
 
 possible_actions_map = {
         1: [[0, -1], [-1, -1], [-1, 0], [-1, 1], [0, 1]],
@@ -153,31 +153,31 @@ def convert_data_to_chunks(all_data):
 
             nav.append(chunk)
             print('step')
-        for step in episode['drop']:
-            action_values = {'drop': 0, 'left': 0, 'diagonal_left': 0,
-                             'center': 0, 'diagonal_right': 0, 'right': 0,
-                             'up': 0, 'down': 0, 'level': 0}
-            # angle to hiker: negative = left, positive right
-            egocentric_angle_to_hiker = heading_to_hiker(step['heading'], step['drone'], step['hiker'])
-            angle_categories_to_hiker = angle_categories(egocentric_angle_to_hiker)
-            egocentric_slice = egocentric_representation(step['drone'], step['heading'], step['volume'])
-            # compile all that into chunks [slot, value, slot, value]
-            chunk = []
-            for key, value in angle_categories_to_hiker.items():
-                chunk.extend([key, [key, value]])
-            # need the altitudes from the slice
-            altitudes = altitudes_from_egocentric_slice(egocentric_slice)
-            altitudes = [x - 1 for x in altitudes]
-            alt = step['altitude']  # to be consistant with the numpy
-            chunk.extend(['altitude', ['altitude', int(alt)]])
-            chunk.extend(['ego_left', ['ego_left', altitudes[0] - alt],
-                          'ego_diagonal_left', ['ego_diagonal_left', altitudes[1] - alt],
-                          'ego_center', ['ego_center', altitudes[2] - alt],
-                          'ego_diagonal_right', ['ego_diagonal_right', altitudes[3] - alt],
-                          'ego_right', ['ego_right', altitudes[4] - alt]])
-            chunk.extend(['type', 'drop'])
-            chunk.extend(['distance_to_hiker',
-                          ['distance_to_hiker', distance_to_hiker(np.array(step['drone']), np.array(step['hiker']))]])
+        # for step in episode['drop']:
+        #     action_values = {'drop': 0, 'left': 0, 'diagonal_left': 0,
+        #                      'center': 0, 'diagonal_right': 0, 'right': 0,
+        #                      'up': 0, 'down': 0, 'level': 0}
+        #     # angle to hiker: negative = left, positive right
+        #     egocentric_angle_to_hiker = heading_to_hiker(step['heading'], step['drone'], step['hiker'])
+        #     angle_categories_to_hiker = angle_categories(egocentric_angle_to_hiker)
+        #     egocentric_slice = egocentric_representation(step['drone'], step['heading'], step['volume'])
+        #     # compile all that into chunks [slot, value, slot, value]
+        #     chunk = []
+        #     for key, value in angle_categories_to_hiker.items():
+        #         chunk.extend([key, [key, value]])
+        #     # need the altitudes from the slice
+        #     altitudes = altitudes_from_egocentric_slice(egocentric_slice)
+        #     altitudes = [x - 1 for x in altitudes]
+        #     alt = step['altitude']  # to be consistant with the numpy
+        #     chunk.extend(['altitude', ['altitude', int(alt)]])
+        #     chunk.extend(['ego_left', ['ego_left', altitudes[0] - alt],
+        #                   'ego_diagonal_left', ['ego_diagonal_left', altitudes[1] - alt],
+        #                   'ego_center', ['ego_center', altitudes[2] - alt],
+        #                   'ego_diagonal_right', ['ego_diagonal_right', altitudes[3] - alt],
+        #                   'ego_right', ['ego_right', altitudes[4] - alt]])
+        #     chunk.extend(['type', 'drop'])
+        #     chunk.extend(['distance_to_hiker',
+        #                   ['distance_to_hiker', distance_to_hiker(np.array(step['drone']), np.array(step['hiker']))]])
             # split action into components [up, level, down, left, right, etc]
             # components = action_to_category_map[step['action']]
             # for component in components:
