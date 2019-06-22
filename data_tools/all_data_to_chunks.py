@@ -722,7 +722,10 @@ for key, val in navs_by_action.items():
 #put those examples as chunks
 for key in navs_by_action:
     random.shuffle(navs_by_action[key])
-    navs_by_action[key] = navs_by_action[key][:200]
+    if key == 'drop':
+        navs_by_action[key] = navs_by_action[key][:400]
+    else:
+        navs_by_action[key] = navs_by_action[key][:200]
 
 print('stop')
 
