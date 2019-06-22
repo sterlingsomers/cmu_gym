@@ -151,7 +151,7 @@ def convert_data_to_chunks(all_data):
                     chunk.extend([actr_action,[actr_action,0]])
 
             # chunk.extend(['drop',['drop',drop_val]])
-            # chunk.extend(['type', 'nav'])
+            chunk.extend(['type', 'nav'])
 
 
 
