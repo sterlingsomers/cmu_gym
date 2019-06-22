@@ -21,7 +21,7 @@ import matplotlib.pyplot as plt
 
 from gym_gridworld.envs import create_np_map as CNP
 
-#from mavsim_server import MavsimHandler
+from gym_gridworld.envs.mavsim_udp_server import MavsimUDPHandler
 
 # define colors
 # 0: black; 1 : gray; 2 : blue; 3 : green; 4 : red
@@ -174,7 +174,10 @@ class ActionEnumeration:
     def delta_z(self,action_int):
         
         """Returns an integer in {-1,0,1} corresponding to descending, level or ascending flight respectively"""
-        
+
+        if action_int==self.DROP:
+            return 0
+
         if action_int<5:
             return -1
         else:
@@ -183,7 +186,7 @@ class ActionEnumeration:
             else:
                 return 1
             
-    def delta_h(self,action_int):
+    def delta_heading(self,action_int):
         
         """Returns an integer in {-2,-1,0,1,2} corresponding to left 90, left 45, forward, right 45 or right 90 turn respectively
            for flight actions and None for other actions such as DROP """
@@ -193,7 +196,18 @@ class ActionEnumeration:
         else:
             return (action_int % 5) - 2
         
-        
+    def new_heading(self, old_heading, action_int):
+
+        dh = self.delta_heading(action_int)
+
+        heading = old_heading + dh
+        if heading < 1:
+            heading = heading + 8
+        if heading > 8:
+            heading = heading - 8
+
+        return heading
+
     def to_string(self,action_int):
         return self.action_to_description[action_int]
 
@@ -263,6 +277,7 @@ class GridworldEnv(gym.Env):
                  hiker_initial_position=None, drone_initial_position=None, drone_initial_altitude=None, drone_initial_heading=None,
                  timestep_limit=1,
                  width=20, height=20,
+                 use_mavsim=False,
                  verbose=False,
                  curriculum_radius=None,
                  goal_mode=None,
@@ -300,7 +315,7 @@ class GridworldEnv(gym.Env):
         self.actions = list(range(self.action_space.n))
         self.obs_shape = [100,100,3]
         self.observation_space = spaces.Box(low=0, high=255, shape=self.obs_shape)
-        self.real_actions = False
+        self.use_mavsim_simulator = use_mavsim
         self.crash = 0
         self.package_dropped = 0
         self.package_position = ()
@@ -313,10 +328,8 @@ class GridworldEnv(gym.Env):
             3: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 16, 18, 21, 22, 19, 24, 30, 32, 13, 17, 19, 25, 28]
         }
 
-        if self.real_actions:
-            self.mavsimhandler = MavsimHandler()
-            stateThread = threading.Thread(target=self.mavsimhandler.read_state)
-            stateThread.start()
+        if self.use_mavsim_simulator:
+            self.mavsimhandler = MavsimUDPHandler()
 
         self.image_layers = {}
 
@@ -662,13 +675,15 @@ class GridworldEnv(gym.Env):
         self.altitude = new_alt
         self.heading = new_heading
 
-        if self.real_actions:
+        if self.use_mavsim_simulator:
             drone_position = np.where(
                 self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
 
-            success = self.mavsimhandler.fly_path(coordinates=[self.reference_coordinates[0] + int(drone_position[1]),
-                                                               self.reference_coordinates[1] + int(drone_position[2])],
-                                                  altitude=self.altitude)
+            #success = self.mavsimhandler.fly_path(coordinates=[self.reference_coordinates[0] + int(drone_position[1]),
+            #                                                   self.reference_coordinates[1] + int(drone_position[2])],
+            #                                      altitude=self.altitude)
+
+            self.mavsimhandler.head_to(self.heading,self.altitude)
 
         return 1
 
@@ -699,7 +714,6 @@ class GridworldEnv(gym.Env):
         action = int(action)
         info = {}
         info['success'] = False
-
 
         done = False
 
@@ -954,8 +968,6 @@ class GridworldEnv(gym.Env):
         self.reference_coordinates = [self.submap_offset[0], self.submap_offset[1]]
 
 
-        self.real_actions = False
-
         # put the drone in
         self.map_volume['vol'][self.altitude][drone[0], drone[1]] = \
                    self.map_volume['feature_value_map']['drone'][self.altitude]['val']
@@ -1051,6 +1063,7 @@ class GridworldEnv(gym.Env):
                      random.randint(3, self.map_volume['vol'].shape[1] - 3))
 
     def add_blob(self, map_array, n_cycles, value):
+
         points = []
         random_point = np.random.randint(0, map_array.shape[0], (1, 2))#assumes a square
         points.append(random_point)
@@ -1066,7 +1079,9 @@ class GridworldEnv(gym.Env):
         return (return_array,points)
 
     def plane_image(self, heading, color):
+
         '''Returns a 5x5 image as np array'''
+
         for point in self.planes[heading][0]:
             self.planes[heading][1][point[0], point[1]] = color
         return self.planes[heading][1]
@@ -1092,7 +1107,9 @@ class GridworldEnv(gym.Env):
 
         return imresize(canvas, self.factor * 100, interp='nearest')
 
+
     def create_nextstep_image(self):
+
         canvas = np.zeros((5, 5, 3), dtype=np.uint8)
         slice = np.zeros((5, 5))
         drone_position = np.where(
@@ -1133,7 +1150,9 @@ class GridworldEnv(gym.Env):
         self.ego = np.flip(slice,0)
         return imresize(np.flip(canvas, 0), 20*self.map_volume['vol'].shape[2], interp='nearest')
 
+
     def generate_observation(self):
+
         obs = {}
         obs['volume'] = self.map_volume
         image_layers = copy.deepcopy(self.image_layers)
@@ -1142,7 +1161,10 @@ class GridworldEnv(gym.Env):
         # put the drone in the image layer
         drone_position = np.where(
             self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
+
         drone_position = (int(drone_position[1]) * self.factor, int(drone_position[2]) * self.factor)
+
+
         for point in self.planes[self.heading][0]:
             image_layers[self.altitude][drone_position[0] + point[0], drone_position[1] + point[1], :] = \
             self.map_volume['feature_value_map']['drone'][self.altitude]['color']
@@ -1161,18 +1183,22 @@ class GridworldEnv(gym.Env):
         for point in self.hikers[0][0]:
             map[hiker_position[0] + point[0], hiker_position[1] + point[1], :] = \
             self.map_volume['feature_value_map']['hiker']['color']
+
         # add the drone
         drone_position = np.where(
             self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
         drone_position = (int(drone_position[1]) * 5, int(drone_position[2]) * 5)
+
         for point in self.planes[self.heading][0]:
             map[drone_position[0] + point[0], drone_position[1] + point[1], :] = \
                 self.map_volume['feature_value_map']['drone'][self.altitude]['color']
 
         # maybe put the package in
         # print('pack drop flag',self.package_dropped)
+
         if self.package_dropped:
             self.package_dropped = 0
+
             package_position = (int(self.package_position[0] * 5), int(self.package_position[1]) * 5)
             for point in self.package[self.package_state][0]:
                 # print(point, package_position)
@@ -1187,9 +1213,11 @@ class GridworldEnv(gym.Env):
             self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
 
         nextstepimage = self.create_nextstep_image()
+
         obs['nextstepimage'] = nextstepimage
         obs['img'] = map
         obs['image_layers'] = image_layers
+
         return obs
 
 

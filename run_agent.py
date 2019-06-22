@@ -121,6 +121,7 @@ def _print(i):
     sys.stdout.flush()
 
 
+
 def extract_trajectory(result):
 
     traj_all_columns = result[0]['nav']
@@ -128,6 +129,7 @@ def extract_trajectory(result):
                             step['heading'], HEADING.to_short_string(step['heading']),
                             step['altitude'],
                             step['action'], ACTION.to_short_string(step['action']),
+                            step['new_heading'],
                             step['reward'],
                             step['map'],
                             "{}".format(step['info']))
@@ -135,10 +137,12 @@ def extract_trajectory(result):
 
     return traj_key_columns
 
+
 def list_of_tuples_to_dataframe(list_of_tuples):
 
-    df  = pd.DataFrame(list_of_tuples,columns=['location','head','hname','alt','act','aname','reward','map','info'])
+    df  = pd.DataFrame(list_of_tuples,columns=['location','head','hname','alt','act','aname','new_hd','reward','map','info'])
     return df
+
 
 def make_custom_env(env_id, num_env, seed, wrapper_kwargs=None, start_index=0):
     """
@@ -169,6 +173,7 @@ class Simulation:
                  hiker_initial_position=None,
                  curriculum_radius=None,
                  goal_mode=None,
+                 use_mavsim=None,
                  episode_length=None):
 
         self.training = training
@@ -187,9 +192,13 @@ class Simulation:
             check_and_handle_existing_folder(self.full_checkpoint_path)
             check_and_handle_existing_folder(self.full_summary_path)
 
-        kwargs= { 'drone_initial_position':drone_initial_position, 'drone_initial_heading':drone_initial_heading,
+        kwargs= { 'drone_initial_position':drone_initial_position,
+                  'drone_initial_heading':drone_initial_heading,
                   'drone_initial_altitude':drone_initial_altitude,
-                  'goal_mode':goal_mode, 'episode_length':episode_length, 'curriculum_radius':curriculum_radius }
+                  'goal_mode':goal_mode,
+                  'episode_length':episode_length,
+                  'curriculum_radius':curriculum_radius,
+                  'use_mavsim':use_mavsim}
 
         #(MINE) Create multiple parallel environements (or a single instance for testing agent)
         if self.training and self.visualize==False:
@@ -198,6 +207,7 @@ class Simulation:
             self.envs = make_custom_env('gridworld{}-v3'.format('visualize' if self.visualize else ''), FLAGS.n_envs, 1, wrapper_kwargs=kwargs)
         elif self.training==False:
             #envs = make_custom_env('gridworld-v0', 1, 1)
+            print("Making a single Environment for Testing")
             self.envs = gym.make('gridworld{}-v0'.format('visualize' if self.visualize else ''), **kwargs)
         else:
             print('Wrong choices in FLAGS training and visualization')
@@ -270,6 +280,8 @@ class Simulation:
             ppo_par=ppo_par,
             policy_type = FLAGS.policy_type
         )
+
+
 
     def _save_if_training(self,agent):
         agent.save(self.full_checkpoint_path)
@@ -438,12 +450,13 @@ class Simulation:
                         print("Is done?? ",done)
 
                         step_data['action'] = action
+                        step_data['new_heading'] = ACTION.new_heading(self.runner.envs.heading, action)
+
                         step_data['reward'] = reward
                         step_data['fc'] = fc
                         step_data['action_probs'] = action_probs
                         step_data['info'] = info
                         step_data['map'] = self.runner.envs.submap_offset
-
                         print("run_agent.py:run episode {} appending step_data ".format(self.runner.episode_counter))
                         all_data[self.runner.episode_counter]['nav'].append(step_data)
 
