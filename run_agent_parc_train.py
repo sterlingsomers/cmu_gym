@@ -23,7 +23,8 @@ if __name__ == "__main__":
 
     sim = Simulation(
         training=True,
-        visualize=False,
+        verbose=False,
+        model_name='parc_curriculum',
         curriculum_radius=3,
         goal_mode='navigate',
         episode_length=9

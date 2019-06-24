@@ -412,7 +412,8 @@ class ActorCriticAgent:
         ckpt = tf.train.get_checkpoint_state(path)
         self.saver.restore(self.sess, ckpt.model_checkpoint_path)
         self.train_step = int(ckpt.model_checkpoint_path.split('-')[-1])
-        print("loaded old model with train_step %d" % self.train_step)
+        print("Found model at: {}".format(path))
+        print("Starting with train_step=%d" % self.train_step)
         self.train_step += 1
 
     def update_theta(self):

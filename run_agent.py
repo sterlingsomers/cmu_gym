@@ -37,7 +37,8 @@ import gym_gridworld
 
 from gym_gridworld.envs.gridworld_env import HEADING
 from gym_gridworld.envs.gridworld_env import ACTION
-
+import json
+import ast
 
 FLAGS = flags.FLAGS
 flags.DEFINE_bool("visualize", True, "Whether to render with pygame.")
@@ -122,27 +123,6 @@ def _print(i):
 
 
 
-def extract_trajectory(result):
-
-    traj_all_columns = result[0]['nav']
-    traj_key_columns = [ (  (step['drone'][1][0] ,step['drone'][2][0]),
-                            step['heading'], HEADING.to_short_string(step['heading']),
-                            step['altitude'],
-                            step['action'], ACTION.to_short_string(step['action']),
-                            step['new_heading'],
-                            step['reward'],
-                            step['map'],
-                            "{}".format(step['info']))
-                         for step in traj_all_columns ]
-
-    return traj_key_columns
-
-
-def list_of_tuples_to_dataframe(list_of_tuples):
-
-    df  = pd.DataFrame(list_of_tuples,columns=['location','head','hname','alt','act','aname','new_hd','reward','map','info'])
-    return df
-
 
 def make_custom_env(env_id, num_env, seed, wrapper_kwargs=None, start_index=0):
     """
@@ -164,28 +144,34 @@ def make_custom_env(env_id, num_env, seed, wrapper_kwargs=None, start_index=0):
 class Simulation:
 
     def __init__(self,
+
                  training=FLAGS.training,
-                 visualize = FLAGS.visualize,
+                 verbose = FLAGS.visualize,
+                 environment_id = 'gridworld-v0',
+                 model_name = FLAGS.model_name,
 
                  drone_initial_position=None,
                  drone_initial_heading = None,
                  drone_initial_altitude= None,
                  hiker_initial_position=None,
+
                  curriculum_radius=None,
                  goal_mode=None,
                  use_mavsim=None,
-                 episode_length=None):
+                 episode_length=None  ):
 
         self.training = training
-        self.visualize = visualize
+        self.verbose = verbose
+        self.environment_id = environment_id
+        self.model_name = model_name
 
         #TODO this runner is maybe too long and too messy..
-        self.full_checkpoint_path = os.path.join(FLAGS.checkpoint_path, FLAGS.model_name)
+        self.full_checkpoint_path = os.path.join(FLAGS.checkpoint_path, self.model_name)
 
         if self.training:
-            self.full_summary_path = os.path.join(FLAGS.summary_path, FLAGS.model_name)
+            self.full_summary_path = os.path.join(FLAGS.summary_path, self.model_name)
         else:
-            self.full_summary_path = os.path.join(FLAGS.summary_path, "no_training", FLAGS.model_name)
+            self.full_summary_path = os.path.join(FLAGS.summary_path, "no_training", self.model_name)
 
 
         if self.training:
@@ -195,20 +181,22 @@ class Simulation:
         kwargs= { 'drone_initial_position':drone_initial_position,
                   'drone_initial_heading':drone_initial_heading,
                   'drone_initial_altitude':drone_initial_altitude,
+                  'hiker_initial_position':hiker_initial_position,
                   'goal_mode':goal_mode,
+                  'verbose':verbose,
                   'episode_length':episode_length,
                   'curriculum_radius':curriculum_radius,
                   'use_mavsim':use_mavsim}
 
         #(MINE) Create multiple parallel environements (or a single instance for testing agent)
-        if self.training and self.visualize==False:
+        if self.training and self.verbose==False:
             #envs = SubprocVecEnv((partial(make_sc2env, **env_args),) * FLAGS.n_envs)
             #envs = SubprocVecEnv([make_env(i,**env_args) for i in range(FLAGS.n_envs)])
-            self.envs = make_custom_env('gridworld{}-v3'.format('visualize' if self.visualize else ''), FLAGS.n_envs, 1, wrapper_kwargs=kwargs)
+            self.envs = make_custom_env(self.environment_id, FLAGS.n_envs, 1, wrapper_kwargs=kwargs)
         elif self.training==False:
             #envs = make_custom_env('gridworld-v0', 1, 1)
             print("Making a single Environment for Testing")
-            self.envs = gym.make('gridworld{}-v0'.format('visualize' if self.visualize else ''), **kwargs)
+            self.envs = gym.make(self.environment_id, **kwargs)
         else:
             print('Wrong choices in FLAGS training and visualization')
             return
@@ -450,7 +438,6 @@ class Simulation:
                         print("Is done?? ",done)
 
                         step_data['action'] = action
-                        step_data['new_heading'] = ACTION.new_heading(self.runner.envs.heading, action)
 
                         step_data['reward'] = reward
                         step_data['fc'] = fc
@@ -566,6 +553,106 @@ class Simulation:
         self.envs.close()
 
         return all_data
+
+
+
+
+
+
+def extract_trajectory(result):
+
+    traj_all_columns = result[0]['nav']
+    traj_key_columns = [ (  (step['drone'][1][0] ,step['drone'][2][0]),
+                            step['heading'],
+                            HEADING.to_short_string(step['heading']),
+                            step['altitude'],
+                            step['action'],
+                            ACTION.to_short_string(step['action']),
+                            step['reward'],
+                            step['map'],
+                            "{}".format(step['info']))
+                         for step in traj_all_columns ]
+
+    return traj_key_columns
+
+
+def list_of_tuples_to_dataframe(list_of_tuples):
+
+    df  = pd.DataFrame(list_of_tuples,columns=['location','head','hname','alt','act','aname','reward','map','info'])
+    return df
+
+
+def to_mavsim_actions(df):
+
+    """Converts a trajectory from the CMU_DRONE to MAVSim actions.
+
+       The drone takes an action such as UP_RIGHT_45.
+       This causes it to change headings from North to North East.
+       It causes the drone to descend from altitude 3 to altitude 2.
+
+       We can replace this with a MAVSim action based on
+       where the drone gets to instead of the action taken.
+
+       ( FLIGHT HEAD_TO <heading_degrees> <distance> <altitude> )
+
+       We treat this as a MAVSim action (FLIGHT HEAD_TO 45 1 2)
+
+       Note, the very first heading and altitude are the intial state so
+       they do not represent an action. We discard them.
+
+       The last action taken by the drone is not executed to produce a new state.
+       So, there are only N-1 actions for an N step trajectory."""
+
+    actions = df['act']
+    last_action = actions.iloc[-1]
+
+
+    altitudes = df['alt']
+    last_altitude = altitudes.iloc[-1]
+    next_altitude = ACTION.new_altitude(last_altitude,last_action)
+    mavsim_altitudes = df['alt'].to_list()
+    mavsim_altitudes.pop(0)
+    #mavsim_altitudes.append(next_altitude)
+
+    headings = df['head']
+    last_heading = headings.iloc[-1]
+    next_heading = ACTION.new_heading(last_heading,last_action)
+    mavsim_headings = df['head'].to_list()
+    mavsim_headings.pop(0)
+    #mavsim_headings.append(next_heading)
+
+    mavsim_actions = [ "(FLIGHT HEAD_TO {} 1 {})".format(h,a) for (h,a) in zip( mavsim_headings, mavsim_altitudes)  ]
+
+    return mavsim_actions
+
+def to_mavsim_rewards(df):
+
+    info = df['info']
+
+    Rhike=0
+    Rstep=0
+    Rcrash=0
+    Rtime=0
+
+    for row in info:
+
+        row = ast.literal_eval(row)
+
+        if 'Rhike' in row:
+            Rhike=Rhike+row['Rhike']
+
+        if 'Rstep' in row:
+            Rstep=Rstep+row['Rstep']
+
+        if 'Rcrash' in row:
+            Rcrash=Rcrash+row['Rcrash']
+
+        if 'Rtime' in row:
+            Rtime=Rtime+row['Rtime']
+
+    Rtot = Rstep+Rhike+Rcrash+Rtime
+
+    return { 'Rhike':Rhike, 'Rstep':Rstep, 'Rcrash':Rcrash, 'Rtime':Rtime, 'Rtot':Rtot }
 
 
 if __name__ == "__main__":

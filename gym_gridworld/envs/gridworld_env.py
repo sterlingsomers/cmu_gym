@@ -15,7 +15,7 @@ from PIL import Image as Image
 # import matplotlib.pyplot as plt
 import threading
 import random
-import pygame
+
 from scipy.misc import imresize
 import matplotlib.pyplot as plt
 
@@ -60,11 +60,11 @@ class HeadingEnumeration:
         }
 
         self.heading_to_short_description = {
-            1:'N',        # X++
+            1:'N',         # X++
             2:'NE',
             3:'E',         # Y++
-            4:'SE',   # X--
-            5:'S',        # X--
+            4:'SE',        # X--
+            5:'S',         # X--
             6:'SW',
             7:'W',         # Y--
             8:'NW'
@@ -208,6 +208,18 @@ class ActionEnumeration:
 
         return heading
 
+    def new_altitude(self, old_altitude, action_int):
+
+        dz = self.delta_z(action_int)
+        altitude = old_altitude + dz
+        if altitude>4:
+            altitude = 3
+        else:
+            if altitude<0:
+                altitude = 0
+
+        return altitude
+
     def to_string(self,action_int):
         return self.action_to_description[action_int]
 
@@ -274,13 +286,14 @@ class GridworldEnv(gym.Env):
     num_envs = 1
 
     def __init__(self,
-                 hiker_initial_position=None, drone_initial_position=None, drone_initial_altitude=None, drone_initial_heading=None,
+                 hiker_initial_position=None,
+                 drone_initial_position=None, drone_initial_altitude=None, drone_initial_heading=None,
                  timestep_limit=1,
                  width=20, height=20,
                  use_mavsim=False,
                  verbose=False,
                  curriculum_radius=None,
-                 goal_mode=None,
+                 goal_mode='drop',
                  episode_length=None):
 
 
@@ -720,9 +733,10 @@ class GridworldEnv(gym.Env):
         self.step_number = self.step_number + 1
         if self.episode_length!=None and self.step_number >= self.episode_length:
             done = True
-            reward = 0
+            reward = -1
             info['success'] = False
             info['ex'] = 'Timeout'
+            info['Rtime'] = -1
 
             return (self.generate_observation(), reward, done, info)
 
@@ -737,6 +751,7 @@ class GridworldEnv(gym.Env):
 
         if crash:
             reward = -1
+            info['Rcrash']=-1
             done = True
             print("CRASH")
             info['ex'] = 'crash'
@@ -755,14 +770,16 @@ class GridworldEnv(gym.Env):
             if self.check_for_drone_over_hiker(drone_position):
                 done = True
                 reward=1
-                info['ex']='got hiker'
+                info['ex']='arrived'
+                info['Rhike']=1
                 return (self.generate_observation(), reward, done, info)
 
         # Multiple packages
 
-        if (not self.goal_mode=='navigate') and self.drop:
+        if self.goal_mode=='drop' and self.drop:
             self.drop = 0
             reward = self.reward
+            info['Rdrop']=reward
             print('DROP!!!', 'self.reward=', self.reward, 'alt_reward=', self.alt_rewards[self.altitude],
                   'hiker-package distance=', self.pack_dist)
             self.countdrop = self.countdrop + 1
@@ -790,6 +807,7 @@ class GridworldEnv(gym.Env):
         self.dist_old = self.dist
         reward = -0.0001#-0.01#(self.alt_rewards[self.altitude]*0.1)*((1/((self.dist**2)+1e-7))) # -0.01 + # The closer we are to the hiker the more important is to be close to its altitude
         #print("scale:",(1/((self.dist**2+1e-7))), "dist=",self.dist+1e-7, "alt=", self.altitude, "drone:",drone, "hiker:", hiker,"found:", self.check_for_hiker())
+        info['Rstep']=reward
         return (self.generate_observation(), reward, done, info)
 
 
@@ -863,7 +881,7 @@ class GridworldEnv(gym.Env):
                 hiker = random.choice(hiker_safe_points)
                 # int(self.original_map_volume['vol'][hiker])
             else:
-                hiker = hiker_initial_position
+                hiker = self.hiker_initial_position
 
             if self.drone_initial_position==None:
 
