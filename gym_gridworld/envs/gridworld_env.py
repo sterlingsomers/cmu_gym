@@ -682,8 +682,8 @@ class GridworldEnv(gym.Env):
         self.drop = False
         self.countdrop = 0
         self.no_action_flag = False
-        self.heading = random.randint(1, 8)
-        self.altitude = random.randint(1,3)
+        #self.heading = random.randint(1, 8)
+        # self.altitude = random.randint(1,3)
         self.reward = 0
         self.crash = 0
         self.package_dropped = 0
@@ -776,7 +776,7 @@ class GridworldEnv(gym.Env):
 
         ####actual maps### (Un)comment below if you DONT want to use custom maps
         #######################################
-        self._map = random.choice(self.maps)
+        # self._map = random.choice(self.maps)
         if self._map[0]==1:
             path = './gym_gridworld/'
             filename = '{}-{}.mp'.format(self._map[0], self._map[1])
@@ -786,27 +786,27 @@ class GridworldEnv(gym.Env):
         else:
             self.map_volume = CNP.map_to_volume_dict(self._map[0], self._map[1], self.mapw, self.maph)
 
-        map_ = self.map_volume['flat']
-        # place the hiker
-        hiker_safe_points = []
-        for val in self.masks['hiker']:
-            where_array = np.where(map_ == val)
-            hiker_safe_points = hiker_safe_points + [(x, y) for x, y in zip(where_array[0], where_array[1]) if
-                                                     x >= 3 and y >= 3 and x <= self.map_volume['vol'].shape[
-                                                         1] - 3 and y <= self.map_volume['vol'].shape[1] - 3]
-        """ Specify Hiker location"""
-        self.hiker = random.choice(hiker_safe_points)
+        # map_ = self.map_volume['flat']
+        # # place the hiker
+        # hiker_safe_points = []
+        # for val in self.masks['hiker']:
+        #     where_array = np.where(map_ == val)
+        #     hiker_safe_points = hiker_safe_points + [(x, y) for x, y in zip(where_array[0], where_array[1]) if
+        #                                              x >= 3 and y >= 3 and x <= self.map_volume['vol'].shape[
+        #                                                  1] - 3 and y <= self.map_volume['vol'].shape[1] - 3]
+        # """ Specify Hiker location"""
+        # self.hiker = random.choice(hiker_safe_points)
         # self.hiker = (8,7) #(18, 16)
 
         # int(self.original_map_volume['vol'][hiker])
         # place the drone
-        drone_safe_points = []
-        for val in self.masks[self.altitude]:
-            where_array = np.where(map_ == val)
-            drone_safe_points = drone_safe_points + [(x, y) for x, y in zip(where_array[0], where_array[1]) if
-                                                     x >= 3 and y >= 3 and x <= self.map_volume['vol'].shape[
-                                                         1] - 3 and y <= self.map_volume['vol'].shape[1] - 3]
-        """ Around the hiker """
+        # drone_safe_points = []
+        # for val in self.masks[self.altitude]:
+        #     where_array = np.where(map_ == val)
+        #     drone_safe_points = drone_safe_points + [(x, y) for x, y in zip(where_array[0], where_array[1]) if
+        #                                              x >= 3 and y >= 3 and x <= self.map_volume['vol'].shape[
+        #                                                  1] - 3 and y <= self.map_volume['vol'].shape[1] - 3]
+        # """ Around the hiker """
         # D = distance.cdist([self.hiker], drone_safe_points, 'chebyshev').astype(int) # Distances from hiker to all drone safe points
         #
         # # print('Distance:',D[0])
@@ -827,21 +827,21 @@ class GridworldEnv(gym.Env):
         # drone = (hiker[0]-2, hiker[1]-3)
         # drone = random.choice([(hiker[0] - 1, hiker[1] - 1), (hiker[0] - 1, hiker[1] ), (hiker[0], hiker[1] - 1 )])
 
-        """Random away location + safe check"""
-        # drone = random.choice([(hiker[0] - 5, hiker[1] - 3), (hiker[0] - 6, hiker[1]), (hiker[0], hiker[1] - 4), (hiker[0] - 6, hiker[1] - 7)])
-        self.drone = random.choice([(self.hiker[0] - 8, self.hiker[1] - 3), (self.hiker[0] - 10, self.hiker[1]), (self.hiker[0], self.hiker[1] - 9),
-                               (self.hiker[0] - 12, self.hiker[1] - 7)])
-        times = 0
-        while self.drone not in drone_safe_points:
-            self.drone = random.choice([(self.hiker[0] - 5, self.hiker[1] - 3), (self.hiker[0] - 6, self.hiker[1]), (self.hiker[0], self.hiker[1] - 4),
-                                   (self.hiker[0] - 6, self.hiker[1] - 7)])
-            # print('non safe reset drone pos')
-            if times==10:
-                print('max reps reached so reset hiker')
-                self.hiker = random.choice(hiker_safe_points)
-                # self.altitude = random.randint(1, 3) # NO cauz then you have to recalculate drone safe points
-                times = 0
-            times = times + 1
+        # """Random away location + safe check"""
+        # # drone = random.choice([(hiker[0] - 5, hiker[1] - 3), (hiker[0] - 6, hiker[1]), (hiker[0], hiker[1] - 4), (hiker[0] - 6, hiker[1] - 7)])
+        # self.drone = random.choice([(self.hiker[0] - 8, self.hiker[1] - 3), (self.hiker[0] - 10, self.hiker[1]), (self.hiker[0], self.hiker[1] - 9),
+        #                        (self.hiker[0] - 12, self.hiker[1] - 7)])
+        # times = 0
+        # while self.drone not in drone_safe_points:
+        #     self.drone = random.choice([(self.hiker[0] - 5, self.hiker[1] - 3), (self.hiker[0] - 6, self.hiker[1]), (self.hiker[0], self.hiker[1] - 4),
+        #                            (self.hiker[0] - 6, self.hiker[1] - 7)])
+        #     # print('non safe reset drone pos')
+        #     if times==10:
+        #         print('max reps reached so reset hiker')
+        #         self.hiker = random.choice(hiker_safe_points)
+        #         # self.altitude = random.randint(1, 3) # NO cauz then you have to recalculate drone safe points
+        #         times = 0
+        #     times = times + 1
 
         """ All safe points included for final training """
         # self.drone = random.choice(drone_safe_points)

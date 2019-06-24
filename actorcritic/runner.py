@@ -22,6 +22,8 @@ import json
 import operator
 import pickle
 import actr #Version 7.11.1 tested (may work on others)
+import threading
+import time
 from scipy import spatial
 
 PPORunParams = namedtuple("PPORunParams", ["lambda_par", "batch_size", "n_epochs"])
@@ -29,6 +31,8 @@ PPORunParams = namedtuple("PPORunParams", ["lambda_par", "batch_size", "n_epochs
 
 #stats
 stats = {'crashes':0,'successes':0}
+
+actr_time = 0
 
 actr_initialized = False
 min_max = {'ego_left':[],
@@ -243,8 +247,8 @@ def similarity(val1, val2):
     if val1 == val2:
         return 0
     # import pdb; pdb.set_trace()
-    if val1 == 'NAV' and val2 == 'DROP':
-        return -5
+    # if val1 == 'NAV' and val2 == 'DROP':
+    #     return -5
 
     if not type(val1) == list:
         return 0
@@ -259,7 +263,7 @@ def similarity(val1, val2):
         #print("FC", remap(dist, min(fc_distances),max(fc_distances),0,1) * -1)
         return remap(dist, min(fc_distances),max(fc_distances),0,1) * -1#spatial.distance.cosine(val1[1],val2[1])* -1#
 
-    return 0
+    #return 0
     max_val = max(min_max[val1[0].lower()])
     min_val = min(min_max[val1[0].lower()])
 
@@ -380,63 +384,72 @@ def compute_S(blend_trace, keys_list):
     return rturn
 
 def reset_actr():
-
-    model_name = 'egocentric_allocentric_salience.lisp'
-    model_path = '/Users/paulsomers/COGLE/gym-gridworld/'
-
-    chunk_file_name = 'chunks_cluster_centers_15actions_2000_fc_ALLMAPS_200randommax.pkl'
-    #chunk_path = os.path.join(model_path,'data')
-    chunk_path = ''
-    actr.add_command('similarity_function',similarity)
-    actr.load_act_r_model(os.path.join(model_path,model_name))
-    actr.record_history("blending-trace")
-
-    max_mins_name = 'max_mins_from_data.pkl'
-    max_mins = pickle.load(open(os.path.join(chunk_path,max_mins_name),'rb'))
+    global actr_initialized
     global allchunks
-    #load all the chunks
-    allchunks = pickle.load(open(os.path.join(chunk_path,chunk_file_name),'rb'))
-    for chunk in allchunks:
-        #chunk1 = chunk[0:4]
-        #chunk2 = chunk[6:]
-        #chunk = chunk1 + chunk2
-        #alt = chunk[3][1]
-        #chunk[5][1] = chunk[5][1] - alt
-        #chunk[7][1] = chunk[7][1] - alt
-        #chunk[9][1] = chunk[9][1] - alt
-        #chunk[11][1] = chunk[11][1] - alt
-        #chunk[13][1] = chunk[13][1] - alt
-        chunk = [float(x) if type(x) == np.float64 else x for x in chunk]
-        chunk = [int(x) if type(x) == np.int64 else x for x in chunk]
-        actr.add_dm(chunk)
+    global fc_distances
 
-    # ignore_list = ['left', 'diagonal_left', 'center', 'diagonal_right', 'right', 'type', 'drop', 'up', 'down', 'level']
-    ignore_list = ['left_down','diagonal_left_down','center_down','diagonal_right_down','right_down',
-                   'left_level','diagonal_left_level','center_level','diagonal_right_level','right_level',
-                   'left_up','diagonal_left_up','center_up','diagonal_right_up','right_up', 'drop', 'type', 'fc']
-    #collecting the max mins
-    for chunk in allchunks:
-        for x, y in zip(*[iter(chunk)] * 2):
-            #x, y[1]
-            if not x in ignore_list and not x == 'isa':
-                if y[1] not in min_max[x]:
-                    min_max[x].append(y[1])
-    #modifying the max_mins to include things from data collection, inorder to transponse
-    for key in max_mins:
-        if key == 'ego':
-            for aMinMax in min_max:
-                if 'ego' in aMinMax:
-                    min_max[aMinMax] = max_mins[key]
-        elif key == 'distance':
-            min_max['distance_to_hiker'] = max_mins[key]
-        else:
-            min_max[key] = max_mins[key]
+
+    if not actr_initialized or actr_initialized:
+        model_name = 'egocentric_allocentric_salience.lisp'
+        model_path = '/Users/paulsomers/COGLE/gym-gridworld/'
+
+        chunk_file_name = 'chunks_cluster_centers_15actions_2000_fc_ALLMAPS_200randommax.pkl'
+        #chunk_path = os.path.join(model_path,'data')
+        chunk_path = ''
+        actr.add_command('similarity_function',similarity)
+        actr.add_command('ticker', actr_time)
+
+        # actr_thread = threading.Thread(target=actr.load_act_r_model, args=[os.path.join(model_path,model_name)])
+        # actr_thread.daemon = True
+        # actr_thread.start()
+        actr.load_act_r_model(os.path.join(model_path,model_name))
+        actr.record_history("blending-trace")
+
+        max_mins_name = 'max_mins_from_data.pkl'
+        max_mins = pickle.load(open(os.path.join(chunk_path,max_mins_name),'rb'))
+
+        #load all the chunks
+        allchunks = pickle.load(open(os.path.join(chunk_path,chunk_file_name),'rb'))
+        for chunk in allchunks:
+            #chunk1 = chunk[0:4]
+            #chunk2 = chunk[6:]
+            #chunk = chunk1 + chunk2
+            #alt = chunk[3][1]
+            #chunk[5][1] = chunk[5][1] - alt
+            #chunk[7][1] = chunk[7][1] - alt
+            #chunk[9][1] = chunk[9][1] - alt
+            #chunk[11][1] = chunk[11][1] - alt
+            #chunk[13][1] = chunk[13][1] - alt
+            chunk = [float(x) if type(x) == np.float64 else x for x in chunk]
+            chunk = [int(x) if type(x) == np.int64 else x for x in chunk]
+            actr.add_dm(chunk)
+
+        # ignore_list = ['left', 'diagonal_left', 'center', 'diagonal_right', 'right', 'type', 'drop', 'up', 'down', 'level']
+        ignore_list = ['left_down','diagonal_left_down','center_down','diagonal_right_down','right_down',
+                       'left_level','diagonal_left_level','center_level','diagonal_right_level','right_level',
+                       'left_up','diagonal_left_up','center_up','diagonal_right_up','right_up', 'drop', 'type', 'fc']
+        #collecting the max mins
+        for chunk in allchunks:
+            for x, y in zip(*[iter(chunk)] * 2):
+                #x, y[1]
+                if not x in ignore_list and not x == 'isa':
+                    if y[1] not in min_max[x]:
+                        min_max[x].append(y[1])
+        #modifying the max_mins to include things from data collection, inorder to transponse
+        for key in max_mins:
+            if key == 'ego':
+                for aMinMax in min_max:
+                    if 'ego' in aMinMax:
+                        min_max[aMinMax] = max_mins[key]
+            elif key == 'distance':
+                min_max['distance_to_hiker'] = max_mins[key]
+            else:
+                min_max[key] = max_mins[key]
     #print('asf')
 
     #distance of all FC, in order to scale the euclidean distance
 
-    global actr_initialized
-    global fc_distances
+
     fcs = []
     if not actr_initialized:
 
@@ -458,6 +471,10 @@ def reset_actr():
 
     print("reset done.")
     actr_initialized = True
+    # actr_thread = threading.Thread(target=actr.run_full_time, args=[600,True])
+    # actr_thread.daemon = True
+    # actr_thread.start()
+
 
 def create_actr_observation(step):
     transposes = ['ego_left', 'ego_diagonal_left', 'ego_center', 'ego_diagonal_right', 'ego_right',
@@ -503,6 +520,13 @@ def create_actr_observation(step):
 
     return chunk
 
+def actr_tick():
+    global actr_time
+
+    actr_time += 100
+    print("TICK", actr_time)
+    return actr_time
+
 def handle_observation(observation):
     '''observation should have chunk format'''
 
@@ -514,7 +538,15 @@ def handle_observation(observation):
     actr.schedule_set_buffer_chunk('imaginal',chunk[0],0)
     actr.run(10)
 
+
+
     d = actr.get_history_data("blending-trace")
+    # while d == None:
+    #     time.sleep(3)
+    #     d = actr.get_history_data("blending-trace")
+
+
+
     d = json.loads(d)
 
     # first add the blend to the results dictionary
@@ -587,6 +619,7 @@ def handle_observation(observation):
 
     #print("done")
 
+#reset ACTR before game starts
 reset_actr()
 
 class Runner(object):
@@ -891,8 +924,11 @@ class Runner(object):
         network_action_ids = np.array(action_ids, copy=True)
         actr_observation = create_actr_observation(step_data)
         actr_action = handle_observation(actr_observation)
+
         action_ids = np.array([actr_action])
         # nav_runner.envs.step(action)
+
+        #reset actr every step (load chunks, etc.)
         reset_actr()
 
         print('|actions:', 'net', network_action_ids, 'actr', action_ids)

@@ -35,9 +35,9 @@
               left_down diagonal_left_down center_down diagonal_right_down right_down
               left_level diagonal_left_level center_level diagonal_right_level right_level
               left_up diagonal_left_up center_up diagonal_right_up right_up fc)
-
-
-
+  ;(run-full-time 360 t)
+  ;(schedule-event 360 (lambda ())); dummy function
+  ;(mp-real-time-management :time-function "ticker")
 
   (p p1
      =imaginal>
