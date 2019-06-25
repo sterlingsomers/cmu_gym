@@ -33,19 +33,19 @@ import gym_gridworld
 
 FLAGS = flags.FLAGS
 flags.DEFINE_bool("visualize", True, "Whether to render with pygame.")
-flags.DEFINE_float("sleep_time", 0.5, "Time-delay in the demo")
+flags.DEFINE_float("sleep_time", 0, "Time-delay in the demo")
 flags.DEFINE_integer("resolution", 32, "Resolution for screen and minimap feature layers.")
 flags.DEFINE_integer("step_mul", 100, "Game steps per agent step.")
 flags.DEFINE_integer("step2save", 1000, "Game step to save the model.") #A2C every 1000, PPO 250
 flags.DEFINE_integer("n_envs", 80, "Number of environments to run in parallel")
-flags.DEFINE_integer("episodes", 5, "Number of complete episodes")
+flags.DEFINE_integer("episodes", 100, "Number of complete episodes")
 flags.DEFINE_integer("n_steps_per_batch", 32,
     "Number of steps per batch, if None use 8 for a2c and 128 for ppo")  # (MINE) TIMESTEPS HERE!!! You need them cauz you dont want to run till it finds the beacon especially at first episodes - will take forever
 flags.DEFINE_integer("all_summary_freq", 50, "Record all summaries every n batch")
 flags.DEFINE_integer("scalar_summary_freq", 5, "Record scalar summaries every n batch")
 flags.DEFINE_string("checkpoint_path", "_files/models", "Path for agent checkpoints")
 flags.DEFINE_string("summary_path", "_files/summaries", "Path for tensorboard summaries")
-flags.DEFINE_string("model_name", "A2C_alts", "Name for checkpoints and tensorboard summaries") # DONT touch TESTING is the best (take out normalization layer in order to work! -- check which parts exist in the restore session if needed)
+flags.DEFINE_string("model_name", "A2C-science-allmaps", "Name for checkpoints and tensorboard summaries") # DONT touch TESTING is the best (take out normalization layer in order to work! -- check which parts exist in the restore session if needed)
 flags.DEFINE_integer("K_batches", 15000, # Batch is like a training epoch!
     "Number of training batches to run in thousands, use -1 to run forever") #(MINE) not for now
 flags.DEFINE_string("map_name", "DefeatRoaches", "Name of a map to use.")
@@ -63,7 +63,7 @@ flags.DEFINE_float("entropy_weight_action", 0.001, "entropy of action-id distrib
 flags.DEFINE_float("ppo_lambda", 0.95, "lambda parameter for ppo")
 flags.DEFINE_integer("ppo_batch_size", None, "batch size for ppo, if None use n_steps_per_batch")
 flags.DEFINE_integer("ppo_epochs", 3, "epochs per update")
-flags.DEFINE_enum("policy_type", "FullyConv3D", ["MetaPolicy", "FullyConv", "Relational", "AlloAndAlt", "FullyConv3D"], "Which type of Policy to use")
+flags.DEFINE_enum("policy_type", "FullyConv", ["MetaPolicy", "FullyConv", "Relational", "AlloAndAlt", "FullyConv3D"], "Which type of Policy to use")
 flags.DEFINE_enum("agent_mode", ACMode.A2C, [ACMode.A2C, ACMode.PPO], "if should use A2C or PPO")
 
 ### NEW FLAGS ####
@@ -441,7 +441,7 @@ def main():
             drone_head_alt = str(runner.envs.heading) + '-' + str(runner.envs.altitude)
             hiker_loc = str(runner.envs.hiker[0]) + '-' + str(runner.envs.hiker[1])
             type = '.tj'
-            path = folder + map_name + '_' + drone_init_loc + '_' + drone_head_alt + '_' + hiker_loc + '_' + str(FLAGS.episodes) + type
+            path = folder + 'MAP' + map_name + '_' + 'D' + drone_init_loc + '_' + 'HeadAlt' + drone_head_alt + '_' + 'H' + hiker_loc + '_' + str(FLAGS.episodes) + type
             pickle_in = open(path,'wb')
             pickle.dump(dictionary, pickle_in)
 

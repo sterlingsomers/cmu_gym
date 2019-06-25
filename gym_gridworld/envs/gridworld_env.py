@@ -44,7 +44,7 @@ class GridworldEnv(gym.Env):
         self.drop = False
         self.countdrop = 0
         self.no_action_flag = False
-        self.maps =[(149, 341)]#[(1,1), (1,2), (1,3), (1,4), (1,5), (1,6), (1,7)]
+        self.maps =[(321, 337)]#[(1,1), (1,2), (1,3), (1,4), (1,5), (1,6), (1,7)]
             # [(265,308),(20,94),(146,456),(149,341),(164,90),(167,174),
             #             (224,153),(241,163),(260,241),(265,311),(291,231),
             #             (308,110),(334,203),(360,112),(385,291),(330,352),(321,337)]#[(400,35), (350,90), (430,110),(390,50), (230,70)] #[(86, 266)] (70,50) # For testing, 70,50 there is no where to drop in the whole map
@@ -674,8 +674,8 @@ class GridworldEnv(gym.Env):
         self.drop = False
         self.countdrop = 0
         self.no_action_flag = False
-        self.heading = random.randint(1, 8)
-        self.altitude = random.randint(1,3)
+        self.heading = 8#random.randint(1, 8)
+        self.altitude = 1#random.randint(1,3)
         self.reward = 0
         self.crash = 0
         self.package_dropped = 0
@@ -787,8 +787,8 @@ class GridworldEnv(gym.Env):
                                                      x >= 3 and y >= 3 and x <= self.map_volume['vol'].shape[
                                                          1] - 3 and y <= self.map_volume['vol'].shape[1] - 3]
         """ Specify Hiker location"""
-        self.hiker = random.choice(hiker_safe_points)
-        # self.hiker = (8,7) #(18, 16)
+        # self.hiker = random.choice(hiker_safe_points)
+        self.hiker = (11,8) #(18, 16)
 
         # int(self.original_map_volume['vol'][hiker])
         # place the drone
@@ -798,22 +798,23 @@ class GridworldEnv(gym.Env):
             drone_safe_points = drone_safe_points + [(x, y) for x, y in zip(where_array[0], where_array[1]) if
                                                      x >= 3 and y >= 3 and x <= self.map_volume['vol'].shape[
                                                          1] - 3 and y <= self.map_volume['vol'].shape[1] - 3]
-        """ Around the hiker """
-        D = distance.cdist([self.hiker], drone_safe_points, 'chebyshev').astype(int) # Distances from hiker to all drone safe points
+        """ Drone around the hiker """
+        # D = distance.cdist([self.hiker], drone_safe_points, 'chebyshev').astype(int) # Distances from hiker to all drone safe points
+        #
+        # # print('Distance:',D[0])
+        # # print('Hiker',hiker)
+        # # print('safe_drone',drone_safe_points)
+        # # print('safe_hiker', hiker_safe_points)
+        #
+        # k = 50 # k closest. There might be cases in which you have very few drone safe points (e.g. 3) and only one will be really close
+        # if k> np.array(drone_safe_points).shape[0]:
+        #     k = np.array(drone_safe_points).shape[0] - 1 # Cauz we index from 0 but shape starts from 1 to max shape
+        # indx = np.argpartition(D[0],k) # Return the indices of the k closest distances to the hiker. The [0] is VITAL!!!
+        # # # Use the index to retrieve the k closest safe coords to the hiker
+        # closest_neighs = np.array(drone_safe_points)[indx[:k]] # You need to have the safe points as array and not list
+        # self.drone = tuple(random.choice(closest_neighs))
 
-        # print('Distance:',D[0])
-        # print('Hiker',hiker)
-        # print('safe_drone',drone_safe_points)
-        # print('safe_hiker', hiker_safe_points)
-
-        k = 50 # k closest. There might be cases in which you have very few drone safe points (e.g. 3) and only one will be really close
-        if k> np.array(drone_safe_points).shape[0]:
-            k = np.array(drone_safe_points).shape[0] - 1 # Cauz we index from 0 but shape starts from 1 to max shape
-        indx = np.argpartition(D[0],k) # Return the indices of the k closest distances to the hiker. The [0] is VITAL!!!
-        # # Use the index to retrieve the k closest safe coords to the hiker
-        closest_neighs = np.array(drone_safe_points)[indx[:k]] # You need to have the safe points as array and not list
-        self.drone = tuple(random.choice(closest_neighs))
-
+        """ DON TMIND """
         # NOTES: The first element in the array of safe points might be the hiker position
         # To move away from hiker increase k and define h=k/2 and discard the h first closest_neighs - 9 suppose to be the max of the closest in an open area. So just use dividends of 9 to discard
         # drone = (hiker[0]-2, hiker[1]-3)
@@ -848,7 +849,7 @@ class GridworldEnv(gym.Env):
         """ All safe points included for final training """
         # self.drone = random.choice(drone_safe_points)
         """ Custom location """
-        # self.drone = (10,16)
+        self.drone = (18,11)
 
         self.original_map_volume = copy.deepcopy(self.map_volume)
         self.hiker_drone_dist = max(abs(np.array(self.hiker) - np.array(self.drone)))
