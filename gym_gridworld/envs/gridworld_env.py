@@ -44,7 +44,7 @@ class GridworldEnv(gym.Env):
         self.drop = False
         self.countdrop = 0
         self.no_action_flag = False
-        self.maps =[(1,1), (1,2), (1,3), (1,4), (1,5), (1,6), (1,7)]
+        self.maps =[(149, 341)]#[(1,1), (1,2), (1,3), (1,4), (1,5), (1,6), (1,7)]
             # [(265,308),(20,94),(146,456),(149,341),(164,90),(167,174),
             #             (224,153),(241,163),(260,241),(265,311),(291,231),
             #             (308,110),(334,203),(360,112),(385,291),(330,352),(321,337)]#[(400,35), (350,90), (430,110),(390,50), (230,70)] #[(86, 266)] (70,50) # For testing, 70,50 there is no where to drop in the whole map
@@ -63,6 +63,7 @@ class GridworldEnv(gym.Env):
         self.crash = 0
         self.package_dropped = 0
         self.package_position = ()
+        self.altitude = random.randint(1,3)
         # self._max_episode_steps = 10 # Max timesteps
 
         self.masks = {
@@ -118,6 +119,7 @@ class GridworldEnv(gym.Env):
                              }
         # self.alt_rewards = {0:-1, 1:1, 2:-0.5, 3:-0.8} # This is bad!
         self.alt_rewards = {0: 0, 1: 1, 2: 0.5, 3: 0.08}
+        # self.alt_rewards = {0: 0, 1: 0, 2: 0, 3: 0}
 
 
         self.possible_actions_map = {
@@ -615,14 +617,6 @@ class GridworldEnv(gym.Env):
         info['success'] = False
 
         done = False
-        drone_old = np.where(
-            self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
-        hiker = self.hiker_position
-
-        # observation = self.generate_observation() # You took out this one in Jun 6, 2019 and you substitute the return(observation,...) with self.generate_observation (except the last one which is the return of the whole function)
-        drone = np.where(
-            self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
-        self.dist = np.linalg.norm(np.array(drone[-2:]) - np.array(hiker[-2:])) # we remove height from the equation so we avoid going diagonally down
 
         crash = self.check_for_crash()
         info['success'] = not crash
@@ -670,7 +664,7 @@ class GridworldEnv(gym.Env):
         #         return (observation, reward, done, info)
 
         # print("state", [ self.observation[self.altitude]['drone'].nonzero()[0][0],self.observation[self.altitude]['drone'].nonzero()[1][0]] )
-        self.dist_old = self.dist
+        # self.dist_old = self.dist
         reward = -0.01#-0.01#(self.alt_rewards[self.altitude]*0.1)*((1/((self.dist**2)+1e-7))) # -0.01 + # The closer we are to the hiker the more important is to be close to its altitude
         #print("scale:",(1/((self.dist**2+1e-7))), "dist=",self.dist+1e-7, "alt=", self.altitude, "drone:",drone, "hiker:", hiker,"found:", self.check_for_hiker())
         return (self.generate_observation(), reward, done, info)
@@ -805,20 +799,20 @@ class GridworldEnv(gym.Env):
                                                      x >= 3 and y >= 3 and x <= self.map_volume['vol'].shape[
                                                          1] - 3 and y <= self.map_volume['vol'].shape[1] - 3]
         """ Around the hiker """
-        # D = distance.cdist([self.hiker], drone_safe_points, 'chebyshev').astype(int) # Distances from hiker to all drone safe points
-        #
-        # # print('Distance:',D[0])
-        # # print('Hiker',hiker)
-        # # print('safe_drone',drone_safe_points)
-        # # print('safe_hiker', hiker_safe_points)
-        #
-        # k = 50 # k closest. There might be cases in which you have very few drone safe points (e.g. 3) and only one will be really close
-        # if k> np.array(drone_safe_points).shape[0]:
-        #     k = np.array(drone_safe_points).shape[0] - 1 # Cauz we index from 0 but shape starts from 1 to max shape
-        # indx = np.argpartition(D[0],k) # Return the indices of the k closest distances to the hiker. The [0] is VITAL!!!
-        # # # Use the index to retrieve the k closest safe coords to the hiker
-        # closest_neighs = np.array(drone_safe_points)[indx[:k]] # You need to have the safe points as array and not list
-        # self.drone = tuple(random.choice(closest_neighs))
+        D = distance.cdist([self.hiker], drone_safe_points, 'chebyshev').astype(int) # Distances from hiker to all drone safe points
+
+        # print('Distance:',D[0])
+        # print('Hiker',hiker)
+        # print('safe_drone',drone_safe_points)
+        # print('safe_hiker', hiker_safe_points)
+
+        k = 50 # k closest. There might be cases in which you have very few drone safe points (e.g. 3) and only one will be really close
+        if k> np.array(drone_safe_points).shape[0]:
+            k = np.array(drone_safe_points).shape[0] - 1 # Cauz we index from 0 but shape starts from 1 to max shape
+        indx = np.argpartition(D[0],k) # Return the indices of the k closest distances to the hiker. The [0] is VITAL!!!
+        # # Use the index to retrieve the k closest safe coords to the hiker
+        closest_neighs = np.array(drone_safe_points)[indx[:k]] # You need to have the safe points as array and not list
+        self.drone = tuple(random.choice(closest_neighs))
 
         # NOTES: The first element in the array of safe points might be the hiker position
         # To move away from hiker increase k and define h=k/2 and discard the h first closest_neighs - 9 suppose to be the max of the closest in an open area. So just use dividends of 9 to discard
@@ -829,27 +823,27 @@ class GridworldEnv(gym.Env):
         # drone = random.choice([(hiker[0] - 5, hiker[1] - 3), (hiker[0] - 6, hiker[1]), (hiker[0], hiker[1] - 4), (hiker[0] - 6, hiker[1] - 7)])
         # self.drone = random.choice([(self.hiker[0] - 8, self.hiker[1] - 3), (self.hiker[0] - 10, self.hiker[1]), (self.hiker[0], self.hiker[1] - 9),
         #                        (self.hiker[0] - 12, self.hiker[1] - 7)])
-        self.drone = random.choice([(self.hiker[0] - 12, self.hiker[1] ), (self.hiker[0] - 10, self.hiker[1]), (self.hiker[0]-11, self.hiker[1]),
-                               (self.hiker[0] - 12, self.hiker[1] - 12), (self.hiker[0] - 10, self.hiker[1] - 10), (self.hiker[0] - 11, self.hiker[1] - 11),
-                               (self.hiker[0], self.hiker[1] - 12), (self.hiker[0], self.hiker[1] - 10), (self.hiker[0], self.hiker[1] - 11),
-                                    ])
-        times = 0
-        while self.drone not in drone_safe_points:
-            # self.drone = random.choice([(self.hiker[0] - 5, self.hiker[1] - 3), (self.hiker[0] - 6, self.hiker[1]), (self.hiker[0], self.hiker[1] - 4),
-            #                        (self.hiker[0] - 6, self.hiker[1] - 7)])
-            self.drone = random.choice([(self.hiker[0] - 12, self.hiker[1]), (self.hiker[0] - 10, self.hiker[1]),
-                                        (self.hiker[0] - 11, self.hiker[1]), (self.hiker[0] - 12, self.hiker[1] - 12),
-                                        (self.hiker[0] - 10, self.hiker[1] - 10), (self.hiker[0] - 11, self.hiker[1] - 11),
-                                        (self.hiker[0], self.hiker[1] - 12), (self.hiker[0], self.hiker[1] - 10),
-                                        (self.hiker[0], self.hiker[1] - 11),
-                                        ])
-            # print('non safe reset drone pos')
-            if times==10:
-                print('max reps reached so reset hiker')
-                self.hiker = random.choice(hiker_safe_points)
-                # self.altitude = random.randint(1, 3) # NO cauz then you have to recalculate drone safe points
-                times = 0
-            times = times + 1
+        # self.drone = random.choice([(self.hiker[0] - 12, self.hiker[1] ), (self.hiker[0] - 10, self.hiker[1]), (self.hiker[0]-11, self.hiker[1]),
+        #                        (self.hiker[0] - 12, self.hiker[1] - 12), (self.hiker[0] - 10, self.hiker[1] - 10), (self.hiker[0] - 11, self.hiker[1] - 11),
+        #                        (self.hiker[0], self.hiker[1] - 12), (self.hiker[0], self.hiker[1] - 10), (self.hiker[0], self.hiker[1] - 11),
+        #                             ])
+        # times = 0
+        # while self.drone not in drone_safe_points:
+        #     # self.drone = random.choice([(self.hiker[0] - 5, self.hiker[1] - 3), (self.hiker[0] - 6, self.hiker[1]), (self.hiker[0], self.hiker[1] - 4),
+        #     #                        (self.hiker[0] - 6, self.hiker[1] - 7)])
+        #     self.drone = random.choice([(self.hiker[0] - 12, self.hiker[1]), (self.hiker[0] - 10, self.hiker[1]),
+        #                                 (self.hiker[0] - 11, self.hiker[1]), (self.hiker[0] - 12, self.hiker[1] - 12),
+        #                                 (self.hiker[0] - 10, self.hiker[1] - 10), (self.hiker[0] - 11, self.hiker[1] - 11),
+        #                                 (self.hiker[0], self.hiker[1] - 12), (self.hiker[0], self.hiker[1] - 10),
+        #                                 (self.hiker[0], self.hiker[1] - 11),
+        #                                 ])
+        #     # print('non safe reset drone pos')
+        #     if times==10:
+        #         print('max reps reached so reset hiker')
+        #         self.hiker = random.choice(hiker_safe_points)
+        #         # self.altitude = random.randint(1, 3) # NO cauz then you have to recalculate drone safe points
+        #         times = 0
+        #     times = times + 1
 
         """ All safe points included for final training """
         # self.drone = random.choice(drone_safe_points)
@@ -965,7 +959,7 @@ class GridworldEnv(gym.Env):
         image_layers = copy.deepcopy(self.image_layers)
         map = copy.deepcopy(self.original_map_volume['img'])
 
-        # put the drone in the image layer
+        # put the drone in the image layer # we need to use the self.drone no need for np.where
         drone_position = np.where(
             self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
         drone_position = (int(drone_position[1]) * self.factor, int(drone_position[2]) * self.factor)
@@ -1009,13 +1003,15 @@ class GridworldEnv(gym.Env):
         # map = imresize(map, (1000,1000), interp='nearest')
 
         '''vertical slices at drone's position'''
-        drone_position = np.where(
-            self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
+        # drone_position = np.where(
+        #     self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
 
         nextstepimage = self.create_nextstep_image()
         obs['nextstepimage'] = nextstepimage
         obs['img'] = map
         obs['image_layers'] = image_layers
+        obs['altitude'] = self.altitude
+        obs['image_volume'] = np.stack(im for im in obs['image_layers'].values())#.reshape((100,100,5,3))
         return obs
 
     def render(self, mode='human', close=False):

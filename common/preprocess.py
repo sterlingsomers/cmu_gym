@@ -93,7 +93,9 @@ class ObsProcesser:
         # }
         pp_obs = {
             FEATURE_KEYS.rgb_screen: timestep['img'],
-            FEATURE_KEYS.alt_view: timestep['nextstepimage']
+            FEATURE_KEYS.alt_view: timestep['nextstepimage'],
+            FEATURE_KEYS.altitudes: timestep['altitude'],
+            FEATURE_KEYS.image_vol: timestep['image_volume'],
         }
 
         # pp_obs = {
@@ -220,7 +222,9 @@ FEATURE_LIST = (
     "value_target",
     "advantage",
     "prev_actions",
-    "prev_rewards"
+    "prev_rewards",
+    "altitudes",
+    "image_vol"
 
 )
 

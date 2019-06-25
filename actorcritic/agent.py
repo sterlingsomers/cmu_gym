@@ -5,7 +5,7 @@ import tensorflow as tf
 from pysc2.lib import actions
 from tensorflow.contrib import layers
 from tensorflow.contrib.layers.python.layers.optimizers import OPTIMIZER_SUMMARIES
-from actorcritic.policy import FullyConvPolicy, MetaPolicy, RelationalPolicy
+from actorcritic.policy import FullyConvPolicy, MetaPolicy, RelationalPolicy, FullyConvPolicyAlt, FullyConv3DPolicy
 from common.preprocess import ObsProcesser, FEATURE_KEYS, AgentInputTuple
 from common.util import weighted_random_sample, select_from_each_row, ravel_index_pairs
 import tensorboard.plugins.beholder as beholder_lib
@@ -38,8 +38,10 @@ def _get_placeholders(spatial_dim):
         (FEATURE_KEYS.player_relative_screen, tf.int32, [None, sd, sd]),
         (FEATURE_KEYS.player_relative_minimap, tf.int32, [None, sd, sd]),
         (FEATURE_KEYS.advantage, tf.float32, [None]),
-        (FEATURE_KEYS.prev_actions, tf.int32, [None, sd, sd]),
-        (FEATURE_KEYS.prev_rewards, tf.float32, [None]),
+        (FEATURE_KEYS.prev_actions, tf.int32, [None, None]),
+        (FEATURE_KEYS.prev_rewards, tf.float32, [None, None]),
+        (FEATURE_KEYS.altitudes, tf.int32, [None]),
+        (FEATURE_KEYS.image_vol, tf.float32, [None, 5, 100, 100, 3]),
     ]
     return AgentInputTuple(
         **{name: tf.placeholder(dtype, shape, name) for name, dtype, shape in feature_list}
@@ -123,8 +125,13 @@ class ActorCriticAgent:
             self.policy = FullyConvPolicy
         elif policy == 'Relational':
             self.policy = RelationalPolicy
-        else:
+        elif policy == 'MetaPolicy':
             self.policy = MetaPolicy
+        elif policy == 'FullyConv3D':
+            self.policy = FullyConv3DPolicy
+        elif policy == 'AlloAndAlt':
+            self.policy = FullyConvPolicyAlt
+        else: print('Unknown Policy')
 
 
         opt_class = tf.train.AdamOptimizer if optimiser == "adam" else tf.train.RMSPropOptimizer

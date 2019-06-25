@@ -11,7 +11,7 @@ from common.util import calculate_n_step_reward, general_n_step_advantage, combi
 import tensorflow as tf
 from absl import flags
 # from time import sleep
-from actorcritic.policy import FullyConvPolicy, MetaPolicy, RelationalPolicy
+from actorcritic.policy import FullyConvPolicy, MetaPolicy, RelationalPolicy, FullyConv3DPolicy, FullyConvPolicyAlt
 
 PPORunParams = namedtuple("PPORunParams", ["lambda_par", "batch_size", "n_epochs"])
 
@@ -45,8 +45,13 @@ class Runner(object):
             self.policy_type = FullyConvPolicy
         elif policy_type == 'Relational':
             self.policy_type = RelationalPolicy
-        else:
+        elif policy_type == 'MetaPolicy':
             self.policy_type = MetaPolicy
+        elif policy_type == 'FullyConv3D':
+            self.policy_type = FullyConv3DPolicy
+        elif policy_type == 'AlloAndAlt':
+            self.policy_type = FullyConvPolicyAlt
+        else: print('Unknown Policy')
 
         assert self.agent.mode in [ACMode.A2C, ACMode.PPO]
         self.is_ppo = self.agent.mode == ACMode.PPO
@@ -282,13 +287,9 @@ class Runner(object):
         sys.stdout.flush()
 
     def run_trained_batch(self):
-        #gameDisplay.fill((1, 50, 130))
-        # STATE, ACTION, REWARD, NEXT STATE
-        # YOU NEED TO DISPLAY FIRST IMAGE HERE AS YOU HAVE RESETED AND THERE ARE OBS THERE AS WELL (YOUR FIRST ONES!)
-        #sleep(2.0)
+
         latest_obs = self.latest_obs # (MINE) =state(t)
 
-        # action = agent(state)
         action_ids, value_estimate, fc, action_probs = self.agent.step_eval(latest_obs) # (MINE) AGENT STEP = INPUT TO NN THE CURRENT STATE AND OUTPUT ACTION
         print('|actions:', action_ids)
         obs_raw = self.envs.step(action_ids) # It will also visualize the next observation if all the episodes have ended as after success it retunrs the obs from reset
