@@ -260,19 +260,27 @@ def similarity(val1, val2):
     #     return 0
 
     if val1[0] == 'FC':
-        # return 0
-        return spatial.distance.minkowski(val1[1], val2[1],2) * -1
+        return 0
+        mink = spatial.distance.minkowski(val1[1], val2[1],2) / 150
+        # mink_remapped = remap(mink, min(fc_distances), max(fc_distances),0,1)
+
+        return mink * -1
+        # return spatial.distance.minkowski(val1[1], val2[1],2) * -1
         return spatial.distance.cosine(val1[1], val2[1]) * -1
         dist = np.linalg.norm(np.array(val1[1]) - np.array(val2[1]))
         #print("FC", remap(dist, min(fc_distances),max(fc_distances),0,1) * -1)
         return remap(dist, min(fc_distances),max(fc_distances),0,1) * -1#spatial.distance.cosine(val1[1],val2[1])* -1#
 
-    return 0
+
     max_val = max(min_max[val1[0].lower()])
     min_val = min(min_max[val1[0].lower()])
 
     min_val = 0
     max_val = 1
+
+    if val1[0] == 'DISTANCE_TO_HIKER':
+        min_val = min(min_max['distance_to_hiker'])
+        max_val = max(min_max['distance_to_hiker'])
 
     if val1 == None:
         return None
@@ -302,9 +310,11 @@ def similarity(val1, val2):
     #     return_value = 0
     # if 'EGO' in val1[0]:
     #     return_value = return_value - (return_value * 0.5)
-    # if val1[0] == 'DISTANCE_TO_HIKER':
-    #     return_value = return_value * 10
-    #     import pdb; pdb.set_trace()
+    if val1[0] == 'DISTANCE_TO_HIKER':
+        val1_t = remap(val1[1],min_val,max_val,0,1)
+        val2_t = remap(val2[1],min_val,max_val,0,1)
+        return_value = abs(val1_t - val2_t) * -1
+        # import pdb; pdb.set_trace()
     return return_value#(abs(value1 - value2) * - 1)/max_val
 
     #print("sim returning", abs(val1 - val2) / (max_val - min_val) * - 1)
@@ -466,7 +476,8 @@ def reset_actr():
             fcs.append(fc_pair[1])
 
         for pair in itertools.combinations(fcs,2):
-            fc_distances.append(float(np.linalg.norm(np.array(pair[0]) - np.array(pair[1]))))
+            fc_distances.append(float(spatial.distance.minkowski(pair[0], pair[1],2)))
+            # fc_distances.append(float(np.linalg.norm(np.array(pair[0]) - np.array(pair[1]))))
 
         with open('fc.pkl','wb') as handle:
             pickle.dump(fc_distances,handle)
