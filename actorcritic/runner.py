@@ -25,6 +25,7 @@ import actr #Version 7.11.1 tested (may work on others)
 import threading
 import time
 from scipy import spatial
+from scipy.interpolate import interp1d
 
 PPORunParams = namedtuple("PPORunParams", ["lambda_par", "batch_size", "n_epochs"])
 #ADD some global stuff for ACT-R
@@ -101,6 +102,8 @@ allchunks = []
 
 fc_distances = []
 
+interp_dict = {}
+
 
 def distance_to_hiker(drone_position,hiker_position):
     distance = np.linalg.norm(drone_position-hiker_position)
@@ -146,6 +149,14 @@ def heading_to_hiker(drone_heading, drone_position, hiker_position):
 def remap( x, oMin, oMax, nMin, nMax ):
     #https://stackoverflow.com/questions/929103/convert-a-number-range-to-another-range-maintaining-ratio
     #range check
+    oSpan = oMax - oMin
+    nSpan = nMax - nMin
+
+    valueScaled = float(x - oMin) / float(oSpan)
+
+    return nMin + (valueScaled * nSpan)
+
+
     if oMin == oMax:
         print("Warning: Zero input range")
         return None
@@ -256,69 +267,22 @@ def similarity(val1, val2):
     if val1[0] == 'ALTITUDE':# or val1[0] == 'DISTANCE_TO_HIKER':
         return 0
 
-    # if val1[0] == 'DISTANCE':
-    #     return 0
+    #values mapped to 0-1
 
-    if val1[0] == 'FC':
-        return 0
-        mink = spatial.distance.minkowski(val1[1], val2[1],2) / 150
-        # mink_remapped = remap(mink, min(fc_distances), max(fc_distances),0,1)
+    val1_t = 0
+    val2_t = 0
+    if 'EGO' in val1[0]:
+        #for ego, only val1 needs to be mapped. DM values are already normalized.
+        min_val = min(min_max[val1[0]])
+        max_val = max(min_max[val1[0]])
+        m = interp1d([min_val,max_val],[0,1])
+        val1_t = float(m(val1[1]))
+        val2_t = float(val2[1])
 
-        return mink * -1
-        # return spatial.distance.minkowski(val1[1], val2[1],2) * -1
-        return spatial.distance.cosine(val1[1], val2[1]) * -1
-        dist = np.linalg.norm(np.array(val1[1]) - np.array(val2[1]))
-        #print("FC", remap(dist, min(fc_distances),max(fc_distances),0,1) * -1)
-        return remap(dist, min(fc_distances),max(fc_distances),0,1) * -1#spatial.distance.cosine(val1[1],val2[1])* -1#
+    print('here')
+    return 0
 
 
-    max_val = max(min_max[val1[0].lower()])
-    min_val = min(min_max[val1[0].lower()])
-
-    min_val = 0
-    max_val = 1
-
-    if val1[0] == 'DISTANCE_TO_HIKER':
-        min_val = min(min_max['distance_to_hiker'])
-        max_val = max(min_max['distance_to_hiker'])
-
-    if val1 == None:
-        return None
-    value1 = val1[1]
-    value2 = val2[1]
-    #max_val = 4#max(map(max, zip(*feature_sets)))
-    #min_val = 1#min(map(min, zip(*feature_sets)))
-    #print("max,min,val1,val2",max_val,min_val,val1,val2)
-    #The intent looks to be to transpose the values to a 0,1 range so that the math is all the same
-    val1_t = (((value1 - min_val) * (0 + 1)) / (max_val - min_val)) + 0
-    val2_t = (((value2 - min_val) * (0 + 1)) / (max_val - min_val)) + 0
-    #print("val1_t,val2_t", val1_t, val2_t)
-    #print("sim returning", abs(val1_t - val2_t) * -1)
-    #print("sim returning", ((val1_t - val2_t)**2) * - 1)
-    #return float(((val1_t - val2_t)**2) * - 1)
-    #return abs(val1_t - val2_t) * - 1
-    #return 0
-    #print("sim returning", abs(val1_t - val2_t) * - 1)
-    #return abs(val1_t - val2_t) * -1
-    #print("sim returning", (abs(value1 - value2) * - 1)/max_val)
-    # if 'EGO' in val1[0]:
-    #     return abs(val1_t - val2_t) * -2
-
-    return_value = abs(val1_t - val2_t) * -1#/max_val
-
-    # if 'HIKER' in val1[0] or 'EGO' in val1[0]:
-    #     return_value = 0
-    # if 'EGO' in val1[0]:
-    #     return_value = return_value - (return_value * 0.5)
-    if val1[0] == 'DISTANCE_TO_HIKER':
-        val1_t = remap(val1[1],min_val,max_val,0,1)
-        val2_t = remap(val2[1],min_val,max_val,0,1)
-        return_value = abs(val1_t - val2_t) * -1
-        # import pdb; pdb.set_trace()
-    return return_value#(abs(value1 - value2) * - 1)/max_val
-
-    #print("sim returning", abs(val1 - val2) / (max_val - min_val) * - 1)
-    #return abs(val1 - val2) / (max_val - min_val) * - 1
 
 
 def compute_S(blend_trace, keys_list):
@@ -423,8 +387,8 @@ def reset_actr():
         # # actr.load_act_r_model(os.path.join(model_path,model_name))
         # actr.record_history("blending-trace")
 
-        max_mins_name = 'max_mins_from_data.pkl'
-        max_mins = pickle.load(open(os.path.join(chunk_path,max_mins_name),'rb'))
+        # max_mins_name = 'max_mins_from_data.pkl'
+        # max_mins = pickle.load(open(os.path.join(chunk_path,max_mins_name),'rb'))
 
         #load all the chunks
         allchunks = pickle.load(open(os.path.join(chunk_path,chunk_file_name),'rb'))
@@ -454,15 +418,15 @@ def reset_actr():
                     if y[1] not in min_max[x]:
                         min_max[x].append(y[1])
         #modifying the max_mins to include things from data collection, inorder to transponse
-        for key in max_mins:
-            if key == 'ego':
-                for aMinMax in min_max:
-                    if 'ego' in aMinMax:
-                        min_max[aMinMax] = max_mins[key]
-            elif key == 'distance':
-                min_max['distance_to_hiker'] = max_mins[key]
-            else:
-                min_max[key] = max_mins[key]
+        # for key in max_mins:
+        #     if key == 'ego':
+        #         for aMinMax in min_max:
+        #             if 'ego' in aMinMax:
+        #                 min_max[aMinMax] = max_mins[key]
+        #     elif key == 'distance':
+        #         min_max['distance_to_hiker'] = max_mins[key]
+        #     else:
+        #         min_max[key] = max_mins[key]
     #print('asf')
 
     #distance of all FC, in order to scale the euclidean distance
@@ -484,6 +448,8 @@ def reset_actr():
         actr_initialized = True
     else:
         fc_distances = pickle.load(open('fc.pkl','rb'))
+
+    fc_distances = [min(fc_distances),max(fc_distances)]
 
 
 
@@ -534,7 +500,11 @@ def create_actr_observation(step):
     chunk = [int(x) if type(x) == np.int64 else x for x in chunk]
     for trans in transposes:
         index_of_value = chunk.index(trans) + 1
-        chunk[index_of_value][1] = remap(chunk[index_of_value][1], min(min_max[trans]),max(min_max[trans]),0,1)
+        m = interp1d([min(min_max[trans]),max(min_max[trans])],[0,1])
+        chunk[index_of_value][1] = float(m(chunk[index_of_value][1]))
+        print('normalizing')
+
+        # chunk[index_of_value][1] = remap(chunk[index_of_value][1], min(min_max[trans]),max(min_max[trans]),0,1)
     #transponse the transposes values to zero to 1 range
 
     return chunk
