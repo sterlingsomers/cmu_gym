@@ -530,7 +530,7 @@ def access_by_key(key, list):
     '''Assumes key,vallue pairs and returns the value'''
 
     if not key in list:
-        raise KeyError(f'Key {key} not in list {list}.')
+        raise KeyError('Key {} not in list {}.'.format(key,list))
 
     return list[list.index(key)+1]
 
@@ -646,6 +646,27 @@ reduced_navs = {('down', 'left'): [], ('down', 'diagonal_left'): [], ('down', 'c
 #     if change:
 #         for key in one_pass:
 #             reduced_navs[key].extend(one_pass[key])
+
+#make a master min_max dictionary
+to_be_transformed = ['ego_left', 'ego_diagonal_left', 'ego_center', 'ego_diagonal_right','ego_right','distance_to_hiker']
+min_max_dict = {}
+min_max_dict['fc'] = []
+for trans in to_be_transformed:
+    min_max_dict[trans] = []
+for key in navs_by_action:
+    for trans in to_be_transformed:
+        min_max_dict[trans] = [float(access_by_key(trans,x)[1]) for x in navs_by_action[key]]
+#add also the fc
+for key in navs_by_action:
+    if navs_by_action[key]:
+        for step in navs_by_action[key]:
+            fc = access_by_key('fc',step)[1]
+            min_max_dict['fc'].append(fc)
+
+#Save the min_max for use in the simulation
+with open('min_max_dict.pkl','wb') as handle2:
+    pickle.dump(min_max_dict,handle2)
+
 
 #beore I can do a distance measure, I have to transpose the distances to 0-1,
 #otherwise, they dominate the distance measure
