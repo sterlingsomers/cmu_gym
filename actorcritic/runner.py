@@ -27,6 +27,8 @@ import time
 from scipy import spatial
 from scipy.interpolate import interp1d
 
+from sklearn import preprocessing
+
 PPORunParams = namedtuple("PPORunParams", ["lambda_par", "batch_size", "n_epochs"])
 #ADD some global stuff for ACT-R
 
@@ -48,7 +50,8 @@ min_max = {'ego_left':[],
            'hiker_diagonal_right':[],
            'hiker_right':[],
            'distance_to_hiker':[],
-           'altitude':[],}
+           'altitude':[],
+           'fc':[]}
 
 
 possible_actions_map = {
@@ -267,20 +270,18 @@ def similarity(val1, val2):
     if val1[0] == 'ALTITUDE':# or val1[0] == 'DISTANCE_TO_HIKER':
         return 0
 
-    #values mapped to 0-1
+    if val1[0] == 'FC':
+        return 0
+        r1 = spatial.distance.minkowski(val1[1], val2[1],2) * - 1
+        r2 = spatial.distance.euclidean(val1[1], val2[1]) * - 1
+        r3 = spatial.distance.cosine(val1[1], val2[1]) * -1
+        return r3
 
-    val1_t = 0
-    val2_t = 0
-    if 'EGO' in val1[0]:
-        #for ego, only val1 needs to be mapped. DM values are already normalized.
-        min_val = min(min_max[val1[0]])
-        max_val = max(min_max[val1[0]])
-        m = interp1d([min_val,max_val],[0,1])
-        val1_t = float(m(val1[1]))
-        val2_t = float(val2[1])
 
-    print('here')
-    return 0
+    return_value = abs(val1[1] - val2[1]) * -1
+    return return_value
+
+
 
 
 
@@ -367,6 +368,8 @@ def reset_actr():
     global actr_initialized
     global allchunks
     global fc_distances
+    global min_max
+    global interp_dict
 
 
     if not actr_initialized or actr_initialized:
@@ -389,6 +392,19 @@ def reset_actr():
 
         # max_mins_name = 'max_mins_from_data.pkl'
         # max_mins = pickle.load(open(os.path.join(chunk_path,max_mins_name),'rb'))
+        min_max_name = 'min_max_dict.pkl'
+        min_max = pickle.load(open(os.path.join(chunk_path,min_max_name),'rb'))
+
+        # Need to normalize the vectors
+        print('Creating normalization')
+        fc_array = np.array([np.array(x) for x in min_max['fc']])
+        # scalar = preprocessing.StandardScaler(with_std=True).fit(fc_array)
+        # transform_fc = scalar.transform(fc_array)
+        normalizer = preprocessing.Normalizer(norm='l1').fit(fc_array)
+
+        interp_dict['fc'] = normalizer
+        print('Normalization transform created')
+
 
         #load all the chunks
         allchunks = pickle.load(open(os.path.join(chunk_path,chunk_file_name),'rb'))
@@ -402,6 +418,13 @@ def reset_actr():
             #chunk[9][1] = chunk[9][1] - alt
             #chunk[11][1] = chunk[11][1] - alt
             #chunk[13][1] = chunk[13][1] - alt
+            fc_index = chunk.index('fc') + 1
+            fc = [chunk[fc_index][1]]
+            # fc = np.array(chunk[fc_index][1])
+            # fc.reshape(1,-1)
+            fc_transform = normalizer.transform(fc)
+            chunk[fc_index] = ['fc',fc_transform.astype(float).tolist()[0]]
+
             chunk = [float(x) if type(x) == np.float64 else x for x in chunk]
             chunk = [int(x) if type(x) == np.int64 else x for x in chunk]
             actr.add_dm(chunk)
@@ -411,12 +434,29 @@ def reset_actr():
                        'left_level','diagonal_left_level','center_level','diagonal_right_level','right_level',
                        'left_up','diagonal_left_up','center_up','diagonal_right_up','right_up', 'drop', 'type', 'fc']
         #collecting the max mins
-        for chunk in allchunks:
-            for x, y in zip(*[iter(chunk)] * 2):
-                #x, y[1]
-                if not x in ignore_list and not x == 'isa':
-                    if y[1] not in min_max[x]:
-                        min_max[x].append(y[1])
+        # for chunk in allchunks:
+        #     for x, y in zip(*[iter(chunk)] * 2):
+        #         #x, y[1]
+        #         if not x in ignore_list and not x == 'isa':
+        #             if y[1] not in min_max[x]:
+        #                 min_max[x].append(y[1])
+
+        #the interpt dict will be pre-loaded to transform values to 0-1, based on their key
+        to_transform = ['ego_left', 'ego_diagonal_left', 'ego_center', 'ego_diagonal_right', 'ego_right',
+                  'distance_to_hiker']
+        for trans in to_transform:
+            if min_max[trans]:
+                interp_dict[trans] = None
+                min_val = min(min_max)
+                max_val = max(min_max)
+                func = interp1d([min_val,max_val],[0,1])
+                interp_dict[trans] = func
+
+
+
+
+
+
         #modifying the max_mins to include things from data collection, inorder to transponse
         # for key in max_mins:
         #     if key == 'ego':
@@ -432,24 +472,24 @@ def reset_actr():
     #distance of all FC, in order to scale the euclidean distance
 
 
-    fcs = []
-    if not actr_initialized:
-
-        for chunk in allchunks:
-            fc_pair = access_by_key('fc', chunk)
-            fcs.append(fc_pair[1])
-
-        for pair in itertools.combinations(fcs,2):
-            fc_distances.append(float(spatial.distance.minkowski(pair[0], pair[1],2)))
-            # fc_distances.append(float(np.linalg.norm(np.array(pair[0]) - np.array(pair[1]))))
-
-        with open('fc.pkl','wb') as handle:
-            pickle.dump(fc_distances,handle)
-        actr_initialized = True
-    else:
-        fc_distances = pickle.load(open('fc.pkl','rb'))
-
-    fc_distances = [min(fc_distances),max(fc_distances)]
+    # fcs = []
+    # if not actr_initialized:
+    #
+    #     for chunk in allchunks:
+    #         fc_pair = access_by_key('fc', chunk)
+    #         fcs.append(fc_pair[1])
+    #
+    #     for pair in itertools.combinations(fcs,2):
+    #         fc_distances.append(float(spatial.distance.minkowski(pair[0], pair[1],2)))
+    #         # fc_distances.append(float(np.linalg.norm(np.array(pair[0]) - np.array(pair[1]))))
+    #
+    #     with open('fc.pkl','wb') as handle:
+    #         pickle.dump(fc_distances,handle)
+    #     actr_initialized = True
+    # else:
+    #     fc_distances = pickle.load(open('fc.pkl','rb'))
+    #
+    # fc_distances = [min(fc_distances),max(fc_distances)]
 
 
 
@@ -463,7 +503,7 @@ def reset_actr():
 
 def create_actr_observation(step):
     transposes = ['ego_left', 'ego_diagonal_left', 'ego_center', 'ego_diagonal_right', 'ego_right',
-                  'distance_to_hiker', 'altitude']
+                  'distance_to_hiker']
 
     # angle to hiker: negative = left, positive right
     egocentric_angle_to_hiker = heading_to_hiker(step['heading'], step['drone'], step['hiker'])
@@ -485,6 +525,7 @@ def create_actr_observation(step):
                   'ego_right', ['ego_right',altitudes[4] - alt]])
     chunk.append('fc')
     step['fc'] = step['fc'].astype(float).tolist()[0]
+    step['fc'] = interp_dict['fc'].transform([step['fc']]).astype(float).tolist()[0]
     chunk.append(['fc',step['fc']])
     chunk.extend(['type', 'nav'])
     # also want distance  to hiker
@@ -496,13 +537,19 @@ def create_actr_observation(step):
     # for key, value in action_values.items():
     #     chunk.extend([key, value])
     #json cannot serialize int64
-    chunk = [float(x) if type(x) == np.float64 else x for x in chunk]
-    chunk = [int(x) if type(x) == np.int64 else x for x in chunk]
+
     for trans in transposes:
         index_of_value = chunk.index(trans) + 1
-        m = interp1d([min(min_max[trans]),max(min_max[trans])],[0,1])
-        chunk[index_of_value][1] = float(m(chunk[index_of_value][1]))
-        print('normalizing')
+        m = interp_dict[trans]
+        val = chunk[index_of_value][1]
+        chunk[index_of_value][1] = np.interp(val,[min(min_max[trans]),max(min_max[trans])],[0,1])
+
+        # transformed_value = m(chunk[index_of_value][1])
+        # chunk[index_of_value][1] = m(val)
+        # print('normalizing')
+    #just to make sure the values are compliant with json and actr
+    chunk = [float(x) if type(x) == np.float64 else x for x in chunk]
+    chunk = [int(x) if type(x) == np.int64 else x for x in chunk]
 
         # chunk[index_of_value][1] = remap(chunk[index_of_value][1], min(min_max[trans]),max(min_max[trans]),0,1)
     #transponse the transposes values to zero to 1 range
@@ -916,6 +963,8 @@ class Runner(object):
         step_data['volume'] == self.envs.map_volume['feature_value_map']['drone'][self.envs.altitude]['val'])
 
         step_data['fc'] = fc
+        #     interp_dict['fc'].transform(fc)
+        # fc = step_data['fc']
 
         chunks_and_distances = []
         # look at the fc
@@ -925,12 +974,12 @@ class Runner(object):
         #     dist = np.linalg.norm(np.array(fc) - np.array(fc_from_memory))
         #     cos = spatial.distance.cosine(fc, fc_from_memory) * -1
         #     mink = spatial.distance.minkowski(fc, fc_from_memory, 1) * -1
-        #     sim = remap(dist, min(fc_distances), max(fc_distances), 0, 1) * -1
-        #     chunks_and_distances.append([chunk, dist, cos, sim, mink])
+        #     # sim = remap(dist, min(fc_distances), max(fc_distances), 0, 1) * -1
+        #     chunks_and_distances.append([chunk, dist, cos, mink])
         #
         # # order the chunks_and_distances
-        # chunks_and_distances = sorted(chunks_and_distances, key=operator.itemgetter(4))
-        # print("ok")
+        # chunks_and_distances = sorted(chunks_and_distances, key=operator.itemgetter(1))
+        # # print("ok")
 
         network_action_ids = np.array(action_ids, copy=True)
         actr_observation = create_actr_observation(step_data)
