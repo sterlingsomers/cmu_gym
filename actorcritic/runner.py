@@ -243,7 +243,7 @@ def access_by_key(key, list):
 def similarity(val1, val2):
     '''Linear tranformation, abslute difference'''
     #val2 is recalled, val1 is the observation
-
+    # import pdb; pdb.set_trace()
     if val1 == val2:
         return 0
     # import pdb; pdb.set_trace()
@@ -256,14 +256,18 @@ def similarity(val1, val2):
     if val1[0] == 'ALTITUDE':# or val1[0] == 'DISTANCE_TO_HIKER':
         return 0
 
+    # if val1[0] == 'DISTANCE':
+    #     return 0
+
     if val1[0] == 'FC':
+        # return 0
         return spatial.distance.minkowski(val1[1], val2[1],2) * -1
         return spatial.distance.cosine(val1[1], val2[1]) * -1
         dist = np.linalg.norm(np.array(val1[1]) - np.array(val2[1]))
         #print("FC", remap(dist, min(fc_distances),max(fc_distances),0,1) * -1)
         return remap(dist, min(fc_distances),max(fc_distances),0,1) * -1#spatial.distance.cosine(val1[1],val2[1])* -1#
 
-    #return 0
+    return 0
     max_val = max(min_max[val1[0].lower()])
     min_val = min(min_max[val1[0].lower()])
 
@@ -298,7 +302,9 @@ def similarity(val1, val2):
     #     return_value = 0
     # if 'EGO' in val1[0]:
     #     return_value = return_value - (return_value * 0.5)
-
+    # if val1[0] == 'DISTANCE_TO_HIKER':
+    #     return_value = return_value * 10
+    #     import pdb; pdb.set_trace()
     return return_value#(abs(value1 - value2) * - 1)/max_val
 
     #print("sim returning", abs(val1 - val2) / (max_val - min_val) * - 1)
@@ -400,10 +406,12 @@ def reset_actr():
         actr.add_command('ticker', actr_time)
 
         # actr_thread = threading.Thread(target=actr.load_act_r_model, args=[os.path.join(model_path,model_name)])
+        actr.load_act_r_model(os.path.join(model_path,model_name))
+        # actr_thread = threading.Thread(target=actr.run_full_time, args=[3600, True])
         # actr_thread.daemon = True
         # actr_thread.start()
-        actr.load_act_r_model(os.path.join(model_path,model_name))
-        actr.record_history("blending-trace")
+        # # actr.load_act_r_model(os.path.join(model_path,model_name))
+        # actr.record_history("blending-trace")
 
         max_mins_name = 'max_mins_from_data.pkl'
         max_mins = pickle.load(open(os.path.join(chunk_path,max_mins_name),'rb'))
@@ -471,7 +479,7 @@ def reset_actr():
 
     print("reset done.")
     actr_initialized = True
-    # actr_thread = threading.Thread(target=actr.run_full_time, args=[600,True])
+    # actr_thread = threading.Thread(target=actr.run_full_time, args=[3600,True])
     # actr_thread.daemon = True
     # actr_thread.start()
 
@@ -535,31 +543,53 @@ def handle_observation(observation):
     print("converting")
     # actr.schedule_simple_event_now("set-buffer-chunk",
     #                                ['imaginal', chunk[0]])
+    # actr.mp_time()
     actr.schedule_set_buffer_chunk('imaginal',chunk[0],0)
-    actr.run(10)
+    # actr.set_buffer_chunk('imaginal', chunk[0],False)
+    # actr.run(100)
 
 
 
-    d = actr.get_history_data("blending-trace")
+    # d = actr.get_history_data("blending-trace")
     # while d == None:
     #     time.sleep(3)
     #     d = actr.get_history_data("blending-trace")
 
+    # actr.overwrite_buffer_chunk
+
+    actr.run_until_action("call-blending-result-hooks")
+    # d = json.loads(d)
+    # actr.stop_recording_history("blending-trace")
+    # actr.record_history("blending-trace")
+    b = actr.buffer_read('blending')
+    # while b == None:
+    #     time.sleep(1)
+    #     b = actr.buffer_read('blending')
 
 
-    d = json.loads(d)
 
+
+
+    # b_content = actr.chunk_slot_value(b,'result-chunk')
     # first add the blend to the results dictionary
-    blend_return = access_by_key('RESULT-CHUNK', d[0][1])
+    # blend_return = access_by_key('RESULT-CHUNK', d[0][1])
+    #I can do an overwrite and get rid of p2/p3
+
     #HACK - carry out the action here.
     action_choice = {'left_down':0,'diagonal_left_down':0,'center_down':0,'diagonal_right_down':0,'right_down':0,
                      'left_level':0,'diagonal_left_level':0,'center_level':0,'diagonal_right_level':0,'right_level':0,
                      'left_up':0,'diagonal_left_up':0,'center_up':0,'diagonal_right_up':0,'right_up':0,
                      'drop':0}
-
     for key in action_choice:
-        action_choice[key] = access_by_key(key.upper(), blend_return)
+        action_choice[key] = actr.chunk_slot_value(b, key)
     action = max(action_choice.items(), key=operator.itemgetter(1))[0]
+
+    actr.erase_buffer('blending')
+
+
+    # for key in action_choice:
+    #     action_choice[key] = access_by_key(key.upper(), blend_return)
+    # action = max(action_choice.items(), key=operator.itemgetter(1))[0]
 
     return combos_to_actions[action]
 
@@ -908,18 +938,18 @@ class Runner(object):
 
         chunks_and_distances = []
         # look at the fc
-        for chunk in allchunks:
-            fc_tuple = access_by_key('fc', chunk)
-            fc_from_memory = fc_tuple[1]
-            dist = np.linalg.norm(np.array(fc) - np.array(fc_from_memory))
-            cos = spatial.distance.cosine(fc, fc_from_memory) * -1
-            mink = spatial.distance.minkowski(fc, fc_from_memory, 1)
-            sim = remap(dist, min(fc_distances), max(fc_distances), 0, 1) * -1
-            chunks_and_distances.append([chunk, dist, cos, sim])
-
-        # order the chunks_and_distances
-        chunks_and_distances = sorted(chunks_and_distances, key=operator.itemgetter(3))
-        print("ok")
+        # for chunk in allchunks:
+        #     fc_tuple = access_by_key('fc', chunk)
+        #     fc_from_memory = fc_tuple[1]
+        #     dist = np.linalg.norm(np.array(fc) - np.array(fc_from_memory))
+        #     cos = spatial.distance.cosine(fc, fc_from_memory) * -1
+        #     mink = spatial.distance.minkowski(fc, fc_from_memory, 1) * -1
+        #     sim = remap(dist, min(fc_distances), max(fc_distances), 0, 1) * -1
+        #     chunks_and_distances.append([chunk, dist, cos, sim, mink])
+        #
+        # # order the chunks_and_distances
+        # chunks_and_distances = sorted(chunks_and_distances, key=operator.itemgetter(4))
+        # print("ok")
 
         network_action_ids = np.array(action_ids, copy=True)
         actr_observation = create_actr_observation(step_data)
@@ -929,7 +959,7 @@ class Runner(object):
         # nav_runner.envs.step(action)
 
         #reset actr every step (load chunks, etc.)
-        reset_actr()
+        # reset_actr()
 
         print('|actions:', 'net', network_action_ids, 'actr', action_ids)
 

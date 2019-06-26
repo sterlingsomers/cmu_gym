@@ -24,26 +24,26 @@ class request():
 locals = threading.local()
 
 class actr():
-
-
+    
+    
     def __init__(self,host,port):
         self.interface = interface(host, port)
         if self.interface.connected :
             self.interface.echo_output()
 
     def evaluate (self, *params):
-
+        
         try:
             m = locals.model_name
         except AttributeError:
             m = False
-
+     
         p = list(params)
 
-        p.insert(1,m)
+        p.insert(1,m)    
 
         r = self.interface.send ("evaluate", *p)
-
+        
         if r[0] == False:
             for e in r[1:]:
                 print (e)
@@ -68,7 +68,7 @@ class actr():
         else:
             print("Command ",name," already exists and is now being replaced by ",function)
             self.interface.add_command(name,function)
-
+ 
         existing = self.interface.send("check",name)
 
         if existing[0] == True:
@@ -83,7 +83,7 @@ class actr():
                 return False
             else:
                 return True
-
+        
         else:
             print("Invalid command name ",name," cannot be added.")
             return False
@@ -102,7 +102,7 @@ class actr():
         else:
             return r[1:]
 
-
+ 
     def remove_command_monitor(self,original,monitor):
         r = self.interface.send("remove-monitor",original,monitor)
 
@@ -112,7 +112,7 @@ class actr():
 
             return False
         else:
-            return r[1:]
+            return r[1:]       
 
     def remove_command(self,name):
         if name not in self.interface.commands.keys():
@@ -129,7 +129,7 @@ class actr():
         else:
             del self.interface.commands[name]
             r = self.interface.send("remove",name)
-
+            
             if r[0] == False:
                 for e in r[1:]:
                     print (e)
@@ -143,7 +143,7 @@ def start (host=None,port=None):
 
     global current_connection
 
-    if current_connection == None:
+    if current_connection == None: 
         portfile = os.path.join(os.path.expanduser("~"),"act-r-port-num.txt")
         hostfile = os.path.join(os.path.expanduser("~"),"act-r-address.txt")
 
@@ -174,9 +174,10 @@ def start (host=None,port=None):
             a = actr(host=host,port=port)
         except:
             print("Failed to connect to ACT-R with exception",sys.exc_info())
-
-        else:
+         
+        else:   
             if a.interface.connected :
+                a.interface.send("set-name","ACT-R Tutorial Python interface")
                 current_connection = a
                 return current_connection
             else:
@@ -222,12 +223,12 @@ class interface():
             self.connected = True
             self.cmd_id = 1
             self.actions = {}
-            self.stream_lock = threading.Lock()
+            self.stream_lock = threading.Lock() 
             self.buffer = []
             self.commands = {}
             self.data_collector = threading.Thread(target=self.collect_data)
             self.data_collector.daemon = True
-            self.data_collector.start()
+            self.data_collector.start()       
             self.id_lock = threading.Lock()
             self.echo_count = 0
             self.echo = False
@@ -244,15 +245,15 @@ class interface():
         self.cmd_id += 1
         self.id_lock.release()
         d['params'] = params
-
+        
         message = json.dumps(d) + chr(4)
-
+        
         r.lock.acquire()
-
+        
         self.stream_lock.acquire()
         self.sock.sendall(message.encode('utf-8'))
         self.stream_lock.release()
-
+        
         while not r.complete:
           r.cv.wait()
 
@@ -299,7 +300,7 @@ class interface():
             r.notify_result()
         else:
             if d['method'] == "evaluate" and d['params'][0] in self.commands.keys():
-                thread = threading.Thread(target=self.run_command,args=[self.commands[d['params'][0]],d['params'][1],d['id'],d['params'][2:]])
+                thread = threading.Thread(target=self.run_command,args=[self.commands[d['params'][0]],d['params'][0],d['params'][1],d['id'],d['params'][2:]])
                 thread.daemon = True
                 thread.start()
             else:
@@ -314,7 +315,7 @@ class interface():
                 self.sock.sendall(message.encode('utf-8'))
                 self.stream_lock.release()
 
-    def run_command (self,command,model,id,params):
+    def run_command (self,command,command_name,model,id,params):
 
         locals.model_name = model
 
@@ -328,6 +329,7 @@ class interface():
                 result = True
         except:
             error = True
+            problem = sys.exc_info()
         else:
             error = None
 
@@ -336,7 +338,7 @@ class interface():
 
         if error:
             f['result'] = None
-            f['error'] = {'message': "Error during run_command with %s"%params}
+            f['error'] = {'message': "Error %s while evaluating a command in Python for command: %s, model: %s, parameters: %s"%(problem,command_name,model,params)}
 
         elif ((result is False) or (result is None)):
 
@@ -344,21 +346,24 @@ class interface():
             f['error']= None
 
         else:
-            f['result']= result
+            if isinstance(result,tuple):
+                f['result']= result
+            else:
+                f['result']= [result]
             f['error']= None
 
         message = json.dumps(f) + chr(4)
         self.stream_lock.acquire()
         self.sock.sendall(message.encode('utf-8'))
         self.stream_lock.release()
-
+        
     def output_monitor(self,string):
         if self.show_output:
             print(string.rstrip())
         return True
 
     def echo_output(self):
-        if not(self.echo):
+        if not(self.echo): 
             if 'echo' not in self.commands.keys():
                 self.add_command("echo",self.output_monitor)
 
@@ -373,7 +378,7 @@ class interface():
                 else:
                     self.echo_count += 1
 
-
+        
             self.send("monitor","model-trace","python-echo"+str(self.echo_count))
             self.send("monitor","command-trace","python-echo"+str(self.echo_count))
             self.send("monitor","warning-trace","python-echo"+str(self.echo_count))
@@ -386,7 +391,7 @@ class interface():
             return False
 
     def no_output(self):
-
+    
         if self.echo:
             self.send("remove-monitor","model-trace","python-echo"+str(self.echo_count))
             self.send("remove-monitor","command-trace","python-echo"+str(self.echo_count))
@@ -469,12 +474,12 @@ def open_exp_window(title,visible=True,width=300,height=300,x=300,y=300):
 
 def add_text_to_exp_window(window,text,x=0,y=0,color='black',height=20,width=75,font_size=12):
     return current_connection.evaluate_single("add-text-to-exp-window", window, text,[["color", color], ["width", width],
-                                                                                      ["height", height], ["x", x], ["y", y],
+                                                                                      ["height", height], ["x", x], ["y", y], 
                                                                                       ["font-size", font_size]])
 
 def add_button_to_exp_window(window,text="",x=0,y=0,action=None,height=20,width=75,color='gray'):
     return current_connection.evaluate_single("add-button-to-exp-window",window,[["color", color], ["width", width],
-                                                                                 ["height", height], ["x", x], ["y", y],
+                                                                                 ["height", height], ["x", x], ["y", y], 
                                                                                  ["text", text], ["action", action]])
 
 def remove_items_from_exp_window(window,*items):
@@ -499,7 +504,7 @@ def add_command(name,function=None,documentation="No documentation provided.",si
 
 def monitor_command(original,monitor):
     return current_connection.monitor_command(original,monitor)
-
+ 
 def remove_command_monitor(original,monitor):
     return current_connection.remove_command_monitor(original,monitor)
 
@@ -602,7 +607,7 @@ def schedule_event (time, action, params=None, module=':NONE', priority=0, maint
                                                                             ["precondition", precondition]])
 
 def schedule_event_now (action, params=None, module=':NONE', priority=0, maintenance=False, destination=None, details=None,output=True,precondition=None):
-    return current_connection.evaluate_single("schedule-event-now",time,action,[["params", params],["module", module],
+    return current_connection.evaluate_single("schedule-event-now",action,[["params", params],["module", module],
                                                                                    ["priority", priority],["maintenance", maintenance],
                                                                                    ["destination", destination], ["details", details],
                                                                                    ["output", output], ["precondition", precondition]])
@@ -738,7 +743,7 @@ def chunk_spec_to_chunk_def(spec_id):
 
 def release_chunk_spec(spec_id):
     return current_connection.evaluate_single("release-chunk-spec-id", spec_id)
-
+   
 
 
 def schedule_simple_set_buffer_chunk (buffer, chunk, time, module='NONE', priority=0, requested=True):
@@ -773,14 +778,6 @@ def purge_chunk(name):
 def define_module (name, buffers,params,interface=None):
     return current_connection.evaluate_single("define-module", name, buffers, params, interface)
 
-def complete_request (spec_id):
-    return current_connection.evaluate_single("complete-request", spec_id)
-
-def complete_all_buffer_requests (buffer_name):
-    return current_connection.evaluate_single("complete-all-buffer-requests", buffer_name)
-
-def complete_all_module_requests (module_name):
-    return current_connection.evaluate_single("complete-all-module-requests", module_name)
 
 def command_output(string):
     return current_connection.evaluate_single("command-output",string)
@@ -795,8 +792,15 @@ def mp_time ():
 def mp_time_ms ():
     return current_connection.evaluate_single("mp-time-ms")
 
-def print_bold_response_data():
-    return current_connection.evaluate_single("print-bold-response-data")
+def predict_bold_response(start=None,end=None,output=None):
+    if start == None:
+        return current_connection.evaluate_single("predict-bold-response")
+    elif end == None:
+        return current_connection.evaluate_single("predict-bold-response", start)
+    elif output == None:
+        return current_connection.evaluate_single("predict-bold-response", start, end)
+    else:
+        return current_connection.evaluate_single("predict-bold-response", start, end, output)
 
 def pbreak (*params):
     return current_connection.evaluate_single("pbreak", *params)
@@ -855,3 +859,10 @@ def permute_list(l):
     for i in new_indexes:
         result.append(l[i])
     return result
+
+
+def erase_buffer (*params):
+    return current_connection.evaluate_single("erase-buffer", *params)
+
+def run_until_action(action):
+  return current_connection.evaluate("run-until-action", action)
