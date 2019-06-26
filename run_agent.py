@@ -158,12 +158,14 @@ class Simulation:
                  curriculum_radius=None,
                  goal_mode=None,
                  use_mavsim=None,
+                 K_batches=FLAGS.K_batches,
                  episode_length=None  ):
 
         self.training = training
         self.verbose = verbose
         self.environment_id = environment_id
         self.model_name = model_name
+        self.K_batches=K_batches
 
         #TODO this runner is maybe too long and too messy..
         self.full_checkpoint_path = os.path.join(FLAGS.checkpoint_path, self.model_name)
@@ -276,9 +278,43 @@ class Simulation:
         agent.flush_summaries()
         sys.stdout.flush()
 
+
+
     def run(self,
             episodes_to_run=FLAGS.episodes,
             sleep_time = FLAGS.sleep_time):
+
+
+        """Runs one or more episodes/batches and records the outcomes, optionally providing a visualization.
+
+           episodes_to_run -- number of episodes to execute
+
+           sleep_time -- amount of time to pause in between every simulation step - useful for visualization
+
+           return -- a datastructure which is a list of dictionaries, one per epsisode that describe the episode
+
+                all_data is an ordered list of episode description records. Each record is a dictionary
+
+                all_data[episode#] = { 'stuck': Boolean,  # True if agent timed out
+                                     'nav':   List }    # List of steps in the trajectory of the agent
+                                     
+                step = {'stuck': Boolean
+                        'volume':   translation of map to 3D vector voxels
+                        'heading':  drone heading integer [1,8] corresponding to N, NE, E, ...
+                        'hiker':    hiker position (
+                        'altitude': drone altitude
+                        'drone':    drone position
+                        'action':   last action
+                        'reward':   last reward - real value
+                        'fc':       vector given the activations of the fully connected layer of the policy
+                        'action_probs':  distribution over actions
+                        'info':      a dictionary giving additional information about environment events
+                        'map':      map used
+                }
+                            
+                            
+                            """
+
 
         self.episodes_to_run = episodes_to_run
         self.sleep_time=sleep_time
@@ -286,8 +322,8 @@ class Simulation:
 
         # runner.reset() # Reset env which means you get first observation. You need reset if you run episodic tasks!!! SC2 is not episodic task!!!
 
-        if FLAGS.K_batches >= 0:
-            n_batches = FLAGS.K_batches  # (MINE) commented here so no need for thousands * 1000
+        if self.K_batches >= 0:
+            n_batches = self.K_batches  # (MINE) commented here so no need for thousands * 1000
         else:
             n_batches = -1
 
@@ -550,39 +586,116 @@ class Simulation:
 
         print("Okay. Work is done")
 
-        self.envs.close()
 
         return all_data
 
+    def close(self):
+
+        self.envs.close()
 
 
+def extract_episode_trajectory_as_dataframe(episode_step_list):
+
+    key_columns = [
+                    (
+                       (step['drone'][1][0], step['drone'][2][0]),
+                       step['heading'],
+                       HEADING.to_short_string(step['heading']),
+                       step['altitude'],
+                       step['action'],
+                       ACTION.to_short_string(step['action']),
+                       step['reward'],
+                       step['map'],
+                       "{}".format(step['info'])
+                    )
+
+                    for step in episode_step_list
+                  ]
 
 
-
-def extract_trajectory(result):
-
-    traj_all_columns = result[0]['nav']
-    traj_key_columns = [ (  (step['drone'][1][0] ,step['drone'][2][0]),
-                            step['heading'],
-                            HEADING.to_short_string(step['heading']),
-                            step['altitude'],
-                            step['action'],
-                            ACTION.to_short_string(step['action']),
-                            step['reward'],
-                            step['map'],
-                            "{}".format(step['info']))
-                         for step in traj_all_columns ]
-
-    return traj_key_columns
+    df  = pd.DataFrame( key_columns, columns=['location','head','hname','alt','act','aname','reward','map','info'])
 
 
-def list_of_tuples_to_dataframe(list_of_tuples):
-
-    df  = pd.DataFrame(list_of_tuples,columns=['location','head','hname','alt','act','aname','reward','map','info'])
     return df
 
 
-def to_mavsim_actions(df):
+def augment_dataframe_with_reward_detail(df):
+
+    info = df['info']
+
+    Rhike=list()
+    Rstep=list()
+    Rcrash=list()
+    Rtime=list()
+    Success=list()
+
+    for row in info:
+
+        row = ast.literal_eval(row)
+
+        if 'Rhike' in row:
+            Rhike.append(row['Rhike'])
+        else:
+            Rhike.append(0)
+
+        if 'Rstep' in row:
+            Rstep.append(row['Rstep'])
+        else:
+            Rstep.append(0)
+
+        if 'Rcrash' in row:
+            Rcrash.append(row['Rcrash'])
+        else:
+            Rcrash.append(0)
+
+        if 'Rtime' in row:
+            Rtime.append(row['Rtime'])
+        else:
+            Rtime.append(0)
+
+        if 'ex' in row and row['ex']=='arrived':
+            Success.append(1)
+        else:
+            Success.append(0)
+
+    df['Rhike']=Rhike
+    df['Rstep']=Rstep
+    df['Rcrash']=Rcrash
+    df['Rtime']=Rtime
+    df['Success']=Success
+
+
+    return df
+
+
+def aggregate_rewards(dataframe):
+
+    stats = dataframe.groupby(['episode'])[['reward','Rstep','Rcrash','Rhike','Rtime','Success']].sum()
+    counts = dataframe.groupby(['episode'])[['reward']].count()
+
+    stats['steps'] = counts
+
+    return stats
+
+
+def extract_all_episodes(result):
+
+    df_all = None
+
+    for episode_num,episode_dictionary in enumerate(result):
+
+        df = extract_episode_trajectory_as_dataframe(episode_dictionary['nav'])
+        df['episode']=episode_num
+
+        if df_all is None:
+            df_all = df
+        else:
+            df_all = pd.concat([df_all,df])
+
+    return df_all
+
+
+def to_mavsim_actions(df_all,episode_num=0):
 
     """Converts a trajectory from the CMU_DRONE to MAVSim actions.
 
@@ -602,6 +715,10 @@ def to_mavsim_actions(df):
 
        The last action taken by the drone is not executed to produce a new state.
        So, there are only N-1 actions for an N step trajectory."""
+
+
+    df = df_all[  df_all['episode'] == episode_num  ]
+
 
     actions = df['act']
     last_action = actions.iloc[-1]
@@ -625,7 +742,12 @@ def to_mavsim_actions(df):
 
     return mavsim_actions
 
-def to_mavsim_rewards(df):
+
+
+def to_mavsim_rewards(df_all, episode_num=0 ):
+
+
+    df = df_all[  df_all['episode'] == episode_num  ]
 
     info = df['info']
 
@@ -650,9 +772,11 @@ def to_mavsim_rewards(df):
         if 'Rtime' in row:
             Rtime=Rtime+row['Rtime']
 
-    Rtot = Rstep+Rhike+Rcrash+Rtime
+    Rsum = Rstep+Rhike+Rcrash+Rtime
 
-    return { 'Rhike':Rhike, 'Rstep':Rstep, 'Rcrash':Rcrash, 'Rtime':Rtime, 'Rtot':Rtot }
+    Rtot = df['reward'].sum()
+
+    return { 'Rhike':Rhike, 'Rstep':Rstep, 'Rcrash':Rcrash, 'Rtime':Rtime, 'Rsum':Rsum, 'Rtot':Rtot }
 
 
 if __name__ == "__main__":
@@ -660,6 +784,8 @@ if __name__ == "__main__":
     sim = Simulation()
 
     result = sim.run(  )
+
+    sim.close()
 
 
 

@@ -2,8 +2,7 @@
 
 
 from run_agent import Simulation
-from run_agent import extract_trajectory
-from run_agent import list_of_tuples_to_dataframe
+from run_agent import extract_episode_trajectory_as_dataframe
 from run_agent import to_mavsim_actions
 
 from gym_gridworld.envs.gridworld_env import HEADING
@@ -39,8 +38,7 @@ if __name__ == "__main__":
     #print("Drone initial position {} Hiker Initial Position {}".format(drone_initial_position,hiker_initial_position))
     print("Trajectory")
 
-    key_columns = extract_trajectory(result)
-    data_frame = list_of_tuples_to_dataframe(key_columns)
+    data_frame = extract_episode_trajectory_as_dataframe(result)
 
     pd.options.display.width = 0
     print(data_frame)

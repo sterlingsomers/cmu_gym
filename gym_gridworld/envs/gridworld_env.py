@@ -198,6 +198,9 @@ class ActionEnumeration:
         
     def new_heading(self, old_heading, action_int):
 
+        if action_int==None or action_int == self.DROP:
+            return old_heading
+
         dh = self.delta_heading(action_int)
 
         heading = old_heading + dh
@@ -710,12 +713,11 @@ class GridworldEnv(gym.Env):
 
     def check_for_crash(self,drone_position):
 
-        """Returns non zero if drone is at altitude zero
-           or there is something in the volume at the position of the drone
-           as defined by the ORIGINAL map"""
+        """Returns zero if drone is OK, -1 if drone descended to altitude zero
+           and returns tile_id of the item crashed into if crashed into obstacle. """
 
         if self.altitude == 0:
-            return 1
+            return -1
 
         return int(self.original_map_volume['vol'][drone_position])
 
@@ -743,18 +745,23 @@ class GridworldEnv(gym.Env):
         hiker = self.hiker_position
 
         # observation = self.generate_observation() # You took out this one in Jun 6, 2019 and you substitute the return(observation,...) with self.generate_observation (except the last one which is the return of the whole function)
+
+
         drone_position = self.get_drone_position()
+
         self.dist = np.linalg.norm(np.array(drone_position[-2:]) - np.array(hiker[-2:])) # we remove height from the equation so we avoid going diagonally down
 
         crash = self.check_for_crash(drone_position)
         info['success'] = not crash
 
-        if crash:
+        if crash!=0:
             reward = -1
             info['Rcrash']=-1
             done = True
             print("CRASH")
             info['ex'] = 'crash'
+            info['crash_obj']=crash
+
             if self.restart_once_done: # HAVE IT ALWAYS TRUE!!! It learned the first time WITHOUT RESETING FROM CRASH
                 return (self.generate_observation(), reward, done, info) # You should get the previous obs so no change here, or return obs=None
 
@@ -1245,13 +1252,16 @@ class GridworldEnv(gym.Env):
 
         # The appearance (tile type) of the drone is altitude dependent so we need to look this up every time
 
-        drone_tile_id = self.map_volume['feature_value_map']['drone'][self.altitude]['val']
+        if self.use_mavsim_simulator:
+            return self.mavsimhandler.get_drone_position()
+        else:
+            drone_tile_id = self.map_volume['feature_value_map']['drone'][self.altitude]['val']
 
-        # Find tile that looks like the drone
+            # Find tile that looks like the drone
 
-        drone_zxy = np.where( self.map_volume['vol'] == drone_tile_id  )
+            drone_zxy = np.where( self.map_volume['vol'] == drone_tile_id  )
 
-        return drone_zxy
+            return drone_zxy
 
 
     def get_hiker_position(self):

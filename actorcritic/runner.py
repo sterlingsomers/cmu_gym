@@ -129,7 +129,7 @@ class Runner(object):
             # could calculate value estimate from obs when do training
             # but saving values here will make n step reward calculation a bit easier
             action_ids, value_estimate = self.agent.step(latest_obs)
-            print('|episode:',episode,'|step:', n, '|actions:', action_ids,'|values {}'.format(value_estimate))  # (MINE) If you put it after the envs.step the SUCCESS appears at the envs.step so it will appear oddly
+            print('|episode:',episode,'|step:', n, '|actions:', action_ids)  # (MINE) If you put it after the envs.step the SUCCESS appears at the envs.step so it will appear oddly
             # (MINE) Store actions and value estimates for all steps:
             mb_values[:, n] = value_estimate
             mb_obs.append(latest_obs)

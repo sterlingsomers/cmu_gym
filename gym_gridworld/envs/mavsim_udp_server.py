@@ -7,10 +7,16 @@ import time
 
 class MavsimUDPHandler():
 
-    """Provides an interface to the MAVSim aircraft simulation over a UDP socket connection."""
+    """Provides an interface to the MAVSim aircraft simulation over a UDP socket connection.
 
-    def __init__(self, mavsim_host='127.0.0.1',mavsim_port=14555,
-                       rl_agent_host='127.0.0.1', rl_agent_port=9048):
+       Ideally this interface would also manage map offsets and import map tiles that are required."""
+
+
+    def __init__(self, mavsim_host='127.0.0.1',
+                       mavsim_port=14555,
+                       rl_agent_host='127.0.0.1',
+                       rl_agent_port=9048,
+                       run_synchronous =True):
 
         print("MavsimHandler initializing")
         print("   mavsim_host:   {}  mavsim_port:   {}".format(mavsim_host,mavsim_port))
@@ -20,7 +26,7 @@ class MavsimUDPHandler():
         # Save off parameters
         #--------------------
 
-        self.run_synchronous = True
+        self.run_synchronous = run_synchronous
 
         self.mavsim_host = mavsim_host
         self.mavsim_port = mavsim_port
@@ -277,25 +283,3 @@ class MavsimUDPHandler():
 
         return self.heading
 
-
-    def mavsim_lat_to_y(self,lat):
-
-        """Converts latitude returned in GLOBAL_POSITION_INT callback to cell row index or Y coordinate"""
-
-        return int( 500- 1000*( lat/1e07 - 30) )
-
-
-    def mavsim_lon_to_x(self,lon):
-
-        """Converts longitude returned in GLOBAL_POSITION_INT callback to cell column index or X coordinate"""
-
-        return int( 500 + (lon/1e07 + 110)*1000 )
-
-
-
-
-    def mavsim_alt_to_z(self,alt):
-
-        """Converts altitude returned in GLOBAL_POSITION_INT callback to discrete level"""
-
-        return self.alt_to_z_dict[int(alt)]
