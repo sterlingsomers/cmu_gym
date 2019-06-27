@@ -695,11 +695,16 @@ for key in navs_by_action:
     for chunk in navs_by_action[key]:
         for i in range(len(chunk)):
             if chunk[i] == 'distance_to_hiker':
-                chunk[i+1][1] = remap(chunk[i+1][1], min_nav_distances, max_nav_distance, 0, 1)
+                chunk[i+1][1] = np.interp(chunk[i+1][1], [min(min_max_dict[chunk[i]]),max(min_max_dict[chunk[i]])],[0,1])
+
+                # chunk[i+1][1] = remap(chunk[i+1][1], min_nav_distances, max_nav_distance, 0, 1)
             if chunk[i] == 'altitude':
-                chunk[i+1][1] = remap(chunk[i+1][1], min_nav_alt, max_nav_alt, 0, 1)
+                chunk[i+1][1] = np.interp(chunk[i+1][1], [min(min_max_dict[chunk[i]]),max(min_max_dict[chunk[i]])],[0,1])
+                # chunk[i+1][1] = remap(chunk[i+1][1], min_nav_alt, max_nav_alt, 0, 1)
             if chunk[i] in egoses:
-                chunk[i+1][1] = remap(chunk[i+1][1], min_nav_ego, max_nav_ego, 0, 1)
+                chunk[i+1][1] = np.interp(chunk[i+1][1], [min(min_max_dict[chunk[i]]),max(min_max_dict[chunk[i]])],[0,1])
+
+                # chunk[i+1][1] = remap(chunk[i+1][1], min_nav_ego, max_nav_ego, 0, 1)
 
 
 
