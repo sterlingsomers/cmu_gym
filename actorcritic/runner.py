@@ -419,13 +419,7 @@ def reset_actr():
         #load all the chunks
         allchunks = pickle.load(open(os.path.join(chunk_path,chunk_file_name),'rb'))
         for chunk in allchunks:
-            #alt needs to be transformed
-            alt_index = chunk.index('altitude') + 1
-            alt = chunk[alt_index][1]
-            transformed_alt = np.interp(alt, [min(min_max['altitude']),max(min_max['altitude'])], [0,1])
-            # chunk[alt_index][1] = np.interp(chunk[alt_index][1],[min(min_max['altitude']),max(min_max['altitude'])],[0,1])
-            if alt > 1.0:
-                print("alt...")
+
             #fc needs to be transformed
             fc_index = chunk.index('fc') + 1
             fc = [chunk[fc_index][1]]
