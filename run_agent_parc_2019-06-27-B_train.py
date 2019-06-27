@@ -18,7 +18,7 @@ if __name__ == "__main__":
         verbose=False,
         model_name='parc_2019-06-27-B',
         goal_mode='navigate',
-        K_batches=1,#1001,
+        K_batches=1001,
         episode_length=25,
         policy_type='FullyConv'
     )
@@ -26,7 +26,7 @@ if __name__ == "__main__":
     print("Training")
 
 
-    for i in range(2,3):
+    for i in range(2,21):
         result = sim.run(curriculum_radius=i)
 
 
