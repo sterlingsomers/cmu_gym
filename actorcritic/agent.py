@@ -5,7 +5,7 @@ import tensorflow as tf
 from pysc2.lib import actions
 from tensorflow.contrib import layers
 from tensorflow.contrib.layers.python.layers.optimizers import OPTIMIZER_SUMMARIES
-from actorcritic.policy import FullyConvPolicy, MetaPolicy, RelationalPolicy
+from actorcritic.policy import FullyConvPolicy, MetaPolicy, RelationalPolicy, DeepFullyConvPolicy
 from common.preprocess import ObsProcesser, FEATURE_KEYS, AgentInputTuple
 from common.util import weighted_random_sample, select_from_each_row, ravel_index_pairs
 import tensorboard.plugins.beholder as beholder_lib
@@ -126,6 +126,8 @@ class ActorCriticAgent:
             self.policy = FullyConvPolicy
         elif policy == 'Relational':
             self.policy = RelationalPolicy
+        elif policy == 'DeepFullyConv':
+            self.policy = DeepFullyConvPolicy
         else:
             self.policy = MetaPolicy
 

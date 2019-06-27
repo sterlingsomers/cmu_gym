@@ -88,7 +88,7 @@ flags.DEFINE_float("entropy_weight_action", 0.001, "entropy of action-id distrib
 flags.DEFINE_float("ppo_lambda", 0.95, "lambda parameter for ppo")
 flags.DEFINE_integer("ppo_batch_size", None, "batch size for ppo, if None use n_steps_per_batch")
 flags.DEFINE_integer("ppo_epochs", 3, "epochs per update")
-flags.DEFINE_enum("policy_type", "FullyConv", ["MetaPolicy", "FullyConv", "Relational"], "Which type of Policy to use")
+flags.DEFINE_enum("policy_type", "FullyConv", ["MetaPolicy", "FullyConv", "Relational", "DeepFullyConv"], "Which type of Policy to use")
 flags.DEFINE_enum("agent_mode", ACMode.A2C, [ACMode.A2C, ACMode.PPO], "if should use A2C or PPO")
 
 ### NEW FLAGS ####
@@ -149,6 +149,7 @@ class Simulation:
                  verbose = FLAGS.visualize,
                  environment_id = 'gridworld-v0',
                  model_name = FLAGS.model_name,
+                 policy_type = FLAGS.policy_type,
 
                  drone_initial_position=None,
                  drone_initial_heading = None,
@@ -166,6 +167,7 @@ class Simulation:
         self.environment_id = environment_id
         self.model_name = model_name
         self.K_batches=K_batches
+        self.policy_type=policy_type
 
         #TODO this runner is maybe too long and too messy..
         self.full_checkpoint_path = os.path.join(FLAGS.checkpoint_path, self.model_name)
@@ -234,7 +236,7 @@ class Simulation:
             summary_path=self.full_summary_path,
             max_gradient_norm=FLAGS.max_gradient_norm,
             num_actions=self.envs.action_space.n,
-            policy=FLAGS.policy_type
+            policy=self.policy_type
         )
         # Build Agent
         self.agent.build_model()
@@ -282,6 +284,7 @@ class Simulation:
 
     def run(self,
             episodes_to_run=FLAGS.episodes,
+            curriculum_radius=None,
             sleep_time = FLAGS.sleep_time):
 
 
@@ -315,6 +318,9 @@ class Simulation:
                             
                             """
 
+        if curriculum_radius!=None:
+            self.curriculum_radius=curriculum_radius
+            self.runner.reset(curriculum_radius=curriculum_radius)
 
         self.episodes_to_run = episodes_to_run
         self.sleep_time=sleep_time

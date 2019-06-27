@@ -11,56 +11,49 @@ class FullyConvPolicy:
 
     def __init__(self,
             agent,
-            trainable: bool = True
+            trainable: bool = True,
+            classic = True
     ):
         # type agent: ActorCriticAgent
         self.placeholders = agent.placeholders
         self.trainable = trainable
         self.unittype_emb_dim = agent.unit_type_emb_dim
         self.num_actions = agent.num_actions
+        self.classic=classic
 
     def _build_convs(self, inputs, name):
+
         conv1 = layers.conv2d(
             inputs=inputs,
             data_format="NHWC",
-            num_outputs=32,
-            kernel_size=8, #8
-            stride=4,#4
+            num_outputs= 32,
+            kernel_size= 8, #8
+            stride= 4,#4
             padding='SAME',
             activation_fn=tf.nn.relu,
             scope="%s/conv1" % name,
             trainable=self.trainable
         )
+
         conv2 = layers.conv2d(
             inputs=conv1,
             data_format="NHWC",
             num_outputs=64,
-            kernel_size=4, #4
+            kernel_size=4,
             stride=1,#2,#
             padding='SAME',
             activation_fn=tf.nn.relu,
             scope="%s/conv2" % name,
             trainable=self.trainable
         )
-        # conv3 = layers.conv2d(
-        #     inputs=conv2,
-        #     data_format="NHWC",
-        #     num_outputs=64,
-        #     kernel_size=3,
-        #     stride=1,
-        #     padding='SAME',
-        #     activation_fn=tf.nn.relu,
-        #     scope="%s/conv3" % name,
-        #     trainable=self.trainable
-        # )
+
 
         if self.trainable:
             layers.summarize_activation(conv1)
             layers.summarize_activation(conv2)
-            # layers.summarize_activation(conv3)
+
 
         return conv2
-        # return conv3
 
     def build(self):
         # units_embedded = layers.embed_sequence(
@@ -207,6 +200,101 @@ class FullyConvPolicy:
         self.action_id_log_probs = action_id_log_probs
        # self.spatial_action_log_probs = spatial_action_log_probs
         return self
+
+class DeepFullyConvPolicy(FullyConvPolicy):
+
+    def _build_convs(self, inputs, name):
+
+        conv1 = layers.conv2d(
+            inputs=inputs,
+            data_format="NHWC",
+            num_outputs=64, #BOB 32,
+            kernel_size=5, #BOB 8, #8
+            stride=5, #BOB 4,#4
+            padding='SAME',
+            activation_fn=tf.nn.relu,
+            scope="%s/conv1" % name,
+            trainable=self.trainable
+        )
+
+        conv2 = layers.conv2d(
+            inputs=conv1,
+            data_format="NHWC",
+            num_outputs=64,
+            kernel_size=3, #4
+            stride=1,#2,#
+            padding='SAME',
+            activation_fn=tf.nn.relu,
+            scope="%s/conv2" % name,
+            trainable=self.trainable
+        )
+
+        conv3 = layers.conv2d(
+            inputs=conv2,
+            data_format="NHWC",
+            num_outputs=128,
+            kernel_size=3,
+            stride=1,
+            padding='SAME',
+            activation_fn=tf.nn.relu,
+            scope="%s/conv3" % name,
+            trainable=self.trainable
+        )
+
+        pool1 = tf.layers.max_pooling2d(conv3, 2, 2)
+
+        conv4 = layers.conv2d(
+            inputs=pool1,
+            data_format="NHWC",
+            num_outputs=128,
+            kernel_size=3,
+            stride=1,
+            padding='SAME',
+            activation_fn=tf.nn.relu,
+            scope="%s/conv4" % name,
+            trainable=self.trainable
+        )
+
+        conv5 = layers.conv2d(
+            inputs=conv4,
+            data_format="NHWC",
+            num_outputs=192,
+            kernel_size=3,
+            stride=1,
+            padding='SAME',
+            activation_fn=tf.nn.relu,
+            scope="%s/conv5" % name,
+            trainable=self.trainable
+        )
+
+        conv6 = layers.conv2d(
+            inputs=conv5,
+            data_format="NHWC",
+            num_outputs=192,
+            kernel_size=3,
+            stride=1,
+            padding='SAME',
+            activation_fn=tf.nn.relu,
+            scope="%s/conv6" % name,
+            trainable=self.trainable
+        )
+
+        pool2 = tf.layers.max_pooling2d(conv6, 2, 2)
+
+        conv7 = layers.conv2d(
+            inputs=conv2,
+            data_format="NHWC",
+            num_outputs=400,
+            kernel_size=3,
+            stride=1,
+            padding='SAME',
+            activation_fn=tf.nn.relu,
+            scope="%s/conv7" % name,
+            trainable=self.trainable
+        )
+
+        return conv7
+
 
 class MetaPolicy:
     """

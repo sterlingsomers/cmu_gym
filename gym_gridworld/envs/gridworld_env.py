@@ -818,7 +818,7 @@ class GridworldEnv(gym.Env):
         return (self.generate_observation(), reward, done, info)
 
 
-    def reset(self):
+    def reset(self,curriculum_radius=None):
 
         """ goal_mode in { None, 'navigate' } """
 
@@ -829,6 +829,8 @@ class GridworldEnv(gym.Env):
         #print("   curriculum_radius {}".format(curriculum_radius))
 
         self.step_number = 0
+        if curriculum_radius!=None:
+            self.curriculum_radius=curriculum_radius
 
         self.dist_old = 1000
         self.drop = False
@@ -907,6 +909,7 @@ class GridworldEnv(gym.Env):
                 D = distance.cdist([hiker], drone_safe_points, 'chebyshev').astype(int) # Distances from hiker to all drone safe points
 
                 if self.curriculum_radius!=None:
+                    print("Using curriculum mode with radius:{}".format(self.curriculum_radius))
                     close_location_idxs = D[0] < self.curriculum_radius
                     if sum(close_location_idxs)==0:
                         print("WARNING - no safe locations next to hiker location {} -- trying again ".format(hiker))
