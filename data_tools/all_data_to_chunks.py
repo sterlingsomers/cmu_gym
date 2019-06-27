@@ -744,7 +744,7 @@ for key, val in navs_by_action.items():
 for key in navs_by_action:
     random.shuffle(navs_by_action[key])
     if key == 'drop':
-        navs_by_action[key] = navs_by_action[key][:400]
+        navs_by_action[key] = navs_by_action[key][:200]
     else:
         navs_by_action[key] = navs_by_action[key][:200]
 
