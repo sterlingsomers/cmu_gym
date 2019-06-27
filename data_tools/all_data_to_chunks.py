@@ -648,7 +648,7 @@ reduced_navs = {('down', 'left'): [], ('down', 'diagonal_left'): [], ('down', 'c
 #             reduced_navs[key].extend(one_pass[key])
 
 #make a master min_max dictionary
-to_be_transformed = ['ego_left', 'ego_diagonal_left', 'ego_center', 'ego_diagonal_right','ego_right','distance_to_hiker']
+to_be_transformed = ['ego_left', 'ego_diagonal_left', 'ego_center', 'ego_diagonal_right','ego_right','distance_to_hiker', 'altitude']
 min_max_dict = {}
 min_max_dict['fc'] = []
 for trans in to_be_transformed:
