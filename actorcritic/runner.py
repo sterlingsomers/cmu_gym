@@ -405,19 +405,28 @@ def reset_actr():
         interp_dict['fc'] = normalizer
         print('Normalization transform created')
 
+        # the interpt dict will be pre-loaded to transform values to 0-1, based on their key
+        to_transform = ['ego_left', 'ego_diagonal_left', 'ego_center', 'ego_diagonal_right', 'ego_right',
+                        'distance_to_hiker', 'altitude']
+        for trans in to_transform:
+            if min_max[trans]:
+                interp_dict[trans] = None
+                min_val = min(min_max)
+                max_val = max(min_max)
+                func = interp1d([min_val, max_val], [0, 1])
+                interp_dict[trans] = func
 
         #load all the chunks
         allchunks = pickle.load(open(os.path.join(chunk_path,chunk_file_name),'rb'))
         for chunk in allchunks:
-            #chunk1 = chunk[0:4]
-            #chunk2 = chunk[6:]
-            #chunk = chunk1 + chunk2
-            #alt = chunk[3][1]
-            #chunk[5][1] = chunk[5][1] - alt
-            #chunk[7][1] = chunk[7][1] - alt
-            #chunk[9][1] = chunk[9][1] - alt
-            #chunk[11][1] = chunk[11][1] - alt
-            #chunk[13][1] = chunk[13][1] - alt
+            #alt needs to be transformed
+            alt_index = chunk.index('altitude') + 1
+            alt = chunk[alt_index][1]
+            transformed_alt = np.interp(alt, [min(min_max['altitude']),max(min_max['altitude'])], [0,1])
+            # chunk[alt_index][1] = np.interp(chunk[alt_index][1],[min(min_max['altitude']),max(min_max['altitude'])],[0,1])
+            if alt > 1.0:
+                print("alt...")
+            #fc needs to be transformed
             fc_index = chunk.index('fc') + 1
             fc = [chunk[fc_index][1]]
             # fc = np.array(chunk[fc_index][1])
@@ -433,24 +442,8 @@ def reset_actr():
         ignore_list = ['left_down','diagonal_left_down','center_down','diagonal_right_down','right_down',
                        'left_level','diagonal_left_level','center_level','diagonal_right_level','right_level',
                        'left_up','diagonal_left_up','center_up','diagonal_right_up','right_up', 'drop', 'type', 'fc']
-        #collecting the max mins
-        # for chunk in allchunks:
-        #     for x, y in zip(*[iter(chunk)] * 2):
-        #         #x, y[1]
-        #         if not x in ignore_list and not x == 'isa':
-        #             if y[1] not in min_max[x]:
-        #                 min_max[x].append(y[1])
 
-        #the interpt dict will be pre-loaded to transform values to 0-1, based on their key
-        to_transform = ['ego_left', 'ego_diagonal_left', 'ego_center', 'ego_diagonal_right', 'ego_right',
-                  'distance_to_hiker']
-        for trans in to_transform:
-            if min_max[trans]:
-                interp_dict[trans] = None
-                min_val = min(min_max)
-                max_val = max(min_max)
-                func = interp1d([min_val,max_val],[0,1])
-                interp_dict[trans] = func
+
 
 
 
