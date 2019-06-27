@@ -281,7 +281,32 @@ box_canyon_map = np.array(
             [  2,  1,  2,  2,  2,  2,  2,  2,  2,  2,  2,  2,  2,  2,  2,  2,  2,  1,  1, 2 ]
           ])
 
+nixel_sample_map = np.array(
 
+    [[15., 15.,  1.,  2.,  2.,  2.,  2.,  2., 25., 25.,  2.,  2., 25., 25., 24., 26.,  2.,  2., 25., 24.],
+     [15., 15.,  2.,  2.,  2.,  2.,  2.,  2.,  2., 31., 25.,  2.,  2.,  2.,  2., 24.,  2., 24., 24., 25.],
+     [15., 15.,  1.,  2.,  2.,  2.,  2., 24., 25., 24.,  2., 26.,  2.,  2.,  2.,  2.,  2.,  2.,  2., 24.],
+     [15., 15.,  2., 25.,  2.,  2.,  2.,  2.,  2.,  2.,  2.,  2., 24.,  2.,  2.,  2.,  2., 24., 24., 25.],
+     [15., 15.,  1., 31.,  2.,  2.,  2.,  2.,  2.,  2.,  2.,  2., 24.,  2.,  2.,  2., 31., 25., 24.,  2.],
+     [15., 15.,  1., 26.,  2.,  2.,  2.,  2.,  2.,  2.,  2.,  2., 25., 25., 24., 31., 31., 24.,  2.,  2.],
+     [15., 15.,  2., 25.,  2., 24.,  2.,  2.,  2.,  2.,  2.,  2., 24., 25., 25.,  2.,  2., 24.,  2.,  2.],
+     [15., 15.,  2.,  1.,  1.,  2., 24.,  2.,  2.,  2.,  2.,  2.,  2.,  2.,  2.,  2.,  2.,  2., 24.,  2.],
+     [15., 15.,  2.,  2., 17.,  2., 24., 24., 24.,  2.,  2.,  2.,  2.,  2.,  2.,  2.,  2.,  2.,  2.,  2.],
+     [15., 15.,  2.,  1.,  2.,  1., 26., 25.,  2.,  2.,  2.,  2.,  2.,  2.,  2., 25., 26.,  2.,  2.,  2.],
+     [15., 15., 15.,  1.,  2.,  2., 25., 25., 24.,  2., 25.,  2.,  2.,  2.,  2., 25., 26.,  2.,  2.,  2.],
+     [15., 15., 15.,  1.,  2.,  2., 25.,  2.,  2.,  2., 31., 24.,  2.,  2.,  2., 26.,  2.,  2.,  2.,  2.],
+     [15., 15., 15., 15., 15.,  2.,  2., 25.,  2.,  2., 24., 26.,  2.,  2.,  2.,  2.,  2.,  2.,  2., 24.],
+     [ 1., 15., 15., 15., 15., 15.,  2.,  1.,  1.,  1.,  1.,  1.,  1.,  2., 10.,  1.,  2., 24.,  2., 26.],
+     [ 1.,  1., 15., 15., 15., 15., 15.,  1.,  2.,  1.,  1.,  1.,  1.,  1., 10.,  1.,  2., 24., 24., 26.],
+     [ 1.,  1.,  1., 15., 15., 15., 15., 15.,  2.,  1.,  1.,  1.,  1.,  1., 10.,  1.,  2., 31., 26., 25.],
+     [ 1.,  1.,  1.,  2., 15., 15., 15., 15.,  1.,  1.,  1.,  2.,  2., 10.,  2.,  1.,  2., 26., 25.,  2.],
+     [ 1.,  1.,  1.,  1.,  1., 15., 15., 15., 15., 15.,  1.,  2.,  2., 10.,  1.,  1., 26., 26.,  2.,  2.],
+     [ 1.,  1.,  2.,  1.,  1.,  1., 15., 15., 15., 15., 15.,  2.,  2.,  1., 10.,  1., 24., 25.,  2.,  2.],
+     [ 1.,  1.,  1.,  1.,  1.,  1.,  1., 15., 15., 15., 15., 15.,  2.,  1., 10.,  2., 25.,  2.,  2.,  2.]]
+
+
+
+)
 
 class GridworldEnv(gym.Env):
 
@@ -297,9 +322,11 @@ class GridworldEnv(gym.Env):
                  verbose=False,
                  curriculum_radius=None,
                  goal_mode='drop',
+                 use_custom_map=None,
                  episode_length=None):
 
 
+        self.use_custom_map=use_custom_map
         self.hiker_initial_position=hiker_initial_position
         self.drone_initial_position=drone_initial_position
         self.drone_initial_altitude=drone_initial_altitude
@@ -852,18 +879,18 @@ class GridworldEnv(gym.Env):
         self.package_dropped = 0
         self.package_position = ()
 
-        # self.map_volume = CNP.create_custom_map(box_canyon_map)
-        # self.generate_random_map()
+        if not self.use_custom_map is None:
 
-        # hiker = (10, 10)
-        # drone = (18, 10)
-        # self.altitude = 1
-        # end DRAWN world
+            self.map_volume = CNP.create_custom_map(box_canyon_map)
+            # self.generate_random_map()
+            map_ = self.map_volume['flat']
 
-        self.submap_offset = random.choice(self.submap_offsets)
+        else:
 
-        self.map_volume = CNP.map_to_volume_dict( self.submap_offset[0], self.submap_offset[1], self.mapw, self.maph )
-        map_ = self.map_volume['flat']
+            self.submap_offset = random.choice(self.submap_offsets)
+
+            self.map_volume = CNP.map_to_volume_dict( self.submap_offset[0], self.submap_offset[1], self.mapw, self.maph )
+            map_ = self.map_volume['flat']
 
 
         # place the hiker

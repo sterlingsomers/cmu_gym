@@ -408,3 +408,78 @@ def plot_trajectory(trajectory_data_frame_df, episode, title="Trajectory", map_n
     plt.suptitle(annotated_title)
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.show()
+
+
+
+
+def plot_map(title="Trajectory", map_name="box_canyon"):
+
+    """Given a pandas dataframe of events from a training run covering multiple episodes,
+       and a desired episode number,
+       plots the trajectory of the episode in various ways to provide an understanding of the drone behavior.
+
+       :param title - title for top of plots
+       :param map_name - map to use as background for the visualizations and feature generation
+
+       ToDo: This routine should be broken up to make the individual graphs usable.
+             We should probably standardize the interface on something close to the raw data so
+             that routines can be easily applied.
+       """
+
+
+    # Background map data
+
+    map_tiles_raw     = maps.name_to_map[map_name]
+    map_altitudes_raw = tiles_to_altitudes(map_tiles_raw)
+
+
+    # Flip vertically so that imshow will render this the way we expect on the screen
+
+    map_tiles_flip     = np.flipud(map_tiles_raw)  # np.transpose( np.flipud(map_tiles_raw)     )
+    map_altitudes_flip = np.flipud(map_altitudes_raw)
+
+
+    # Flip and transpose so that 3D Bar chart shows expected landscape
+
+    map_tiles_ftp     =  np.transpose( np.flipud(map_tiles_raw)     )
+    map_altitudes_ftp = np.transpose( np.flipud(map_altitudes_raw) )
+
+
+
+
+
+    #-------------------------------------------------
+    # Setup Plotting
+    #-------------------------------------------------
+
+    fig = plt.figure( figsize=(16,8) )
+
+    prows = 1 # Number of rows in plotted graphs
+    pcols = 1 # Number of columns in plotted graphs
+
+    pnum=1
+
+
+    #-------------------------------------------------
+    # 2D Tile Type Map
+    #-------------------------------------------------
+
+    ax = fig.add_subplot(prows, pcols, pnum); pnum=pnum+1
+
+    img = tiles_to_rgb(map_tiles_flip)
+
+    plt.imshow(img)
+
+
+    plt.xlim( [0,20])
+    plt.ylim( [0,20])
+    plt.xlabel('X')
+    plt.ylabel('Y')
+
+    plt.title('Map')
+
+    plt.show()
+
+if __name__ == "__main__":
+    print("Plotting map")
+    plot_map("Map","nixel_sample")

@@ -7,6 +7,7 @@ from datetime import datetime
 from time import sleep
 import numpy as np
 import pickle
+import timeit
 
 import pandas as pd
 #from functools import partial
@@ -318,6 +319,8 @@ class Simulation:
                             
                             """
 
+        self.run_start_time = timeit.default_timer()
+
         if curriculum_radius!=None:
             self.curriculum_radius=curriculum_radius
             self.runner.reset(curriculum_radius=curriculum_radius)
@@ -590,7 +593,12 @@ class Simulation:
             except KeyboardInterrupt:
                 pass
 
-        print("Okay. Work is done")
+
+        self.run_stop_time = timeit.default_timer()
+
+        self.run_elapsed_time = self.run_stop_time - self.run_start_time
+
+        print("Okay. Work is done in {} secs".format(self.run_elapsed_time))
 
 
         return all_data
