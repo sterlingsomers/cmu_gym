@@ -271,7 +271,7 @@ def similarity(val1, val2):
     #     return 0
 
     if val1[0] == 'FC':
-        return 0
+        # return 0
         # r1 = spatial.distance.minkowski(val1[1], val2[1],1) * - 1
         r2 = spatial.distance.euclidean(val1[1], val2[1]) * - 1
         # r3 = spatial.distance.cosine(val1[1], val2[1]) * -1
@@ -376,7 +376,7 @@ def reset_actr():
         model_name = 'egocentric_allocentric_salience.lisp'
         model_path = '/Users/paulsomers/COGLE/gym-gridworld/'
 
-        chunk_file_name = 'chunks_cluster_centers_15actions_2000_fc_ALLMAPS_200randommax.pkl'
+        chunk_file_name = 'chunks_cluster_centers_15actions_2000_fc_ALLMAPS_200randommax_ego.pkl'
         #chunk_path = os.path.join(model_path,'data')
         chunk_path = ''
         actr.add_command('similarity_function',similarity)
@@ -392,7 +392,7 @@ def reset_actr():
 
         # max_mins_name = 'max_mins_from_data.pkl'
         # max_mins = pickle.load(open(os.path.join(chunk_path,max_mins_name),'rb'))
-        min_max_name = 'min_max_dict.pkl'
+        min_max_name = 'min_max_dict_ego.pkl'
         min_max = pickle.load(open(os.path.join(chunk_path,min_max_name),'rb'))
 
         # Need to normalize the vectors
@@ -505,11 +505,11 @@ def create_actr_observation(step):
     altitudes = [x - 1 for x in altitudes]
     alt = step['altitude']  #to be consistant with numpy
     chunk.extend(['altitude', ['altitude',int(alt)]])
-    chunk.extend(['ego_left', ['ego_left',altitudes[0] - alt],
-                  'ego_diagonal_left', ['ego_diagonal_left',altitudes[1] - alt],
-                  'ego_center',  ['ego_center',altitudes[2] - alt],
-                  'ego_diagonal_right', ['ego_diagonal_right', altitudes[3] - alt],
-                  'ego_right', ['ego_right',altitudes[4] - alt]])
+    chunk.extend(['ego_left', ['ego_left',altitudes[0]],
+                  'ego_diagonal_left', ['ego_diagonal_left',altitudes[1]],
+                  'ego_center',  ['ego_center',altitudes[2]],
+                  'ego_diagonal_right', ['ego_diagonal_right', altitudes[3]],
+                  'ego_right', ['ego_right',altitudes[4]]])
     chunk.append('fc')
     step['fc'] = step['fc'].astype(float).tolist()[0]
     step['fc'] = interp_dict['fc'].transform([step['fc']]).astype(float).tolist()[0]

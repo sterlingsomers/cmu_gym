@@ -291,7 +291,7 @@ def main():
                 #intialize for the experiments
                 runner.envs.hiker = (11,8)
                 runner.envs.drone = (18,11)
-                runner.envs._map = (146,456)
+                runner.envs._map = (321,337)
                 runner.envs.altitude = 2
                 runner.envs.heading = 1
 
@@ -444,7 +444,7 @@ def main():
 
             print("...saving dictionary.")
             folder = '/Users/paulsomers/COGLE/gym-gridworld/data/experiment/'
-            ACTR_st = 'BEHAVE_noise020_MP3_' #BEHAVE_FC_noisexxx_
+            ACTR_st = 'eBEHAVE_FC_noise020_MP3_' #BEHAVE_FC_noisexxx_
             map_name = str(runner.envs._map[0]) + '-' + str(runner.envs._map[1])#'custom'#str(runner.envs._map[0]) + '-' + str(runner.envs._map[1])
             drone_init_loc = str(runner.envs.drone[0]) + '-' + str(runner.envs.drone[1])
             drone_head_alt = str(runner.envs.heading) + '-' + str(runner.envs.altitude)
