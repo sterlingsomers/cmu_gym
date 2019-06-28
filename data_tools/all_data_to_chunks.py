@@ -112,11 +112,11 @@ def convert_data_to_chunks(all_data):
             altitudes = [x - 1 for x in altitudes]
             alt = step['altitude']
             chunk.extend(['altitude', ['altitude', int(alt)]])
-            chunk.extend(['ego_left', ['ego_left', altitudes[0] - alt],
-                          'ego_diagonal_left', ['ego_diagonal_left', altitudes[1] - alt],
-                          'ego_center', ['ego_center', altitudes[2] - alt],
-                          'ego_diagonal_right', ['ego_diagonal_right', altitudes[3] - alt],
-                          'ego_right', ['ego_right', altitudes[4] - alt]])
+            chunk.extend(['ego_left', ['ego_left', altitudes[0]],
+                          'ego_diagonal_left', ['ego_diagonal_left', altitudes[1]],
+                          'ego_center', ['ego_center', altitudes[2]],
+                          'ego_diagonal_right', ['ego_diagonal_right', altitudes[3]],
+                          'ego_right', ['ego_right', altitudes[4]]])
 
 
 
@@ -664,7 +664,7 @@ for key in navs_by_action:
             min_max_dict['fc'].append(fc)
 
 #Save the min_max for use in the simulation
-with open('min_max_dict.pkl','wb') as handle2:
+with open('min_max_dict_ego.pkl','wb') as handle2:
     pickle.dump(min_max_dict,handle2)
 
 
@@ -805,7 +805,7 @@ for key,value in navs_by_action.items():#nav_by_action_clusters_chunks.items()
 #ms.fit(X)
 #labels = ms.labels_
 #cluster_centers = ms.cluster_centers_
-with open('chunks_cluster_centers_15actions_2000_fc_ALLMAPS_200randommax.pkl','wb') as handle:
+with open('chunks_cluster_centers_15actions_2000_fc_ALLMAPS_200randommax_ego.pkl','wb') as handle:
     pickle.dump(nav_complete_list,handle)
 
 print('stop')
