@@ -38,7 +38,7 @@ flags.DEFINE_integer("resolution", 32, "Resolution for screen and minimap featur
 flags.DEFINE_integer("step_mul", 2, "Game steps per agent step.")
 flags.DEFINE_integer("step2save", 1000, "Game step to save the model.") #A2C every 1000, PPO 250
 flags.DEFINE_integer("n_envs", 80, "Number of environments to run in parallel")
-flags.DEFINE_integer("episodes", 50, "Number of complete episodes")
+flags.DEFINE_integer("episodes", 100, "Number of complete episodes")
 flags.DEFINE_integer("n_steps_per_batch", 32,
     "Number of steps per batch, if None use 8 for a2c and 128 for ppo")  # (MINE) TIMESTEPS HERE!!! You need them cauz you dont want to run till it finds the beacon especially at first episodes - will take forever
 flags.DEFINE_integer("all_summary_freq", 50, "Record all summaries every n batch")
@@ -363,6 +363,7 @@ def main():
 
                     if done and not info['success']:
                         print('Crash, terminate episode')
+                        mb_crash.append(runner.envs.crash)
                         break # Also we prevent new data for the new time step to be saved
 
                     mb_actions.append(action)
@@ -443,13 +444,14 @@ def main():
 
             print("...saving dictionary.")
             folder = '/Users/paulsomers/COGLE/gym-gridworld/data/experiment/'
-            map_name = 'BEHAVE_noise080_' + str(runner.envs._map[0]) + '-' + str(runner.envs._map[1])#'custom'#str(runner.envs._map[0]) + '-' + str(runner.envs._map[1])
+            ACTR_st = 'BEHAVE_noise020_MP3_' #BEHAVE_FC_noisexxx_
+            map_name = str(runner.envs._map[0]) + '-' + str(runner.envs._map[1])#'custom'#str(runner.envs._map[0]) + '-' + str(runner.envs._map[1])
             drone_init_loc = str(runner.envs.drone[0]) + '-' + str(runner.envs.drone[1])
             drone_head_alt = str(runner.envs.heading) + '-' + str(runner.envs.altitude)
             hiker_loc = str(runner.envs.hiker[0]) + '-' + str(runner.envs.hiker[1])
             type = '.tj'
             # path = folder + map_name + '_' + drone_init_loc + '_' + drone_head_alt + '_' + hiker_loc + '_' + str(FLAGS.episodes) + type
-            path = folder + 'MAP' + map_name + '_' + 'D' + drone_init_loc + '_' + 'HeadAlt' + drone_head_alt + '_' + 'H' + hiker_loc + '_' + str(FLAGS.episodes) + type
+            path = folder + ACTR_st + 'MAP' + map_name + '_' + 'D' + drone_init_loc + '_' + 'HeadAlt' + drone_head_alt + '_' + 'H' + hiker_loc + '_' + str(FLAGS.episodes) + type
             pickle_in = open(path,'wb')
             pickle.dump(dictionary, pickle_in)
 

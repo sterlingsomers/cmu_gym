@@ -267,17 +267,17 @@ def similarity(val1, val2):
     if not type(val1) == list:
         return 0
 
-    if val1[0] == 'ALTITUDE':# or val1[0] == 'DISTANCE_TO_HIKER':
-        return 0
+    # if val1[0] == 'ALTITUDE':# or val1[0] == 'DISTANCE_TO_HIKER':
+    #     return 0
 
     if val1[0] == 'FC':
         return 0
-        r1 = spatial.distance.minkowski(val1[1], val2[1],2) * - 1
+        # r1 = spatial.distance.minkowski(val1[1], val2[1],1) * - 1
         r2 = spatial.distance.euclidean(val1[1], val2[1]) * - 1
-        r3 = spatial.distance.cosine(val1[1], val2[1]) * -1
-        return r3
+        # r3 = spatial.distance.cosine(val1[1], val2[1]) * -1
+        return r2
 
-
+    # return 0
     return_value = abs(val1[1] - val2[1]) * -1
     return return_value
 
@@ -400,7 +400,7 @@ def reset_actr():
         fc_array = np.array([np.array(x) for x in min_max['fc']])
         # scalar = preprocessing.StandardScaler(with_std=True).fit(fc_array)
         # transform_fc = scalar.transform(fc_array)
-        normalizer = preprocessing.Normalizer(norm='l1').fit(fc_array)
+        normalizer = preprocessing.Normalizer(norm='max').fit(fc_array)
 
         interp_dict['fc'] = normalizer
         print('Normalization transform created')

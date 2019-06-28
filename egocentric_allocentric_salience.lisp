@@ -27,8 +27,8 @@
     (sgp :sim-hook "similarity_function"
          :cache-sim-hook-results t
          ;:blending-request-hook "new_blend_request"
-         :tmp 1.0         ;:seed (1 1) :bll nil :blc 5 :mp 1 :v t :blt t :esc t :ans .25 :rt -5)
-         :seed (1 1) :bll nil :blc 5 :mp 1 :v nil :blt nil :esc t :ans nil :rt -5000 :lf 0 :ncnar nil :value->mag second)
+         :tmp 1        ;:seed (1 1) :bll nil :blc 5 :mp 1 :v t :blt t :esc t :ans .25 :rt -5)
+         :seed (1 1) :bll nil :blc 5 :mp 3 :v nil :blt nil :esc t :ans 0.5 :rt -5000 :lf 0 :ncnar nil :value->mag second)
 
   ;(chunk-type observation needsRadio needsFood needsFA needsWater actual)
   ;(chunk-type observation current_altitude heading view_left view_diagonal_left view_center view_diagonal_right view_right)
@@ -52,7 +52,7 @@
 
   (p p1
      =imaginal>
-       ;altitude =CA
+       altitude =CA
        distance_to_hiker =DTH
        ego_right =ER
        ego_diagonal_right =EDR
@@ -73,7 +73,7 @@
      @imaginal>
      +blending>
        isa decision
-       ;altitude =CA
+       altitude =CA
        distance_to_hiker =DTH
        ego_right =ER
        ego_diagonal_right =EDR
