@@ -286,13 +286,18 @@ def similarity(val1, val2):
 
 
 
-def compute_S(blend_trace, keys_list):
+def compute_S(blend_trace, keys_list, mismatch_penalty, tempterature):
     '''For blend_trace @ time'''
     #probablities
-    probs = [x[3] for x in access_by_key('MAGNITUDES',access_by_key('SLOT-DETAILS',blend_trace[0][1])[0][1])]
+    MP = mismatch_penalty
+    t = tempterature
+    factors = ['LEFT_UP', 'DIAGONAL_LEFT_UP', 'CENTER_UP', 'DIAGONAL_RIGHT_UP', 'RIGHT_UP',
+               'LEFT_LEVEL', 'DIAGONAL_LEFT_LEVEL', 'CENTER_LEVEL', 'DIAGONAL_RIGHT_LEVEL', 'RIGHT_LEVEL',
+               'LEFT_DOWN', 'DIAGONAL_LEFT__DOWN', 'CENTER__DOWN', 'DIAGONAL_RIGHT__DOWN', 'RIGHT__DOWN', 'DROP']
+    probs = [x[3] for x in access_by_key('MAGNITUDES',access_by_key('SLOT-DETAILS',blend_trace[-1][1])[0][1])]
     #feature values in probe
-    FKs = [access_by_key(key.upper(),access_by_key('RESULT-CHUNK',blend_trace[0][1])) for key in keys_list]
-    chunk_names = [x[0] for x in access_by_key('CHUNKS', blend_trace[0][1])]
+    FKs = [access_by_key(key.upper(),access_by_key('RESULT-CHUNK',blend_trace[-1][1])) for key in keys_list]
+    chunk_names = [x[0] for x in access_by_key('CHUNKS', blend_trace[-1][1])]
 
     #Fs is all the F values (may or may not be needed for tss)
     #They are organized by chunk, same order as probs
@@ -307,8 +312,8 @@ def compute_S(blend_trace, keys_list):
     #each to_sum is Pj x dSim(Fs,vjk)/dFk
     #therefore, will depend on your similarity equation
     #in this case, we need max/min of the features because we use them to normalize
-    max_val = 4#max(map(max, zip(*feature_sets)))
-    min_val = 1#min(map(min, zip(*feature_sets)))
+    max_val = 1#max(map(max, zip(*feature_sets)))
+    min_val = 0#min(map(min, zip(*feature_sets)))
     n = max_val - min_val
     n = max_val
     #n = 1
@@ -326,17 +331,39 @@ def compute_S(blend_trace, keys_list):
             tss[i] = []
         for j in range(len(probs)):
             if FKs[i][1] > vjks[j][i][1]:
-                dSim = -1/max(min_max[vjks[j][i][0].lower()])
+                dSim = -1/1#max(min_max[vjks[j][i][0].lower()])
             elif FKs[i][1] == vjks[j][i][1]:
                 dSim = 0
             else:
-                dSim = 1/max(min_max[vjks[j][i][0].lower()])
+                dSim = 1/1#max(min_max[vjks[j][i][0].lower()])
             tss[i].append(probs[j] * dSim)
         ts2.append(sum(tss[i]))
 
     #vios
+
     viosList = []
-    viosList.append([actr.chunk_slot_value(x,'action') for x in chunk_names])
+    #viosList.append([actr.chunk_slot_value(x,'action') for x in chunk_names])
+    #this simple vios list does not work anymore because the blend is split across multiple values.
+    #need to find a way to figure out what values.
+    #viosList.append([actr.chunk_slot_value(x,'DROP') for x in chunk_names])
+    viosList.append([actr.chunk_slot_value(x, 'LEFT_UP') for x in chunk_names])
+    viosList.append([actr.chunk_slot_value(x, 'DIAGONAL_LEFT_UP') for x in chunk_names])
+    viosList.append([actr.chunk_slot_value(x, 'CENTER_UP') for x in chunk_names])
+    viosList.append([actr.chunk_slot_value(x, 'DIAGONAL_RIGHT_UP') for x in chunk_names])
+    viosList.append([actr.chunk_slot_value(x, 'RIGHT_UP') for x in chunk_names])
+    viosList.append([actr.chunk_slot_value(x, 'LEFT_LEVEL') for x in chunk_names])
+    viosList.append([actr.chunk_slot_value(x, 'DIAGONAL_LEFT_LEVEL') for x in chunk_names])
+    viosList.append([actr.chunk_slot_value(x, 'CENTER_LEVEL') for x in chunk_names])
+    viosList.append([actr.chunk_slot_value(x, 'DIAGONAL_RIGHT_LEVEL') for x in chunk_names])
+    viosList.append([actr.chunk_slot_value(x, 'RIGHT_LEVEL') for x in chunk_names])
+    viosList.append([actr.chunk_slot_value(x, 'LEFT_DOWN') for x in chunk_names])
+    viosList.append([actr.chunk_slot_value(x, 'DIAGONAL_LEFT_DOWN') for x in chunk_names])
+    viosList.append([actr.chunk_slot_value(x, 'CENTER_DOWN') for x in chunk_names])
+    viosList.append([actr.chunk_slot_value(x, 'DIAGONAL_RIGHT_DOWN') for x in chunk_names])
+    viosList.append([actr.chunk_slot_value(x, 'RIGHT_DOWN') for x in chunk_names])
+    viosList.append([actr.chunk_slot_value(x, 'DROP') for x in chunk_names])
+
+
     #viosList.append([actr.chunk_slot_value(x,'altitude_change') for x in chunk_names])
     #viosList.append([actr.chunk_slot_value(x, 'diagonal_right_turn') for x in chunk_names])
     #viosList.append([actr.chunk_slot_value(x, 'right_turn') for x in chunk_names])
@@ -351,18 +378,26 @@ def compute_S(blend_trace, keys_list):
             sub = []
             for j in range(len(probs)):
                 if FKs[i][1] > vjks[j][i][1]:
-                    dSim = -1/max(min_max[vjks[j][i][0].lower()])
+                    dSim = -1/1#max(min_max[vjks[j][i][0].lower()])
                 elif FKs[i] == vjks[j][i]:
                     dSim = 0
                 else:
-                    dSim = 1/max(min_max[vjks[j][i][0].lower()])
+                    dSim = 1/1#max(min_max[vjks[j][i][0].lower()])
                 tmp = probs[j] * (dSim - ts2[i]) * vios[j][1]#sum(tss[i])) * vios[j]
                 sub.append(tmp)
             results.append(sub)
 
         #print("compute S complete")
         rturn.append(results)
-    return rturn
+    #should build a dictionary
+    rdict = {}
+    for sums, result_factor in zip(rturn, factors):
+        print("For", result_factor)
+        rdict[result_factor] = {}
+        for s, factor in zip(sums, keys_list):
+            rdict[result_factor][factor] = MP / t * sum(s)
+            print(factor, MP / t * sum(s))  # , sum(s),s)
+    return rdict
 
 def reset_actr():
     global actr_initialized
@@ -388,7 +423,7 @@ def reset_actr():
         # actr_thread.daemon = True
         # actr_thread.start()
         # # actr.load_act_r_model(os.path.join(model_path,model_name))
-        # actr.record_history("blending-trace")
+        actr.record_history("blending-trace")
 
         # max_mins_name = 'max_mins_from_data.pkl'
         # max_mins = pickle.load(open(os.path.join(chunk_path,max_mins_name),'rb'))
@@ -577,11 +612,14 @@ def handle_observation(observation):
     # actr.stop_recording_history("blending-trace")
     # actr.record_history("blending-trace")
     b = actr.buffer_read('blending')
+
     # while b == None:
     #     time.sleep(1)
     #     b = actr.buffer_read('blending')
 
 
+    bt = actr.get_history_data("blending-trace")
+    bt = json.loads(bt)
 
 
 
@@ -598,6 +636,13 @@ def handle_observation(observation):
     for key in action_choice:
         action_choice[key] = actr.chunk_slot_value(b, key)
     action = max(action_choice.items(), key=operator.itemgetter(1))[0]
+
+    mp = actr.get_parameter_value(':mp')
+    t = access_by_key('TEMPERATURE',bt[-1][1])
+
+    salience = compute_S(bt,['ego_left', 'ego_diagonal_left', 'ego_center', 'ego_diagonal_right','ego_right',
+                            'hiker_left','hiker_diagonal_left','hiker_center','hiker_diagonal_right','hiker_right',
+                             'distance_to_hiker','altitude'],mp,t)
 
     actr.erase_buffer('blending')
 
