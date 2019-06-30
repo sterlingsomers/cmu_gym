@@ -374,7 +374,7 @@ def reset_actr():
 
     if not actr_initialized or actr_initialized:
         model_name = 'egocentric_allocentric_salience.lisp'
-        model_path = '/Users/paulsomers/COGLE/gym-gridworld/'
+        model_path = '/Users/paulsomers/COGLE/gym-gridworld/' #home/konstantinos/Documents/Projects/cmu_gym_actr
 
         chunk_file_name = 'chunks_cluster_centers_15actions_2000_fc_ALLMAPS_400randommax_ego.pkl'
         #chunk_path = os.path.join(model_path,'data')
@@ -555,7 +555,7 @@ def handle_observation(observation):
 
     chunk = actr.define_chunks(observation)
 
-    print("converting")
+    # print("converting")
     # actr.schedule_simple_event_now("set-buffer-chunk",
     #                                ['imaginal', chunk[0]])
     # actr.mp_time()
@@ -967,18 +967,31 @@ class Runner(object):
         # # order the chunks_and_distances
         # chunks_and_distances = sorted(chunks_and_distances, key=operator.itemgetter(1))
         # # print("ok")
-
+        actr_action = []
         network_action_ids = np.array(action_ids, copy=True)
         actr_observation = create_actr_observation(step_data)
-        actr_action = handle_observation(actr_observation)
-
-        action_ids = np.array([actr_action])
+        ACTRSTEPS = 20
+        actr_actions = np.zeros(16)
+        for i in range(ACTRSTEPS):
+            # print("choosing action", i)
+            actr_action = handle_observation(actr_observation)
+            # actr_actions.append(actr_action)
+            actr_actions[actr_action,] += 1
+            # actr_actions_dict = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0, 12: 0, 13: 0,
+            #                      14: 0, 15: 0}
+            # actr_actions_dict[actr_action] += 1
+        actr_actions = actr_actions / actr_actions.sum()
+        actr_actions = actr_actions.reshape([1,16])
+        # action_ids = np.array([actr_action])
         # nav_runner.envs.step(action)
 
         #reset actr every step (load chunks, etc.)
         # reset_actr()
 
-        print('|actions:', 'net', network_action_ids, 'actr', action_ids)
+
+
+
+        print('|actions:', 'net', network_action_ids, 'actr', actr_action)
 
         obs_raw = self.envs.step(action_ids) # It will also visualize the next observation if all the episodes have ended as after success it retunrs the obs from reset
         latest_obs = self.obs_processer.process(obs_raw[0:-3])  # Take only the first element which is the rgb image and ignore the reward, done etc
@@ -992,4 +1005,4 @@ class Runner(object):
         self.batch_counter += 1
         #print('Batch %d finished' % self.batch_counter)
         sys.stdout.flush()
-        return obs_raw[0:-3], action_ids[0], value_estimate[0], obs_raw[1], obs_raw[2], obs_raw[3], fc, action_probs
+        return obs_raw[0:-3], action_ids[0], value_estimate[0], obs_raw[1], obs_raw[2], obs_raw[3], fc, action_probs, actr_actions

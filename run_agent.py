@@ -7,6 +7,7 @@ from datetime import datetime
 from time import sleep
 import numpy as np
 import pickle
+from scipy.spatial import distance
 #from functools import partial
 
 from absl import flags
@@ -30,6 +31,7 @@ import gym
 #import gym_gridworld
 #from gym_grid.envs import GridEnv
 import gym_gridworld
+from gym_gridworld.envs import create_np_map as CNP
 
 FLAGS = flags.FLAGS
 flags.DEFINE_bool("visualize", True, "Whether to render with pygame.")
@@ -38,7 +40,8 @@ flags.DEFINE_integer("resolution", 32, "Resolution for screen and minimap featur
 flags.DEFINE_integer("step_mul", 2, "Game steps per agent step.")
 flags.DEFINE_integer("step2save", 1000, "Game step to save the model.") #A2C every 1000, PPO 250
 flags.DEFINE_integer("n_envs", 80, "Number of environments to run in parallel")
-flags.DEFINE_integer("episodes", 100, "Number of complete episodes")
+flags.DEFINE_integer("n_trials", 2, "number of trials")
+flags.DEFINE_integer("episodes", 10, "Number of complete episodes per trial")
 flags.DEFINE_integer("n_steps_per_batch", 32,
     "Number of steps per batch, if None use 8 for a2c and 128 for ppo")  # (MINE) TIMESTEPS HERE!!! You need them cauz you dont want to run till it finds the beacon especially at first episodes - will take forever
 flags.DEFINE_integer("all_summary_freq", 50, "Record all summaries every n batch")
@@ -284,174 +287,271 @@ def main():
             all_data = [{'nav':[],'stuck':False} for x in range(FLAGS.episodes)]
             step_data = {}
             dictionary = {}
-            running = True
-            while runner.episode_counter <= (FLAGS.episodes - 1) and running==True:
-                print('Episode: ', runner.episode_counter)
 
-                #intialize for the experiments
-                runner.envs.hiker = (11,8)
-                runner.envs.drone = (18,11)
-                runner.envs._map = (146,456)
+            for n_trial in range(FLAGS.n_trials):
+                running = True
+                runner.episode_counter = 0
+                dictionary[n_trial] = {}
+                runner.envs._map = random.choice(runner.envs.maps)
                 runner.envs.altitude = 2
                 runner.envs.heading = 1
 
-                # Init storage structures
-                dictionary[runner.episode_counter] = {}
-                mb_obs = []
-                mb_actions = []
-                mb_action_probs = []
-                mb_flag = []
-                mb_fc = []
-                mb_rewards = []
-                mb_values = []
-                mb_drone_pos = []
-                mb_heading = []
-                mb_crash = []
-                mb_map_volume = [] # obs[0]['volume']==envs.map_volume
-                mb_ego = []
+                if runner.envs._map[0] == 1:
+                    path = './gym_gridworld/'
+                    filename = '{}-{}.mp'.format(runner.envs._map[0], runner.envs._map[1])
+                    # Create custom map needs a numpy array
+                    cust_map = pickle.load(open(path + 'maps/' + filename, 'rb'))
+                    runner.envs.map_volume = cust_map  # CNP.create_custom_map(cust_map)
+                else:
+                    runner.envs.map_volume = CNP.map_to_volume_dict(runner.envs._map[0], runner.envs._map[1], runner.envs.mapw, runner.envs.maph)
 
-                runner.reset_demo()  # Cauz of differences in the arrangement of the dictionaries
-                map_xy = runner.envs.map_image
-                map_alt = runner.envs.alt_view
-                process_img(map_xy, 20, 20)
-                process_img(map_alt, 20, 400)
-                pygame.display.update()
+                map_ = envs.map_volume['flat']
+                # # place the hiker
+                hiker_safe_points = []
+                for val in runner.envs.masks['hiker']:
+                    where_array = np.where(map_ == val)
+                    hiker_safe_points = hiker_safe_points + [(x, y) for x, y in zip(where_array[0], where_array[1]) if
+                                                             x >= 3 and y >= 3 and x <= runner.envs.map_volume['vol'].shape[
+                                                                 1] - 3 and y <= runner.envs.map_volume['vol'].shape[1] - 3]
+                """ Specify Hiker location"""
+                runner.envs.hiker = random.choice(hiker_safe_points)
+                # self.hiker = (8,7) #(18, 16)
 
-                dictionary[runner.episode_counter]['hiker_pos'] = runner.envs.hiker_position
-                # dictionary[nav_runner.episode_counter]['map_volume'] = map_xy
+                # int(runner.envs.original_map_volume['vol'][runner.envs.hiker])
+                # place the drone
+                drone_safe_points = []
+                for val in runner.envs.masks[runner.envs.altitude]:
+                    where_array = np.where(map_ == val)
+                    drone_safe_points = drone_safe_points + [(x, y) for x, y in zip(where_array[0], where_array[1]) if
+                                                             x >= 3 and y >= 3 and x <= runner.envs.map_volume['vol'].shape[
+                                                                 1] - 3 and y <= runner.envs.map_volume['vol'].shape[1] - 3]
+                """ Around the hiker """
+                D = distance.cdist([runner.envs.hiker], drone_safe_points, 'chebyshev').astype(int) # Distances from hiker to all drone safe points
 
-                # Quit pygame if the (X) button is pressed on the top left of the window
-                # Seems that without this for event quit doesnt show anything!!!
-                # Also it seems that the pygame.event.get() is responsible to REALLY updating the screen contents
-                for event in pygame.event.get():
-                    if event.type == pygame.QUIT:
-                        running = False
-                sleep(sleep_time)
-                # Timestep counter
-                t=0
+                # print('Distance:',D[0])
+                # print('Hiker',hiker)
+                # print('safe_drone',drone_safe_points)
+                # print('safe_hiker', hiker_safe_points)
+                #
+                k = 50 # k closest. There might be cases in which you have very few drone safe points (e.g. 3) and only one will be really close
+                if k> np.array(drone_safe_points).shape[0]:
+                    k = np.array(drone_safe_points).shape[0] - 1 # Cauz we index from 0 but shape starts from 1 to max shape
+                indx = np.argpartition(D[0],k) # Return the indices of the k closest distances to the hiker. The [0] is VITAL!!!
+                # # # Use the index to retrieve the k closest safe coords to the hiker
+                closest_neighs = np.array(drone_safe_points)[indx[:k]] # You need to have the safe points as array and not list
+                runner.envs.drone = tuple(random.choice(closest_neighs))
 
-                drop_flag = 0
-                stuck_flag = 0
-                done = 0
+                # NOTES: The first element in the array of safe points might be the hiker position
+                # To move away from hiker increase k and define h=k/2 and discard the h first closest_neighs - 9 suppose to be the max of the closest in an open area. So just use dividends of 9 to discard
+                drone = (runner.envs.hiker[0]-2, runner.envs.hiker[1]-3)
+                drone = random.choice([(runner.envs.hiker[0] - 1, runner.envs.hiker[1] - 1), (runner.envs.hiker[0] - 1, runner.envs.hiker[1] ), (runner.envs.hiker[0], runner.envs.hiker[1] - 1 )])
 
-                while done==0:
+                # """Random away location + safe check"""
+                drone = random.choice([(runner.envs.hiker[0] - 5, runner.envs.hiker[1] - 3), (runner.envs.hiker[0] - 6, runner.envs.hiker[1]), (runner.envs.hiker[0], runner.envs.hiker[1] - 4), (runner.envs.hiker[0] - 6, runner.envs.hiker[1] - 7)])
+                runner.envs.drone = random.choice([(runner.envs.hiker[0] - 8, runner.envs.hiker[1] - 3), (runner.envs.hiker[0] - 10, runner.envs.hiker[1]), (runner.envs.hiker[0], runner.envs.hiker[1] - 9),
+                                       (runner.envs.hiker[0] - 12, runner.envs.hiker[1] - 7)])
+                times = 0
+                while runner.envs.drone not in drone_safe_points:
+                    runner.envs.drone = random.choice([(runner.envs.hiker[0] - 5, runner.envs.hiker[1] - 3), (runner.envs.hiker[0] - 6, runner.envs.hiker[1]), (runner.envs.hiker[0], runner.envs.hiker[1] - 4),
+                                           (runner.envs.hiker[0] - 6, runner.envs.hiker[1] - 7)])
+                    # print('non safe reset drone pos')
+                    if times==10:
+                        print('max reps reached so reset hiker')
+                        runner.envs.hiker = random.choice(hiker_safe_points)
+                        # self.altitude = random.randint(1, 3) # NO cauz then you have to recalculate drone safe points
+                        times = 0
+                    times = times + 1
 
-                    mb_obs.append(runner.latest_obs)
-                    # mb_flag.append(drop_flag)
-                    mb_heading.append(runner.envs.heading)
+                """ All safe points included for final training """
+                runner.envs.drone = random.choice(drone_safe_points)
 
-                    drone_pos = np.where(runner.envs.map_volume['vol'] == runner.envs.map_volume['feature_value_map']['drone'][runner.envs.altitude]['val'])
-                    mb_drone_pos.append(drone_pos)
-                    mb_map_volume.append(runner.envs.map_volume) # what is contained here?
-                    mb_ego.append(runner.envs.ego)
-
-                    step_data = {'stuck':False}
-                    #I need the egocentric view + hiker's position
-                    #then drone steps, need action
-                    step_data['volume'] = np.array(runner.envs.map_volume['vol'],copy=True)
-                    step_data['heading'] = runner.envs.heading
-                    step_data['hiker'] = runner.envs.hiker_position
-                    step_data['altitude'] = runner.envs.altitude
-                    step_data['drone'] = np.where(step_data['volume'] == runner.envs.map_volume['feature_value_map']['drone'][runner.envs.altitude]['val'])
-
-
-                    # dictionary[nav_runner.episode_counter]['observations'].append(nav_runner.latest_obs)
-                    # dictionary[nav_runner.episode_counter]['flag'].append(drop_flag)
-
-                    # INTERACTION
-                    obs, action, value, reward, done, info, fc, action_probs = runner.run_trained_batch()
-
-                    if done and not info['success']:
-                        print('Crash, terminate episode')
-                        mb_crash.append(runner.envs.crash)
-                        break # Also we prevent new data for the new time step to be saved
-
-                    mb_actions.append(action)
-                    mb_action_probs.append(action_probs)
-                    mb_rewards.append(reward)
-                    mb_fc.append(fc)
-                    mb_values.append(value)
-                    mb_crash.append(runner.envs.crash)
-
-                    step_data['action'] = action
-                    step_data['reward'] = reward
-                    step_data['fc'] = fc
-                    step_data['action_probs'] = action_probs
-
-                    all_data[runner.episode_counter]['nav'].append(step_data)
+                HP = runner.envs.hiker
+                DP = runner.envs.drone
+                dictionary[n_trial]['map'] = runner.envs._map
 
 
-                    screen_mssg_variable("Value    : ", np.round(value,3), (168, 350))
-                    screen_mssg_variable("Reward: ", np.round(reward,3), (168, 372))
-                    pygame.display.update()
-                    pygame.event.get()
-                    sleep(sleep_time)
+                # runner.envs.hiker = (11, 8)
+                # runner.envs.drone = (18, 11)
+                # runner.envs._map = (146, 456)
 
-                    if action==15:
-                        drop_flag = 1
-                        # dictionary[runner.episode_counter]['pack-hiker_dist'] = runner.envs.pack_dist
-                        # dictionary[runner.episode_counter]['pack condition'] = runner.envs.package_state
-                        screen_mssg_variable("Package state:", runner.envs.package_state, (20, 350)) # The update of the text will be at the same time with the update of state
-                        pygame.display.update()
-                        pygame.event.get()  # Update the screen
-                        sleep(sleep_time)
-                    mb_flag.append(drop_flag)
+                while runner.episode_counter <= (FLAGS.episodes - 1) and running==True:
+                    print('Episode: ', runner.episode_counter)
 
-                    if done:
-                        score = sum(mb_rewards)
-                        print(">>>>>>>>>>>>>>>>>>>>>>>>>>> episode %d ended in %d steps. Score %f" % (runner.episode_counter, t, score))
+                    #intialize for the experiments
+                    runner.envs.hiker = HP
+                    runner.envs.drone = DP
+                    runner.envs.altitude = 2
+                    if runner.envs._map[0] == 1:
+                        path = './gym_gridworld/'
+                        filename = '{}-{}.mp'.format(runner.envs._map[0], runner.envs._map[1])
+                        # Create custom map needs a numpy array
+                        cust_map = pickle.load(open(path + 'maps/' + filename, 'rb'))
+                        runner.envs.map_volume = cust_map  # CNP.create_custom_map(cust_map)
+                    else:
+                        runner.envs.map_volume = CNP.map_to_volume_dict(runner.envs._map[0], runner.envs._map[1],
+                                                                        runner.envs.mapw, runner.envs.maph)
 
-                    # BLIT!!!
-                    # First Background covering everyything from previous session
-                    gameDisplay.fill(DARK_BLUE)
-                    map_xy = obs[0]['img']
-                    map_alt = obs[0]['nextstepimage']
+                    # Init storage structures
+                    dictionary[n_trial][runner.episode_counter] = {}
+                    mb_obs = []
+                    mb_actions = []
+                    mb_action_probs = []
+                    mb_flag = []
+                    mb_fc = []
+                    mb_rewards = []
+                    mb_values = []
+                    mb_drone_pos = []
+                    mb_heading = []
+                    mb_crash = []
+                    mb_map_volume = [] # obs[0]['volume']==envs.map_volume
+                    mb_ego = []
+                    mb_actr_actions = []
+
+                    runner.reset_demo()  # Cauz of differences in the arrangement of the dictionaries
+                    map_xy = runner.envs.map_image
+                    map_alt = runner.envs.alt_view
                     process_img(map_xy, 20, 20)
                     process_img(map_alt, 20, 400)
-                    # Update finally the screen with all the images you blitted in the run_trained_batch
-                    pygame.display.update() # Updates only the blitted parts of the screen, pygame.display.flip() updates the whole screen
-                    pygame.event.get() # Show the last state and then reset
+                    pygame.display.update()
+
+                    dictionary[n_trial][runner.episode_counter]['hiker_pos'] = runner.envs.hiker_position
+                    # dictionary[nav_runner.episode_counter]['map_volume'] = map_xy
+
+                    # Quit pygame if the (X) button is pressed on the top left of the window
+                    # Seems that without this for event quit doesnt show anything!!!
+                    # Also it seems that the pygame.event.get() is responsible to REALLY updating the screen contents
+                    for event in pygame.event.get():
+                        if event.type == pygame.QUIT:
+                            running = False
                     sleep(sleep_time)
+                    # Timestep counter
+                    t=0
 
-                    t += 1
-                    if t == 70:
-                        stuck_flag = 1
-                        step_data['stuck'] = True
-                        all_data[runner.episode_counter]['stuck'] = True
+                    drop_flag = 0
+                    stuck_flag = 0
+                    done = 0
+
+                    while done==0:
+
+                        mb_obs.append(runner.latest_obs)
+                        # mb_flag.append(drop_flag)
+                        mb_heading.append(runner.envs.heading)
+
+                        drone_pos = np.where(runner.envs.map_volume['vol'] == runner.envs.map_volume['feature_value_map']['drone'][runner.envs.altitude]['val'])
+                        mb_drone_pos.append(drone_pos)
+                        mb_map_volume.append(runner.envs.map_volume) # what is contained here?
+                        mb_ego.append(runner.envs.ego)
+
+                        step_data = {'stuck':False}
+                        #I need the egocentric view + hiker's position
+                        #then drone steps, need action
+                        step_data['volume'] = np.array(runner.envs.map_volume['vol'],copy=True)
+                        step_data['heading'] = runner.envs.heading
+                        step_data['hiker'] = runner.envs.hiker_position
+                        step_data['altitude'] = runner.envs.altitude
+                        step_data['drone'] = np.where(step_data['volume'] == runner.envs.map_volume['feature_value_map']['drone'][runner.envs.altitude]['val'])
+
+
+                        # dictionary[nav_runner.episode_counter]['observations'].append(nav_runner.latest_obs)
+                        # dictionary[nav_runner.episode_counter]['flag'].append(drop_flag)
+
+                        # INTERACTION
+                        obs, action, value, reward, done, info, fc, action_probs, actr_actions = runner.run_trained_batch()
+
+                        if done and not info['success']:
+                            print('Crash, terminate episode')
+                            mb_crash.append(runner.envs.crash)
+                            break # Also we prevent new data for the new time step to be saved
+
+                        mb_actions.append(action)
+                        mb_action_probs.append(action_probs)
+                        mb_rewards.append(reward)
+                        mb_fc.append(fc)
+                        mb_values.append(value)
+                        mb_crash.append(runner.envs.crash)
+                        mb_actr_actions.append(actr_actions)
+
+                        step_data['action'] = action
+                        step_data['reward'] = reward
+                        step_data['fc'] = fc
+                        step_data['action_probs'] = action_probs
+
                         all_data[runner.episode_counter]['nav'].append(step_data)
-                        break
-                    # else:
-                    #     stuck_flag = 0
 
-                dictionary[runner.episode_counter]['map_volume'] = mb_map_volume # You might need to save only for epis=0
-                dictionary[runner.episode_counter]['ego'] = mb_ego
-                dictionary[runner.episode_counter]['flag'] = mb_flag
-                dictionary[runner.episode_counter]['actions'] = mb_actions
-                dictionary[runner.episode_counter]['action_probs'] = mb_action_probs
-                dictionary[runner.episode_counter]['rewards'] = mb_rewards
-                dictionary[runner.episode_counter]['fc'] = mb_fc
-                dictionary[runner.episode_counter]['values'] = mb_values
-                dictionary[runner.episode_counter]['drone_pos'] = mb_drone_pos
-                dictionary[runner.episode_counter]['headings'] = mb_heading
-                dictionary[runner.episode_counter]['crash'] = mb_crash
-                dictionary[runner.episode_counter]['pack-hiker_dist'] = runner.envs.pack_dist if drop_flag==1 else None
-                dictionary[runner.episode_counter]['pack condition'] = runner.envs.package_state if drop_flag==1 else None
-                dictionary[runner.episode_counter]['pack position'] = runner.envs.package_position if drop_flag==1 else None
-                dictionary[runner.episode_counter]['stuck_epis'] = stuck_flag# if stuck_flag else 0
 
-                runner.episode_counter += 1
-                clock.tick(15)
+                        screen_mssg_variable("Value    : ", np.round(value,3), (168, 350))
+                        screen_mssg_variable("Reward: ", np.round(reward,3), (168, 372))
+                        pygame.display.update()
+                        pygame.event.get()
+                        sleep(sleep_time)
+
+                        if action==15:
+                            drop_flag = 1
+                            # dictionary[runner.episode_counter]['pack-hiker_dist'] = runner.envs.pack_dist
+                            # dictionary[runner.episode_counter]['pack condition'] = runner.envs.package_state
+                            screen_mssg_variable("Package state:", runner.envs.package_state, (20, 350)) # The update of the text will be at the same time with the update of state
+                            pygame.display.update()
+                            pygame.event.get()  # Update the screen
+                            sleep(sleep_time)
+                        mb_flag.append(drop_flag)
+
+                        if done:
+                            score = sum(mb_rewards)
+                            print(">>>>>>>>>>>>>>>>>>>>>>>>>>> episode %d ended in %d steps. Score %f" % (runner.episode_counter, t, score))
+
+                        # BLIT!!!
+                        # First Background covering everyything from previous session
+                        gameDisplay.fill(DARK_BLUE)
+                        map_xy = obs[0]['img']
+                        map_alt = obs[0]['nextstepimage']
+                        process_img(map_xy, 20, 20)
+                        process_img(map_alt, 20, 400)
+                        # Update finally the screen with all the images you blitted in the run_trained_batch
+                        pygame.display.update() # Updates only the blitted parts of the screen, pygame.display.flip() updates the whole screen
+                        pygame.event.get() # Show the last state and then reset
+                        sleep(sleep_time)
+
+                        t += 1
+                        if t == 70:
+                            stuck_flag = 1
+                            step_data['stuck'] = True
+                            all_data[runner.episode_counter]['stuck'] = True
+                            all_data[runner.episode_counter]['nav'].append(step_data)
+                            break
+                        # else:
+                        #     stuck_flag = 0
+
+                    dictionary[n_trial][runner.episode_counter]['map_volume'] = mb_map_volume # You might need to save only for epis=0
+                    dictionary[n_trial][runner.episode_counter]['ego'] = mb_ego
+                    dictionary[n_trial][runner.episode_counter]['flag'] = mb_flag
+                    dictionary[n_trial][runner.episode_counter]['actions'] = mb_actions
+                    dictionary[n_trial][runner.episode_counter]['action_probs'] = mb_action_probs
+                    dictionary[n_trial][runner.episode_counter]['rewards'] = mb_rewards
+                    dictionary[n_trial][runner.episode_counter]['fc'] = mb_fc
+                    dictionary[n_trial][runner.episode_counter]['values'] = mb_values
+                    dictionary[n_trial][runner.episode_counter]['drone_pos'] = mb_drone_pos
+                    dictionary[n_trial][runner.episode_counter]['headings'] = mb_heading
+                    dictionary[n_trial][runner.episode_counter]['crash'] = mb_crash
+                    dictionary[n_trial][runner.episode_counter]['actr_actions'] = mb_actr_actions
+                    dictionary[n_trial][runner.episode_counter]['pack-hiker_dist'] = runner.envs.pack_dist if drop_flag==1 else None
+                    dictionary[n_trial][runner.episode_counter]['pack condition'] = runner.envs.package_state if drop_flag==1 else None
+                    dictionary[n_trial][runner.episode_counter]['pack position'] = runner.envs.package_position if drop_flag==1 else None
+                    dictionary[n_trial][runner.episode_counter]['stuck_epis'] = stuck_flag# if stuck_flag else 0
+
+                    runner.episode_counter += 1
+                    clock.tick(15)
 
             print("...saving dictionary.")
             folder = '/Users/paulsomers/COGLE/gym-gridworld/data/experiment/'
-            ACTR_st = 'eBEHAVE_FC_noise030_MP3_' #BEHAVE_FC_noisexxx_
-            map_name = str(runner.envs._map[0]) + '-' + str(runner.envs._map[1])#'custom'#str(runner.envs._map[0]) + '-' + str(runner.envs._map[1])
-            drone_init_loc = str(runner.envs.drone[0]) + '-' + str(runner.envs.drone[1])
-            drone_head_alt = str(runner.envs.heading) + '-' + str(runner.envs.altitude)
-            hiker_loc = str(runner.envs.hiker[0]) + '-' + str(runner.envs.hiker[1])
-            type = '.tj'
+            ACTR_st = 'MODEL_TRACE_eBEHAVE_FC_noise030_MP3_1-2' #BEHAVE_FC_noisexxx_
+            map_name = ''#str(runner.envs._map[0]) + '-' + str(runner.envs._map[1])#'custom'#str(runner.envs._map[0]) + '-' + str(runner.envs._map[1])
+            drone_init_loc = ''#str(runner.envs.drone[0]) + '-' + str(runner.envs.drone[1])
+            drone_head_alt = ''#str(runner.envs.heading) + '-' + str(runner.envs.altitude)
+            hiker_loc = ''#str(runner.envs.hiker[0]) + '-' + str(runner.envs.hiker[1])
+            type_str = '.tj'
             # path = folder + map_name + '_' + drone_init_loc + '_' + drone_head_alt + '_' + hiker_loc + '_' + str(FLAGS.episodes) + type
-            path = folder + ACTR_st + 'MAP' + map_name + '_' + 'D' + drone_init_loc + '_' + 'HeadAlt' + drone_head_alt + '_' + 'H' + hiker_loc + '_' + str(FLAGS.episodes) + type
+            # path = folder + ACTR_st + 'MAP' + map_name + '_' + 'D' + drone_init_loc + '_' + 'HeadAlt' + drone_head_alt + '_' + 'H' + hiker_loc + '_' + str(FLAGS.episodes) + type
+            path = folder + ACTR_st + type_str
             pickle_in = open(path,'wb')
             pickle.dump(dictionary, pickle_in)
 

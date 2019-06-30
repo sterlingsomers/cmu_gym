@@ -777,14 +777,14 @@ class GridworldEnv(gym.Env):
         ####actual maps### (Un)comment below if you DONT want to use custom maps
         #######################################
         # self._map = random.choice(self.maps)
-        if self._map[0]==1:
-            path = './gym_gridworld/'
-            filename = '{}-{}.mp'.format(self._map[0], self._map[1])
-            # Create custom map needs a numpy array
-            cust_map = pickle.load(open(path + 'maps/' + filename, 'rb'))
-            self.map_volume = cust_map#CNP.create_custom_map(cust_map)
-        else:
-            self.map_volume = CNP.map_to_volume_dict(self._map[0], self._map[1], self.mapw, self.maph)
+        # if self._map[0]==1:
+        #     path = './gym_gridworld/'
+        #     filename = '{}-{}.mp'.format(self._map[0], self._map[1])
+        #     # Create custom map needs a numpy array
+        #     cust_map = pickle.load(open(path + 'maps/' + filename, 'rb'))
+        #     self.map_volume = cust_map#CNP.create_custom_map(cust_map)
+        # else:
+        #     self.map_volume = CNP.map_to_volume_dict(self._map[0], self._map[1], self.mapw, self.maph)
 
         # map_ = self.map_volume['flat']
         # # place the hiker
