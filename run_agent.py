@@ -45,7 +45,7 @@ flags.DEFINE_integer("all_summary_freq", 50, "Record all summaries every n batch
 flags.DEFINE_integer("scalar_summary_freq", 5, "Record scalar summaries every n batch")
 flags.DEFINE_string("checkpoint_path", "_files/models", "Path for agent checkpoints")
 flags.DEFINE_string("summary_path", "_files/summaries", "Path for tensorboard summaries")
-flags.DEFINE_string("model_name", "A2C-science-allmaps", "Name for checkpoints and tensorboard summaries") # DONT touch TESTING is the best (take out normalization layer in order to work! -- check which parts exist in the restore session if needed)
+flags.DEFINE_string("model_name", "A2C_custom_maps", "Name for checkpoints and tensorboard summaries") # DONT touch TESTING is the best (take out normalization layer in order to work! -- check which parts exist in the restore session if needed)
 flags.DEFINE_integer("K_batches", 15000, # Batch is like a training epoch!
     "Number of training batches to run in thousands, use -1 to run forever") #(MINE) not for now
 flags.DEFINE_string("map_name", "DefeatRoaches", "Name of a map to use.")
@@ -111,6 +111,10 @@ def _save_if_training(agent):
     agent.flush_summaries()
     sys.stdout.flush()
 
+def get_objects_points_at_altitude(volume,altitude):
+    '''Returns a list of points where there '''
+
+
 def make_custom_env(env_id, num_env, seed, wrapper_kwargs=None, start_index=0):
     """
     Create a wrapped, monitored SubprocVecEnv for Atari.
@@ -126,6 +130,23 @@ def make_custom_env(env_id, num_env, seed, wrapper_kwargs=None, start_index=0):
         return _thunk
     #set_global_seeds(seed)
     return SubprocVecEnv([make_env(i + start_index) for i in range(num_env)])
+
+def is_blocking(seg1, seg2, point):
+    '''if green=point is between player=seg1 and orange=seg2'''
+    # https://stackoverflow.com/questions/328107/how-can-you-determine-a-point-is-between-two-other-points-on-a-line-segment
+    # print("is_blocking:", seg1, seg2, point)
+    crossproduct = (point[1] - seg1[1]) * (seg2[0] - seg1[0]) - (point[0] - seg1[0]) * (seg2[1] - seg1[1])
+    if abs(crossproduct) != 0:
+        return False
+
+    dotproduct = (point[0] - seg1[0]) * (seg2[0] - seg1[0]) + (point[1] - seg1[1]) * (seg2[1] - seg1[1])
+    if dotproduct < 0:
+        return False
+
+    squaredlengthba = (seg2[0] - seg1[0]) * (seg2[0] - seg1[0]) + (seg2[1] - seg1[1]) * (seg2[1] - seg1[1])
+    if dotproduct > squaredlengthba: return False
+
+    return True
 
 def main():
     if FLAGS.training:
@@ -346,6 +367,18 @@ def main():
                     step_data['hiker'] = runner.envs.hiker_position
                     step_data['altitude'] = runner.envs.altitude
                     step_data['drone'] = np.where(step_data['volume'] == runner.envs.map_volume['feature_value_map']['drone'][runner.envs.altitude]['val'])
+
+                    intersection = False
+                    # for current_alt in range(1,3):
+                    current_alt = 3 #that's the only time it's actually blocking, if it's too high
+                    all_points_at_alt = np.where(step_data['volume'][current_alt] > 0)
+
+                    for i in range(len(all_points_at_alt[0])):
+                        point = (all_points_at_alt[0][i],all_points_at_alt[1][i])
+                        hiker = (int(step_data['hiker'][1]),int(step_data['hiker'][2]))
+                        drone = (int(step_data['drone'][1]),int(step_data['drone'][2]))
+                        if is_blocking(hiker, drone, point):
+                            intersection = True
 
 
                     # dictionary[nav_runner.episode_counter]['observations'].append(nav_runner.latest_obs)

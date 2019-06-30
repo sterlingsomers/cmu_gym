@@ -44,9 +44,12 @@ class GridworldEnv(gym.Env):
         self.drop = False
         self.countdrop = 0
         self.no_action_flag = False
-        self.maps = [(265,308),(20,94),(146,456),(149,341),(164,90),(167,174),
-                        (224,153),(241,163),(260,241),(265,311),(291,231),
-                        (308,110),(334,203),(360,112),(385,291),(330,352),(321,337)]#[(400,35), (350,90), (430,110),(390,50), (230,70)] #[(86, 266)] (70,50) # For testing, 70,50 there is no where to drop in the whole map
+        self.maps = [(1, 1), (1, 2), (1, 3), (1, 4), (1, 5), (1, 6), (1, 7)]
+
+            # [(265,308),(20,94),(146,456),(149,341),(164,90),(167,174),
+            #             (224,153),(241,163),(260,241),(265,311),(291,231),
+            #             (308,110),(334,203),(360,112),(385,291),(330,352),(321,337)]
+        # #[(400,35), (350,90), (430,110),(390,50), (230,70)] #[(86, 266)] (70,50) # For testing, 70,50 there is no where to drop in the whole map
         #[(149, 341)]#[(149, 341),(241,163), (260,241),(291,231),(308,110),(330,352)]
 
         #the custom maps
@@ -776,7 +779,7 @@ class GridworldEnv(gym.Env):
 
         ####actual maps### (Un)comment below if you DONT want to use custom maps
         #######################################
-        self._map = random.choice(self.maps)
+        self._map = (1,4)#random.choice(self.maps)
         if self._map[0]==1:
             path = './gym_gridworld/'
             filename = '{}-{}.mp'.format(self._map[0], self._map[1])
@@ -786,7 +789,7 @@ class GridworldEnv(gym.Env):
         else:
             self.map_volume = CNP.map_to_volume_dict(self._map[0], self._map[1], self.mapw, self.maph)
 
-        map_ = self.map_volume['flat']
+        map_ = self.map_volume['vol'][0]
         # place the hiker
         hiker_safe_points = []
         for val in self.masks['hiker']:
@@ -847,6 +850,8 @@ class GridworldEnv(gym.Env):
         # self.drone = random.choice(drone_safe_points)
         """ Custom location """
         # self.drone = (10,16)
+        self.hiker=(7,7)
+        self.drone=(6,13)
 
         self.original_map_volume = copy.deepcopy(self.map_volume)
         self.hiker_drone_dist = max(abs(np.array(self.hiker) - np.array(self.drone)))
