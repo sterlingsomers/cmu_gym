@@ -290,7 +290,7 @@ def main():
 
                 #intialize for the experiments
                 runner.envs.hiker = (11,8)
-                runner.envs.drone = (18,11)
+                runner.envs.drone = (11,15)
                 runner.envs._map = (146,456)
                 runner.envs.altitude = 2
                 runner.envs.heading = 1
