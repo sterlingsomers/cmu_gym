@@ -16,6 +16,8 @@ from PIL import Image as Image
 # import matplotlib.pyplot as plt
 import threading
 import random
+# from skimage.transform import resize, rescale
+from scipy import ndimage
 # import pygame
 from scipy.misc import imresize
 

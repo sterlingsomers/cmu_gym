@@ -271,7 +271,7 @@ def similarity(val1, val2):
     #     return 0
 
     if val1[0] == 'FC':
-        # return 0
+        return 0
         # r1 = spatial.distance.minkowski(val1[1], val2[1],1) * - 1
         r2 = spatial.distance.euclidean(val1[1], val2[1]) * - 1
         # r3 = spatial.distance.cosine(val1[1], val2[1]) * -1

@@ -40,7 +40,7 @@ flags.DEFINE_integer("resolution", 32, "Resolution for screen and minimap featur
 flags.DEFINE_integer("step_mul", 2, "Game steps per agent step.")
 flags.DEFINE_integer("step2save", 1000, "Game step to save the model.") #A2C every 1000, PPO 250
 flags.DEFINE_integer("n_envs", 80, "Number of environments to run in parallel")
-flags.DEFINE_integer("n_trials", 2, "number of trials")
+flags.DEFINE_integer("n_trials", 10, "number of trials")
 flags.DEFINE_integer("episodes", 10, "Number of complete episodes per trial")
 flags.DEFINE_integer("n_steps_per_batch", 32,
     "Number of steps per batch, if None use 8 for a2c and 128 for ppo")  # (MINE) TIMESTEPS HERE!!! You need them cauz you dont want to run till it finds the beacon especially at first episodes - will take forever
@@ -543,7 +543,7 @@ def main():
 
             print("...saving dictionary.")
             folder = '/Users/paulsomers/COGLE/gym-gridworld/data/experiment/'
-            ACTR_st = 'MODEL_TRACE_eBEHAVE_FC_noise030_MP3_1-2' #BEHAVE_FC_noisexxx_
+            ACTR_st = 'MODEL_TRACE_eBEHAVE_noise030_MP3_1-10' #BEHAVE_FC_noisexxx_
             map_name = ''#str(runner.envs._map[0]) + '-' + str(runner.envs._map[1])#'custom'#str(runner.envs._map[0]) + '-' + str(runner.envs._map[1])
             drone_init_loc = ''#str(runner.envs.drone[0]) + '-' + str(runner.envs.drone[1])
             drone_head_alt = ''#str(runner.envs.heading) + '-' + str(runner.envs.altitude)
