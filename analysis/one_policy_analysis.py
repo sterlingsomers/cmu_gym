@@ -3,6 +3,8 @@ import numpy as np
 import pandas as pd
 import pickle
 import matplotlib.pyplot as plt
+from sklearn import manifold
+from scipy.stats import entropy
 
 mapw = maph = 20
 ''' Dropping/Crash locations heatmap '''
@@ -12,7 +14,7 @@ def event_heatmap(obs, img):
         x = obs[i][0]
         y = obs[i][1]
         counts[x,y] = counts[x,y] + 1
-    counts = counts / counts.max()
+    counts = counts / counts.max() # You want the most visited cell to have value 1. If you divide with counts.sum(axis)
 
     # Plot the map
     plot = plt.subplot(111)
@@ -24,6 +26,23 @@ def event_heatmap(obs, img):
     plot.set_xticks([])
     plot.set_yticks([])
     plt.show()
+
+def kl(p, q):
+    """Kullback-Leibler divergence D(P || Q) for discrete distributions
+    Parameters
+    ----------
+    p, q : array-like, dtype=float, shape=n
+    Discrete probability distributions.
+    """
+    """
+    Specifically, the Kullback–Leibler divergence from Q to P, denoted DKL(P‖Q), is
+    a measure of the information gained when one revises one's beliefs from the
+    prior probability distribution Q to the posterior probability distribution P. In
+    other words, it is the amount of information lost when Q is used to approximate
+    P.
+    """
+
+    return entropy(p, q)
 
 ''' Trajectories '''
 def trajectories_heatmap(obs, img):
@@ -101,73 +120,83 @@ def load_data():
 
 def create_dataframe(obs, value_feature_map):
     data = []
-    for epis in range(len(obs)):
-        print('EPISODE:',epis)
-        # Get position of the flag
-        # indx = np.nonzero(obs[epis]['flag'])[0][0] # find the timestep where you switch to DRPPING AGENT !!!
-        # print('Switch to drop_agent happened at timestep=',indx)
-        epis_length = obs[epis]['flag'].__len__()
-        # flag2 = 0 # Indicate that drop agent is in charge (the flag=1 happens only once and then everything else is 0)
-        for timestep in range(epis_length):
-            print(' ---> timestep:', timestep)
-            hiker=0
-            ''' EPISODES '''
-            episode = epis
-            ''' TIMESTEPS '''
-            tstep = timestep
-            ''' FLAG (BOOLEAN) '''
-            flag = obs[epis]['flag'][timestep]
-            ''' AGENT TYPE (STRING) '''
-            agent_type = 'one_policy'
-            ''' ACTIONS (NUMERIC) '''
-            actions = obs[epis]['actions'][timestep]
-            ''' ACTIONS NAME (STRING) '''
-            action_label = act_label(actions)
-            ''' ACTIONS PROB DISTR (NUMPY VEC) '''
-            action_dstr = obs[epis]['action_probs'][timestep]
-            ''' reward '''
-            reward = round(obs[epis]['rewards'][timestep],2)
-            ''' VALUES '''
-            values = round(obs[epis]['values'][timestep],2)
-            ''' DRONE X,Y POSITION (NUMPY) '''
-            drone_pos = np.array(obs[epis]['drone_pos'][timestep]).transpose()[0][-2:]
-            ''' DRONE Z ALTITUDE (INT) '''
-            drone_alt = np.array(obs[epis]['drone_pos'][timestep]).transpose()[0][0]
-            ''' DRONE HEADING (INT) '''
-            headings = obs[epis]['headings'][timestep]
-            ''' DRONE CRASH (BOOLEAN) '''
-            crash = obs[epis]['crash'][timestep]
-            ''' HIKER X,Y POSITION (NUMPY) '''
-            hiker_pos = np.array(obs[epis]['hiker_pos']).transpose()[0][-2:]
-            ''' PACK X,Y POSITION (NUMPY) '''
-            pack_pos = np.array(obs[epis]['pack position'])
-            ''' PACK-HIKER DISTANCE (INT) '''
-            packhiker_dist = obs[epis]['pack-hiker_dist']
-            ''' PACK CONDITION (STRING) '''
-            pack_condition = obs[epis]['pack condition']
-            ''' FC (VECTOR) '''
-            fc_rep = obs[epis]['fc'][timestep]
-            ''' ALTS IN COLUMNS (VECTOR) '''
-            # For slice we want only the bottom of the 5x5 slice as that indicates the alt of the objects. Alt is projected upwards.
-            slice_rep = obs[epis]['ego'][timestep]
-            slice_rep = slice_rep.astype(int)
-            slice_rep_bottom = slice_rep[-1:][0]
-            alts = [int(value_feature_map[j]['alt']) for j in slice_rep_bottom]
+    for trial in range(len(obs)):
+        print('TRIAL:', trial)
+        for epis in range(len(obs[trial])-1): # -1 because we include the map
+            print('EPISODE:',epis)
+            # Get position of the flag
+            # indx = np.nonzero(obs[epis]['flag'])[0][0] # find the timestep where you switch to DRPPING AGENT !!!
+            # print('Switch to drop_agent happened at timestep=',indx)
+            epis_length = obs[trial][epis]['flag'].__len__()
+            # flag2 = 0 # Indicate that drop agent is in charge (the flag=1 happens only once and then everything else is 0)
+            for timestep in range(epis_length):
+                print(' ---> timestep:', timestep)
+                hiker=0
+                ''' TRIALS '''
+                trials = trial
+                ''' EPISODES '''
+                episode = epis
+                ''' TIMESTEPS '''
+                tstep = timestep
+                ''' FLAG (BOOLEAN) '''
+                flag = obs[trial][epis]['flag'][timestep]
+                ''' AGENT TYPE (STRING) '''
+                agent_type = 'one_policy'
+                ''' ACTIONS (NUMERIC) '''
+                actions = obs[trial][epis]['actions'][timestep]
+                ''' ACTIONS NAME (STRING) '''
+                action_label = act_label(actions)
+                ''' ACTIONS PROB DISTR (NUMPY VEC) '''
+                action_dstr = obs[trial][epis]['action_probs'][timestep]
+                ''' ACTR ACTIONS PROB DISTR (NUMPY VEC) '''
+                actr_action_dstr = obs[trial][epis]['actr_actions'][timestep]
+                ''' reward '''
+                reward = round(obs[trial][epis]['rewards'][timestep],2)
+                ''' VALUES '''
+                values = round(obs[trial][epis]['values'][timestep],2)
+                ''' DRONE X,Y POSITION (NUMPY) '''
+                drone_pos = np.array(obs[trial][epis]['drone_pos'][timestep]).transpose()[0][-2:]
+                ''' DRONE Z ALTITUDE (INT) '''
+                drone_alt = np.array(obs[trial][epis]['drone_pos'][timestep]).transpose()[0][0]
+                ''' DRONE HEADING (INT) '''
+                headings = obs[trial][epis]['headings'][timestep]
+                ''' DRONE CRASH (BOOLEAN) '''
+                crash = obs[trial][epis]['crash'][timestep]
+                # ''' DRONE CRASH EPIS FLAG (BOOLEAN) ''' NO CAUZ WE CARE ABOUT LOCATIONS OF CRASH -- MAYBE DOESNT MATTER WE CARE ONLY IF THE DRONE CRASHED IN A LOCATION, HOWEVER YOU WONT KNOW WHERE IF YOU DONT KMOW THE TIMESTEP HTAT IT CRASHED
+                # crash = obs[epis]['crash']
+                ''' HIKER X,Y POSITION (NUMPY) '''
+                hiker_pos = np.array(obs[trial][epis]['hiker_pos']).transpose()[0][-2:]
+                ''' PACK X,Y POSITION (NUMPY) '''
+                pack_pos = np.array(obs[trial][epis]['pack position'])
+                ''' PACK-HIKER DISTANCE (INT) '''
+                packhiker_dist = obs[trial][epis]['pack-hiker_dist']
+                ''' PACK CONDITION (STRING) '''
+                pack_condition = obs[trial][epis]['pack condition']
+                ''' STUCK EPIS (BOOLEAN) '''
+                stuck = obs[trial][epis]['stuck_epis']
+                ''' FC (VECTOR) '''
+                fc_rep = obs[trial][epis]['fc'][timestep]
+                ''' ALTS IN COLUMNS (VECTOR) '''
+                # For slice we want only the bottom of the 5x5 slice as that indicates the alt of the objects. Alt is projected upwards.
+                slice_rep = obs[trial][epis]['ego'][timestep]
+                slice_rep = slice_rep.astype(int)
+                slice_rep_bottom = slice_rep[-1:][0]
+                alts = [int(value_feature_map[j]['alt']) for j in slice_rep_bottom]
 
-            # If hiker (feature value = 50) exists in the slice
-            if 50 in slice_rep_bottom:
-                hiker=1 # Is hiker in the current egocentric input?
+                # If hiker (feature value = 50) exists in the slice
+                if 50 in slice_rep_bottom:
+                    hiker=1 # Is hiker in the current egocentric input?
 
-            data.append([episode, tstep, flag, agent_type, actions, action_label, action_dstr, round(reward,3),
-                         round(values,3), drone_pos, drone_alt, headings, crash, hiker_pos, pack_pos, packhiker_dist,
-                         pack_condition, fc_rep, alts, hiker ])
+                data.append([trials, episode, tstep, flag, agent_type, actions, action_label, action_dstr, actr_action_dstr, round(reward,3),
+                             round(values,3), drone_pos, drone_alt, headings, crash, hiker_pos, pack_pos, packhiker_dist,
+                             pack_condition, stuck, fc_rep, alts, hiker])
 
     # Construct dataframe
     data = np.array(data, dtype=object)  # object helps to keep arbitary type of data
-
-    columns = ['episode', 'timestep', 'epis_ends', 'agent_type', 'actions', 'action_label', 'action_dstr', 'rewards', 'values',
+    """ KEEP THE SAME ORDER BETWEEN COLUMNS AND DATA (data.append and columns=[] lines)!!!"""
+    columns = ['trial', 'episode', 'timestep', 'epis_ends', 'agent_type', 'actions', 'action_label', 'action_dstr', 'actr_action_dstr','rewards', 'values',
                'drone_position', 'drone_alt', 'heading', 'crash', 'hiker', 'pack_position', 'packhiker_dist',
-               'pack_condition', 'fc', 'altitudes_in_slice', 'hiker_in_ego']
+               'pack_condition', 'stuck', 'fc', 'altitudes_in_slice', 'hiker_in_ego']
 
     # datab = np.reshape(data, [data.shape[0], data.shape[1]])
     df = pd.DataFrame(data, columns=columns)
@@ -182,14 +211,14 @@ map_name = 'BoxCanyon'
 drone_init_loc = 'D1118'
 hiker_loc = 'H1010'
 # path = folder + map_name + '_' + drone_init_loc + '_' + hiker_loc + '_' + '200'
-path ='/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/BEHAVE_FC_noise050_321-337_18-11_8-1_11-8_100'
+path ='/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/MODEL_TRACE_eBEHAVE_FC_noise030_MP3_1'
 
 obs = load_data()
 if os.path.isfile(path + '.df')==False:
     value_feature = load_feat2value()
     create_dataframe(obs,value_feature)
 
-img = obs[0]['map_volume'][0]['img']
+img = obs[0][0]['map_volume'][0]['img']
 df = pd.read_pickle(path + '.df')
 agent_typ = 'one_policy'
 ''' DROP LOCATIONS '''
@@ -199,12 +228,41 @@ data = data.values
 event_heatmap(data, img)
 ''' NAV AGENT CRASHES '''
 print("CRASHES")
-# TODO: Check if there is any crash so we dont divide by 0 in the counts (actr didnt have a crash and didnt produce error, net does CHECK why)
-data = df['drone_position'].loc[(df['agent_type'] == agent_typ) & (df['crash'] > 0)]
-data = data.values
-event_heatmap(data, img)
+# if not any(df.loc[(df['crash'] > 0)].values): # MEMORY CONSUMPTION, COUNTS IS FASTER!
+# if not df.loc[(df['crash'] > 0)].empty:
+# data = df['drone_position'].loc[(df['agent_type'] == agent_typ) & (df['crash'] > 0)]
+# data = data.values
+# event_heatmap(data, img)
 ''' NAV AGENT TRAJ '''
 print("TRAJECTORIES")
 data = df['drone_position'].loc[(df['agent_type'] == agent_typ) ]
 data = data.values
 event_heatmap(data, img)
+''' NAV AGENT TRAJ (W/O CRASH AND STUCK) ''' # For crash we need to identify the epis that are crashed: df[epis].loc[crash cond] then take out these, or use smth else
+print("TRAJECTORIES NO STUCK")
+data = df.loc[(df['stuck'] != 1)]
+data = data['drone_position'].loc[(data['agent_type'] == agent_typ) ]
+data = data.values
+event_heatmap(data, img)
+''' KL DIVERGENCE (NET || ACTR)''' # Although non summetric cross entropy is also non symmetric and is used as a loss function to bring close an approx dstr to ground truth distribution
+# We include the stuck/crash as we care about every decision
+netbeh = df['action_dstr'].values
+# netbeh = np.round(netbeh,3)
+actrbeh = df['actr_action_dstr'].values
+# actrbeh = np.vstack(actrbeh)
+
+actrbeh = np.concatenate(actrbeh,axis=0) #np.vstack(actrbeh)
+netbeh = np.concatenate(netbeh,axis=0)
+KLbeh = [entropy(x + 1e-7,y + 1e-7) for x,y in zip(netbeh,actrbeh)]
+print('KL total = ', np.array(KLbeh).sum())
+'''https://scipy.github.io/devdocs/generated/scipy.spatial.distance.jensenshannon.html '''
+DJS = [np.sqrt( ( entropy(x + 1e-7,y + 1e-7) + entropy(y + 1e-7,x + 1e-7) )/2 ) for x,y in zip(netbeh,actrbeh)]
+print('Distance Jensen-Shannon total = ', np.array(DJS).sum())
+''' TSNE '''
+# data = df['fc'].values
+# data = np.concatenate(data,axis=0)
+# color = data['actions'].values
+# tsne = manifold.TSNE(n_components=2, init='pca', random_state=0,perplexity=100)
+# X_tsne = tsne.fit_transform(data)
+# plt.scatter(X_tsne[:,0],X_tsne[:,1],c=color,alpha=0.2)
+# plt.show()

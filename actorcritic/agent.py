@@ -42,6 +42,7 @@ def _get_placeholders(spatial_dim):
         (FEATURE_KEYS.prev_rewards, tf.float32, [None, None]),
         (FEATURE_KEYS.altitudes, tf.int32, [None]),
         (FEATURE_KEYS.image_vol, tf.float32, [None, 5, 100, 100, 3]),
+        (FEATURE_KEYS.joined, tf.float32, [None, 100, 200, 3]),
     ]
     return AgentInputTuple(
         **{name: tf.placeholder(dtype, shape, name) for name, dtype, shape in feature_list}

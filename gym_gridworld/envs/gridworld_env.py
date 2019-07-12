@@ -44,7 +44,7 @@ class GridworldEnv(gym.Env):
         self.drop = False
         self.countdrop = 0
         self.no_action_flag = False
-        self.maps =[(321, 337)]#[(1,1), (1,2), (1,3), (1,4), (1,5), (1,6), (1,7)]
+        self.maps =[(1,4)]#[(321, 337)]#[(1,1), (1,2), (1,3), (1,4), (1,5), (1,6), (1,7)]
             # [(265,308),(20,94),(146,456),(149,341),(164,90),(167,174),
             #             (224,153),(241,163),(260,241),(265,311),(291,231),
             #             (308,110),(334,203),(360,112),(385,291),(330,352),(321,337)]#[(400,35), (350,90), (430,110),(390,50), (230,70)] #[(86, 266)] (70,50) # For testing, 70,50 there is no where to drop in the whole map
@@ -353,7 +353,7 @@ class GridworldEnv(gym.Env):
 
         self.package_position = pack_world_coords
         self.package_dropped = True
-        x = eval(self.actionvalue_heading_action[7][self.heading])
+        x = eval(self.actionvalue_heading_action[7][self.heading]) # ????
 
     def take_action(self, delta_alt=0, delta_x=0, delta_y=0, new_heading=1):
         # print("stop")
@@ -629,7 +629,7 @@ class GridworldEnv(gym.Env):
                 return (self.generate_observation(), reward, done, info) # You should get the previous obs so no change here, or return obs=None
 
         # Do the action (drone is moving). If we crash we dont perform an action so no new observation
-        x = eval(self.actionvalue_heading_action[action][self.heading])
+        x = eval(self.actionvalue_heading_action[action][self.heading]) # actionvalue dict contains take_action function given the arguments.
         if self.no_action_flag == True:
             reward = self.reward#-1#TODO: it was 0 in all successful training session with PPO. TRY -1 so it avoids dropping at the edges!!!! ahouls be = self.reward and fix self. reward in the drop package function
             done = True
@@ -674,8 +674,8 @@ class GridworldEnv(gym.Env):
         self.drop = False
         self.countdrop = 0
         self.no_action_flag = False
-        self.heading = 8#random.randint(1, 8)
-        self.altitude = 1#random.randint(1,3)
+        self.heading = 1#random.randint(1, 8)
+        self.altitude = 2#random.randint(1,3)
         self.reward = 0
         self.crash = 0
         self.package_dropped = 0
@@ -788,7 +788,7 @@ class GridworldEnv(gym.Env):
                                                          1] - 3 and y <= self.map_volume['vol'].shape[1] - 3]
         """ Specify Hiker location"""
         # self.hiker = random.choice(hiker_safe_points)
-        self.hiker = (11,8) #(18, 16)
+        self.hiker = (12,12)#(11,8) #(18, 16)
 
         # int(self.original_map_volume['vol'][hiker])
         # place the drone
@@ -814,7 +814,7 @@ class GridworldEnv(gym.Env):
         # closest_neighs = np.array(drone_safe_points)[indx[:k]] # You need to have the safe points as array and not list
         # self.drone = tuple(random.choice(closest_neighs))
 
-        """ DON TMIND """
+        """ DONT MIND """
         # NOTES: The first element in the array of safe points might be the hiker position
         # To move away from hiker increase k and define h=k/2 and discard the h first closest_neighs - 9 suppose to be the max of the closest in an open area. So just use dividends of 9 to discard
         # drone = (hiker[0]-2, hiker[1]-3)
@@ -849,7 +849,7 @@ class GridworldEnv(gym.Env):
         """ All safe points included for final training """
         # self.drone = random.choice(drone_safe_points)
         """ Custom location """
-        self.drone = (18,11)
+        self.drone = (6,6)#(18,11)
 
         self.original_map_volume = copy.deepcopy(self.map_volume)
         self.hiker_drone_dist = max(abs(np.array(self.hiker) - np.array(self.drone)))
@@ -1013,6 +1013,7 @@ class GridworldEnv(gym.Env):
         obs['image_layers'] = image_layers
         obs['altitude'] = self.altitude
         obs['image_volume'] = np.stack(im for im in obs['image_layers'].values())#.reshape((100,100,5,3))
+        obs['joined'] = np.concatenate([obs['img'],obs['nextstepimage']],axis=1)
         return obs
 
     def render(self, mode='human', close=False):

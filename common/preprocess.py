@@ -96,6 +96,7 @@ class ObsProcesser:
             FEATURE_KEYS.alt_view: timestep['nextstepimage'],
             FEATURE_KEYS.altitudes: timestep['altitude'],
             FEATURE_KEYS.image_vol: timestep['image_volume'],
+            FEATURE_KEYS.joined: timestep['joined'],
         }
 
         # pp_obs = {
@@ -224,7 +225,8 @@ FEATURE_LIST = (
     "prev_actions",
     "prev_rewards",
     "altitudes",
-    "image_vol"
+    "image_vol",
+    "joined"
 
 )
 
