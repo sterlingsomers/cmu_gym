@@ -258,20 +258,24 @@ def similarity(val1, val2):
     '''Linear tranformation, abslute difference'''
     #val2 is recalled, val1 is the observation
     # import pdb; pdb.set_trace()
+    # print("SIM:", val1, val2)
     if val1 == val2:
+        # print("same, return 0")
         return 0
     # import pdb; pdb.set_trace()
     # if val1 == 'NAV' and val2 == 'DROP':
     #     return -5
 
     if not type(val1) == list:
+        # print("problem, return 0")
         return 0
 
     # if val1[0] == 'ALTITUDE':# or val1[0] == 'DISTANCE_TO_HIKER':
     #     return 0
 
     if val1[0] == 'FC':
-        # return 0
+        # print("fc, return 0")
+        return 0
         # r1 = spatial.distance.minkowski(val1[1], val2[1],1) * - 1
         r2 = spatial.distance.euclidean(val1[1], val2[1]) * - 1
         # r3 = spatial.distance.cosine(val1[1], val2[1]) * -1
@@ -279,6 +283,7 @@ def similarity(val1, val2):
 
     # return 0
     return_value = abs(val1[1] - val2[1]) * -1
+    # print("sim returning", return_value)
     return return_value
 
 
@@ -296,8 +301,8 @@ def compute_S(blend_trace, keys_list, mismatch_penalty, tempterature):
                'LEFT_DOWN', 'DIAGONAL_LEFT__DOWN', 'CENTER__DOWN', 'DIAGONAL_RIGHT__DOWN', 'RIGHT__DOWN', 'DROP']
     probs = [x[3] for x in access_by_key('MAGNITUDES',access_by_key('SLOT-DETAILS',blend_trace[-1][1])[0][1])]
     #feature values in probe
-    FKs = [access_by_key(key.upper(),access_by_key('RESULT-CHUNK',blend_trace[-1][1])) for key in keys_list]
-    chunk_names = [x[0] for x in access_by_key('CHUNKS', blend_trace[-1][1])]
+    FKs = [access_by_key(key.upper(),access_by_key('RESULT-CHUNK',blend_trace[0][-1])) for key in keys_list]
+    chunk_names = [x[0] for x in access_by_key('CHUNKS', blend_trace[0][-1])]
 
     #Fs is all the F values (may or may not be needed for tss)
     #They are organized by chunk, same order as probs
@@ -307,6 +312,7 @@ def compute_S(blend_trace, keys_list, mismatch_penalty, tempterature):
         for key in keys_list:
             chunk_fs.append(actr.chunk_slot_value(name,key))
         vjks.append(chunk_fs)
+        # print('vjks',chunk_fs,'added')
 
     #tss is a list of all the to_sum
     #each to_sum is Pj x dSim(Fs,vjk)/dFk
@@ -327,9 +333,11 @@ def compute_S(blend_trace, keys_list, mismatch_penalty, tempterature):
     tss = {}
     ts2 = []
     for i in range(len(FKs)):
+        #buid the dictionary if that key doesn't exit
         if not i in tss:
             tss[i] = []
         for j in range(len(probs)):
+            # print("check here")
             if FKs[i][1] > vjks[j][i][1]:
                 dSim = -1/1#max(min_max[vjks[j][i][0].lower()])
             elif FKs[i][1] == vjks[j][i][1]:
@@ -377,9 +385,10 @@ def compute_S(blend_trace, keys_list, mismatch_penalty, tempterature):
             tmp = 0
             sub = []
             for j in range(len(probs)):
+                # print('here...')
                 if FKs[i][1] > vjks[j][i][1]:
                     dSim = -1/1#max(min_max[vjks[j][i][0].lower()])
-                elif FKs[i] == vjks[j][i]:
+                elif FKs[i][1] == vjks[j][i][1]:
                     dSim = 0
                 else:
                     dSim = 1/1#max(min_max[vjks[j][i][0].lower()])
@@ -389,14 +398,16 @@ def compute_S(blend_trace, keys_list, mismatch_penalty, tempterature):
 
         #print("compute S complete")
         rturn.append(results)
+
+
     #should build a dictionary
     rdict = {}
     for sums, result_factor in zip(rturn, factors):
-        print("For", result_factor)
+        # print("For", result_factor)
         rdict[result_factor] = {}
         for s, factor in zip(sums, keys_list):
             rdict[result_factor][factor] = MP / t * sum(s)
-            print(factor, MP / t * sum(s))  # , sum(s),s)
+            # print(factor, MP / t * sum(s))  # , sum(s),s)
     return rdict
 
 def reset_actr():
@@ -430,6 +441,10 @@ def reset_actr():
         min_max_name = 'min_max_dict_ego.pkl'
         min_max = pickle.load(open(os.path.join(chunk_path,min_max_name),'rb'))
 
+        #TEST CODE FOR DEBUGGIN
+        # min_max = {'ego_left':[0.0,1.0],'ego_center':[0.0,1.0],'ego_diagonal_left':[0.0,1.0],'ego_diagonal_right':[0.0,1.0],'ego_right':[0.0,1.0],
+        #            'hiker_left':[0.0,1.0], 'hiker_diagonal_left':[0.0,1.0],'hiker_center':[0.0,1.0],'hiker_diagonal_right':[0.0,1.0],
+        #            'hiker_right':[0.0,1.0],'distance_to_hiker':[0.0,1.0],'altitude':[0.0,1.0],'fc':[[0,0,1],[1,0,1]]}
         # Need to normalize the vectors
         print('Creating normalization')
         fc_array = np.array([np.array(x) for x in min_max['fc']])
@@ -453,6 +468,131 @@ def reset_actr():
 
         #load all the chunks
         allchunks = pickle.load(open(os.path.join(chunk_path,chunk_file_name),'rb'))
+                # TEST CODE
+                # allchunks = [
+                #     #hiker left, action left
+                #     ['hiker_left', ['hiker_left', 1], 'hiker_diagonal_left', ['hiker_diagonal_left', 0],
+                #               'hiker_center', ['hiker_center', 0],
+                #               'hiker_diagonal_right', ['hiker_diagonal_right', 0],
+                #               'hiker_right', ['hiker_right', 0],
+                #               'altitude', ['altitude', 2],
+                #               'distance_to_hiker', ['distance_to_hiker', 0.5],
+                #               'ego_left', ['ego_left', 0],
+                #               'ego_diagonal_left', ['ego_diagonal_left', 0],
+                #               'ego_center', ['ego_center', 0],
+                #               'ego_diagonal_right', ['ego_diagonal_right', 0],
+                #               'ego_right', ['ego_right', 0],
+                #               'fc', ['fc', [0, 1, 1]],
+                #               'type', 'nav',
+                #               'left_down', ['left_down', 0], 'diagonal_left_down', ['diagonal_left_down', 0],
+                #               'center_down',
+                #               ['center_down', 0], 'diagonal_right_down', ['diagonal_right_down', 0],
+                #               'right_down', ['right_down', 0], 'left_level', ['level_left', 0], 'diagonal_left_level',
+                #               ['diagonal_left_level', 0], 'center_level', ['center_level', 0],
+                #               'diagonal_right_level', ['diagonal_right_level', 0], 'right_level', ['right_level', 0],
+                #               'left_up',
+                #               ['left_up', 1], 'diagonal_left_up', ['diagonal_left_up', 0],
+                #               'center_up', ['center_up', 0], 'diagonal_right_up', ['diagonal_right_up', 0], 'right_up',
+                #               ['right_up', 0],'drop',['drop',0]],
+                #              #hikker center 0.75, Diagleft 0.25, ego center 1, action up left
+                #              # ['hiker_left', ['hiker_left', 0], 'hiker_diagonal_left', ['hiker_diagonal_left', 0.25],
+                #              #  'hiker_center', ['hiker_center', 0.75],
+                #              #  'hiker_diagonal_right', ['hiker_diagonal_right', 0],
+                #              #  'hiker_right', ['hiker_right', 0],
+                #              #  'altitude', ['altitude', 2],
+                #              #  'distance_to_hiker', ['distance_to_hiker', 0.5],
+                #              #  'ego_left', ['ego_left', 0],
+                #              #  'ego_diagonal_left', ['ego_diagonal_left', 0],
+                #              #  'ego_center', ['ego_center', 1],
+                #              #  'ego_diagonal_right', ['ego_diagonal_right', 0],
+                #              #  'ego_right', ['ego_right', 0],
+                #              #  'fc', ['fc', [0, 1, 1]],
+                #              #  'type', 'nav',
+                #              #  'left_down', ['left_down', 0], 'diagonal_left_down', ['diagonal_left_down', 0],
+                #              #  'center_down',
+                #              #  ['center_down', 0], 'diagonal_right_down', ['diagonal_right_down', 0],
+                #              #  'right_down', ['right_down', 0], 'left_level', ['level_left', 0], 'diagonal_left_level',
+                #              #  ['diagonal_left_level', 0], 'center_level', ['center_level', 0],
+                #              #  'diagonal_right_level', ['diagonal_right_level', 0], 'right_level', ['right_level', 0],
+                #              #  'left_up',
+                #              #  ['left_up', 0], 'diagonal_left_up', ['diagonal_left_up', 1],
+                #              #  'center_up', ['center_up', 0], 'diagonal_right_up', ['diagonal_right_up', 0], 'right_up',
+                #              #  ['right_up', 0], 'drop', ['drop', 0]],
+                #              ###hiker diagonal-left/center center-up
+                #              # ['hiker_left', ['hiker_left', 0], 'hiker_diagonal_left', ['hiker_diagonal_left', 0.25],
+                #              #  'hiker_center', ['hiker_center', 0.75],
+                #              #  'hiker_diagonal_right', ['hiker_diagonal_right', 0],
+                #              #  'hiker_right', ['hiker_right', 0],
+                #              #  'altitude', ['altitude', 2],
+                #              #  'distance_to_hiker', ['distance_to_hiker', 0.5],
+                #              #  'ego_left', ['ego_left', 0],
+                #              #  'ego_diagonal_left', ['ego_diagonal_left', 0],
+                #              #  'ego_center', ['ego_center', 0],
+                #              #  'ego_diagonal_right', ['ego_diagonal_right', 0],
+                #              #  'ego_right', ['ego_right', 0],
+                #              #  'fc', ['fc', [0, 1, 1]],
+                #              #  'type', 'nav',
+                #              #  'left_down', ['left_down', 0], 'diagonal_left_down', ['diagonal_left_down', 0],
+                #              #  'center_down',
+                #              #  ['center_down', 0], 'diagonal_right_down', ['diagonal_right_down', 0],
+                #              #  'right_down', ['right_down', 0], 'left_level', ['level_left', 0], 'diagonal_left_level',
+                #              #  ['diagonal_left_level', 0], 'center_level', ['center_level', 0],
+                #              #  'diagonal_right_level', ['diagonal_right_level', 0], 'right_level', ['right_level', 0],
+                #              #  'left_up',
+                #              #  ['left_up', 0], 'diagonal_left_up', ['diagonal_left_up', 0],
+                #              #  'center_up', ['center_up', 1], 'diagonal_right_up', ['diagonal_right_up', 0], 'right_up',
+                #              #  ['right_up', 0], 'drop', ['drop', 0]],
+                #              ###hiker right, right up
+                #              ['hiker_left', ['hiker_left', 0], 'hiker_diagonal_left', ['hiker_diagonal_left', 0],
+                #               'hiker_center', ['hiker_center', 0],
+                #               'hiker_diagonal_right', ['hiker_diagonal_right', 0],
+                #               'hiker_right', ['hiker_right', 1],
+                #               'altitude', ['altitude', 2],
+                #               'distance_to_hiker', ['distance_to_hiker', 0.5],
+                #               'ego_left', ['ego_left', 0],
+                #               'ego_diagonal_left', ['ego_diagonal_left', 0],
+                #               'ego_center', ['ego_center', 0],
+                #               'ego_diagonal_right', ['ego_diagonal_right', 0],
+                #               'ego_right', ['ego_right', 0],
+                #               'fc', ['fc', [0, 1, 1]],
+                #               'type', 'nav',
+                #               'left_down', ['left_down', 0], 'diagonal_left_down', ['diagonal_left_down', 0],
+                #               'center_down',
+                #               ['center_down', 0], 'diagonal_right_down', ['diagonal_right_down', 0],
+                #               'right_down', ['right_down', 0], 'left_level', ['level_left', 0], 'diagonal_left_level',
+                #               ['diagonal_left_level', 0], 'center_level', ['center_level', 0],
+                #               'diagonal_right_level', ['diagonal_right_level', 0], 'right_level', ['right_level', 0],
+                #               'left_up',
+                #               ['left_up', 0], 'diagonal_left_up', ['diagonal_left_up', 0],
+                #               'center_up', ['center_up', 0], 'diagonal_right_up', ['diagonal_right_up', 0], 'right_up',
+                #               ['right_up', 1], 'drop', ['drop', 0]],
+                #              ##Hiker center, center up
+                #              ['hiker_left', ['hiker_left', 0], 'hiker_diagonal_left', ['hiker_diagonal_left', 0],
+                #               'hiker_center', ['hiker_center', 1],
+                #               'hiker_diagonal_right', ['hiker_diagonal_right', 0],
+                #               'hiker_right', ['hiker_right', 0],
+                #               'altitude', ['altitude', 2],
+                #               'distance_to_hiker', ['distance_to_hiker', 0.5],
+                #               'ego_left', ['ego_left', 0],
+                #               'ego_diagonal_left', ['ego_diagonal_left', 0],
+                #               'ego_center', ['ego_center', 0],
+                #               'ego_diagonal_right', ['ego_diagonal_right', 0],
+                #               'ego_right', ['ego_right', 0],
+                #               'fc', ['fc', [0, 1, 1]],
+                #               'type', 'nav',
+                #               'left_down', ['left_down', 0], 'diagonal_left_down', ['diagonal_left_down', 0],
+                #               'center_down',
+                #               ['center_down', 0], 'diagonal_right_down', ['diagonal_right_down', 0],
+                #               'right_down', ['right_down', 0], 'left_level', ['level_left', 0], 'diagonal_left_level',
+                #               ['diagonal_left_level', 0], 'center_level', ['center_level', 0],
+                #               'diagonal_right_level', ['diagonal_right_level', 0], 'right_level', ['right_level', 0],
+                #               'left_up',
+                #               ['left_up', 0], 'diagonal_left_up', ['diagonal_left_up', 0],
+                #               'center_up', ['center_up', 1], 'diagonal_right_up', ['diagonal_right_up', 0], 'right_up',
+                #               ['right_up', 0], 'drop', ['drop', 0]]
+                #              ]
+
+
         for chunk in allchunks:
 
             #fc needs to be transformed
@@ -576,6 +716,20 @@ def create_actr_observation(step):
         # chunk[index_of_value][1] = remap(chunk[index_of_value][1], min(min_max[trans]),max(min_max[trans]),0,1)
     #transponse the transposes values to zero to 1 range
 
+    ###Hiker center
+    # return ['hiker_left', ['hiker_left', 1], 'hiker_diagonal_left', ['hiker_diagonal_left', 0],
+    #                   'hiker_center', ['hiker_center', 0],
+    #                   'hiker_diagonal_right', ['hiker_diagonal_right', 0],
+    #                   'hiker_right', ['hiker_right', 0],
+    #                   'altitude', ['altitude', 2],
+    #                   'distance_to_hiker', ['distance_to_hiker',0.5],
+    #                   'ego_left', ['ego_left', 0],
+    #                   'ego_diagonal_left', ['ego_diagonal_left', 0],
+    #                   'ego_center', ['ego_center', 0],
+    #                   'ego_diagonal_right', ['ego_diagonal_right', 0],
+    #                   'ego_right', ['ego_right', 0],
+    #                   'fc', ['fc', [0, 1, 1]],
+    #                   'type', 'nav']
     return chunk
 
 def actr_tick():
@@ -645,6 +799,7 @@ def handle_observation(observation):
                              'distance_to_hiker','altitude'],mp,t)
 
     actr.erase_buffer('blending')
+
 
 
     # for key in action_choice:
