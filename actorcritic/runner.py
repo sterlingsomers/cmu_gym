@@ -180,7 +180,7 @@ class Runner(object):
         #(MINE) Probably we combine all experiences from every worker below
         full_input.update(self.action_processer.combine_batch(mb_actions))
         full_input.update(self.obs_processer.combine_batch(mb_obs))
-        full_input = {k: combine_first_dimensions(v) for k, v in full_input.items()}
+        full_input = {k: combine_first_dimensions(v) for k, v in full_input.items()} # IF YOU COMMENT THIS THEN YOU GET nsteps x nenvs x [dims]
 
         if not self.do_training:
             pass

@@ -30,6 +30,7 @@ import gym
 #import gym_gridworld
 #from gym_grid.envs import GridEnv
 import gym_gridworld
+import spacefortress.gym
 
 FLAGS = flags.FLAGS
 flags.DEFINE_bool("visualize", True, "Whether to render with pygame.")
@@ -136,10 +137,10 @@ def main():
     if FLAGS.training and FLAGS.visualize==False:
         #envs = SubprocVecEnv((partial(make_sc2env, **env_args),) * FLAGS.n_envs)
         #envs = SubprocVecEnv([make_env(i,**env_args) for i in range(FLAGS.n_envs)])
-        envs = make_custom_env('gridworld{}-v3'.format('visualize' if FLAGS.visualize else ''), FLAGS.n_envs, 1)
+        envs = make_custom_env('SpaceFortress-autoturn-image-v0', FLAGS.n_envs, 1)
     elif FLAGS.training==False:
         #envs = make_custom_env('gridworld-v0', 1, 1)
-        envs = gym.make('gridworld{}-v0'.format('visualize' if FLAGS.visualize else ''))
+        envs = gym.make('SpaceFortress-autoturn-image-v0')
     else:
         print('Wrong choices in FLAGS training and visualization')
         return

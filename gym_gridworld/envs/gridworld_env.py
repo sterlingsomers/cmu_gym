@@ -58,7 +58,7 @@ class GridworldEnv(gym.Env):
         self.action_space = spaces.Discrete(16)
         self.actions = list(range(self.action_space.n))
         self.obs_shape = [100,100,3]
-        self.observation_space = spaces.Box(low=0, high=255, shape=self.obs_shape)
+        self.observation_space = spaces.Box(low=0, high=255, shape=self.obs_shape,dtype=np.uint8)
         self.real_actions = False
         self.crash = 0
         self.package_dropped = 0
