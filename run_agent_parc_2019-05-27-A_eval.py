@@ -33,7 +33,7 @@ if __name__ == "__main__":
 
     result = sim.run(
         episodes_to_run = episodes_to_run,
-        sleep_time=0.25,
+        sleep_time=0,
     )
 
 

@@ -19,8 +19,12 @@ def get_feature_value_maps(x,y,map):
 
     if feature_to_value.is_file():
         feature_value_map = pickle.load(open(feature_to_value,'rb'))
+    else:
+        raise Exception("Could not find the feature_to_value dictionary")
     if value_to_feature.is_file():
         value_feature_map = pickle.load(open(value_to_feature, 'rb'))
+    else:
+        raise Exception("Could not find the value_to_feature dictionary")
 
 
     return (feature_value_map, value_feature_map)
@@ -100,6 +104,8 @@ def get_feature_value_maps(x,y,map):
 #     return return_dict
 
 def convert_map_to_volume_dict(x,y,map,width,height):
+
+    print("Convert_map_to_volume_dict x {} y {} ".format(x,y))
     return_dict = {}
     top_left = (x,y)
     feature_value_map = {}
@@ -170,33 +176,39 @@ def convert_map_to_volume_dict(x,y,map,width,height):
     value_feature_map[value] = {'feature':'hiker', 'alt':0, 'color':color_map['hiker']}
     return return_dict
 
-def map_to_volume_dict(x=0,y=0,width=5,height=5):
+def map_to_volume_dict(path_str, x=0,y=0,width=5,height=5):
 
     """Looks for a map with filename corresponding to x,y coordinates corresponding to pickled cache.
        If it can't find a version cached on disk it requests a new map.
        Finally it converts it to a volume dictionary and returns it."""
 
     #does the map already exist in the maps/ folder?
+
+    path = os.path.abspath(path_str)
+    print("Looking for maps in {}".format(path))
     return_dict = {}
     filename = '{}-{}.mp'.format(x,y)
     maps = []
     map = 0
-    for files in os.listdir(path+'maps'):
+    for files in os.listdir(path):
         if files.endswith(".mp"):
             maps.append(files)
     #loops through because I'll need the actual map
     for files in maps:
         if filename == files:
-            #print("loading existing map.")
-            map = pickle.load(open(path+'maps/' + filename,'rb'))
+            print("loading existing map {}".format(filename))
+            map = pickle.load(open( os.path.join(path,filename),'rb'))
 
     if not map:
-        print("generating map. YOU NEED MAVSIM RUNNING!!!")
+        print("Could not find or was not given a map file.")
+        print("Trying to communicate with MAVSIM to pull map remotely.")
+        print("(YOU NEED TO SUPPLY A MAP OR HAVE MAVSIM RUNNING!!!)")
+
         map = terrain_request(x,y,width,height)
 
         #store it for future use
         print("saving map.")
-        with open(path+'maps/' + filename, 'wb') as handle:
+        with open( os.path.join(path, filename), 'wb') as handle:
             pickle.dump(map, handle)
     #convert_map_to_volume_dict(x,y,map)
     return convert_map_to_volume_dict(x,y,map,width,height)
@@ -250,6 +262,7 @@ def create_custom_map(map):
     return_dict['feature_value_map'] = features_to_values
     return_dict['value_feature_map'] = values_to_features
     return_dict['vol'] = vol
+    return_dict['flat'] = map
     return_dict['img'] = img
     print("OK")
     return return_dict

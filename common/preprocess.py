@@ -91,6 +91,7 @@ class ObsProcesser:
         # pp_obs = {
         #     FEATURE_KEYS.rgb_screen: timestep
         # }
+        #print("timestep : {}".format(timestep))
         pp_obs = {
             FEATURE_KEYS.rgb_screen: timestep['img'],
             FEATURE_KEYS.alt_view: timestep['nextstepimage']

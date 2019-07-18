@@ -15,6 +15,7 @@ from PIL import Image as Image
 # import matplotlib.pyplot as plt
 import threading
 import random
+import pickle
 
 from scipy.misc import imresize
 import matplotlib.pyplot as plt
@@ -322,10 +323,13 @@ class GridworldEnv(gym.Env):
                  verbose=False,
                  curriculum_radius=None,
                  goal_mode='drop',
+                 map_path='./gym_gridworld/maps',
+                 submap_offsets=None,
                  use_custom_map=None,
                  episode_length=None):
 
 
+        self.map_path = map_path
         self.use_custom_map=use_custom_map
         self.hiker_initial_position=hiker_initial_position
         self.drone_initial_position=drone_initial_position
@@ -334,6 +338,7 @@ class GridworldEnv(gym.Env):
         self.curriculum_radius=curriculum_radius
         self.goal_mode = goal_mode
         self.episode_length=episode_length
+
 
         # # TODO: Pass the environment with arguments
 
@@ -344,10 +349,11 @@ class GridworldEnv(gym.Env):
         self.drop = False
         self.countdrop = 0
         self.no_action_flag = False
-        self.submap_offsets =[(265, 308), (20, 94), (146, 456), (149, 341), (164, 90), (167, 174),
-                              (224,153), (241,163), (260,241), (265,311), (291,231),
-                              (308,110), (334,203), (360,112), (385,291), (330,352), (321,337)]#[(400,35), (350,90), (430,110),(390,50), (230,70)] #[(86, 266)] (70,50) # For testing, 70,50 there is no where to drop in the whole map
+        #self.submap_offsets =#[(400,35), (350,90), (430,110),(390,50), (230,70)] #[(86, 266)] (70,50) # For testing, 70,50 there is no where to drop in the whole map
         #[(149, 341)]#[(149, 341),(241,163), (260,241),(291,231),(308,110),(330,352)]
+
+        self.submap_offsets = submap_offsets
+
         self.mapw = 20
         self.maph = 20
         self.dist_old = 1000
@@ -889,7 +895,16 @@ class GridworldEnv(gym.Env):
 
             self.submap_offset = random.choice(self.submap_offsets)
 
-            self.map_volume = CNP.map_to_volume_dict( self.submap_offset[0], self.submap_offset[1], self.mapw, self.maph )
+            if self.submap_offset[0]==999: # New style nixel maps
+
+                map_filename = '{}-{}.mp'.format(self.submap_offset[0],self.submap_offset[1])
+                self.map_volume = pickle.load( open(self.map_path+'/'+map_filename,'rb'))
+
+            else:  # Old style kingdom maps
+
+                self.map_volume = CNP.map_to_volume_dict( self.map_path,
+                                                          self.submap_offset[0], self.submap_offset[1],
+                                                          self.mapw, self.maph )
             map_ = self.map_volume['flat']
 
 
@@ -914,7 +929,11 @@ class GridworldEnv(gym.Env):
                                                                  and x <= self.map_volume['vol'].shape[1] - 3    # ToDo: BOB - should one of these be shape[2]??
                                                                  and y <= self.map_volume['vol'].shape[1] - 3       ]  #ToDo: Bob -replace with mapw, maph?
 
-                hiker = random.choice(hiker_safe_points)
+                if len(hiker_safe_points)<1:
+                    print("WARNING Could not find safe hiker location on map {}. Setting to (0,0)".format(map_filename))
+                    hiker = (0,0)
+                else:
+                    hiker = random.choice(hiker_safe_points)
                 # int(self.original_map_volume['vol'][hiker])
             else:
                 hiker = self.hiker_initial_position
@@ -932,6 +951,9 @@ class GridworldEnv(gym.Env):
                                                                   and y <= self.map_volume['vol'].shape[1] - 3 ]
 
 
+                if len(drone_safe_points)<1:
+                    print("WARNING Could not find safe drone location on map {}, setting to (1,1).".format(map_filename))
+                    drone_safe_points=[(1,1)]
 
                 D = distance.cdist([hiker], drone_safe_points, 'chebyshev').astype(int) # Distances from hiker to all drone safe points
 

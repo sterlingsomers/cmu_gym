@@ -49,7 +49,7 @@ flags.DEFINE_boolean("training", False,
 flags.DEFINE_float("sleep_time", 0, "Time-delay in the demo")
 
 
-flags.DEFINE_integer("n_envs", 10, "Number of environments to run in parallel")
+flags.DEFINE_integer("n_envs", 10, "Number of environments to run in parallel")  # Constantinos uses 80 here for A2C - maybe up to 250 on the right machine
 flags.DEFINE_integer("episodes", 5, "Number of complete episodes")
 flags.DEFINE_integer("n_steps_per_batch", 32,
                      "Number of steps per batch, if None use 8 for a2c and 128 for ppo")  # (MINE) TIMESTEPS HERE!!! You need them cauz you dont want to run till it finds the beacon especially at first episodes - will take forever
@@ -160,6 +160,10 @@ class Simulation:
                  curriculum_radius=None,
                  goal_mode=None,
                  use_mavsim=None,
+                 map_path='./gym_gridworld/maps',
+                 submap_offsets=[(265, 308), (20, 94), (146, 456), (149, 341), (164, 90), (167, 174),
+                            (224,153), (241,163), (260,241), (265,311), (291,231),
+                            (308,110), (334,203), (360,112), (385,291), (330,352), (321,337)],
                  K_batches=FLAGS.K_batches,
                  episode_length=None  ):
 
@@ -169,6 +173,7 @@ class Simulation:
         self.model_name = model_name
         self.K_batches=K_batches
         self.policy_type=policy_type
+
 
         #TODO this runner is maybe too long and too messy..
         self.full_checkpoint_path = os.path.join(FLAGS.checkpoint_path, self.model_name)
@@ -189,6 +194,8 @@ class Simulation:
                   'hiker_initial_position':hiker_initial_position,
                   'goal_mode':goal_mode,
                   'verbose':verbose,
+                  'map_path':map_path,
+                  'submap_offsets':submap_offsets,
                   'episode_length':episode_length,
                   'curriculum_radius':curriculum_radius,
                   'use_mavsim':use_mavsim}
