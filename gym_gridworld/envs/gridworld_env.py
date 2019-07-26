@@ -847,9 +847,9 @@ class GridworldEnv(gym.Env):
         #     times = times + 1
 
         """ All safe points included for final training """
-        # self.drone = random.choice(drone_safe_points)
+        self.drone = random.choice(drone_safe_points)
         """ Custom location """
-        self.drone = (6,6)#(18,11)
+        # self.drone = (6,6)#(18,11)
 
         self.original_map_volume = copy.deepcopy(self.map_volume)
         self.hiker_drone_dist = max(abs(np.array(self.hiker) - np.array(self.drone)))

@@ -7,6 +7,7 @@ import numpy as np
 import tensorflow as tf
 import cv2
 import gym
+from baselines.common.vec_env.subproc_vec_env import SubprocVecEnv
 import spacefortress.gym
 
 class CollectGymDataset(object):
@@ -40,11 +41,12 @@ class CollectGymDataset(object):
   def _process_step(self, action, observ, reward, done, info):
     self._transition.update({'action': action, 'reward': reward})
     self._transition.update(info)
-    self._episode.append(self._transition)
-    self._transition = {}
+    # self._transition.update({'info': np.stack(k for k in info)})
+    self._episode.append(self._transition) # append the transition
+    self._transition = {} # empty the _transition in order to use it again
     if not done:
       self._transition.update(self._process_observ(observ))
-    else:
+    else: # if done=True
       episode = self._get_episode()
       info['episode'] = episode
       if self._outdir:
@@ -121,10 +123,29 @@ class ObservationDict(object):
 def obs_preprocess(obs):
     return cv2.resize(obs, (150, 150), interpolation=cv2.INTER_AREA)
 
+def make_custom_env(env_id, num_env, seed, wrapper_kwargs=None, start_index=0):
+    """
+    Create a wrapped, monitored SubprocVecEnv for Atari.
+    """
+    if wrapper_kwargs is None: wrapper_kwargs = {}
+    def make_env(rank): # pylint: disable=C0111
+        def _thunk():
+            env = gym.make(env_id)
+            #env.seed(seed + rank)
+            #env = CollectGymDataset(ObservationDict(envs), None) # Monitor doesn't work with these wrappers
+            # Monitor should take care of reset!
+#             env = Monitor(env, logger.get_dir() and os.path.join(logger.get_dir(), str(rank)), allow_early_resets=True) # SUBPROC NEEDS 4 OUTPUS FROM STEP FUNCTION
+            return env
+        return _thunk
+    #set_global_seeds(seed)
+    return SubprocVecEnv([make_env(i + start_index) for i in range(num_env)])
+
 
 num_episodes = 5
+n_envs = 2
 
 env = gym.make('SpaceFortress-autoturn-image-v0')
+# env = make_custom_env('SpaceFortress-autoturn-image-v0', n_envs, 1)
 env = CollectGymDataset(ObservationDict(env), None) # None for outdir so you do not save. Monitor messes up these wrappers.
 episodes = []
 for _ in range(num_episodes):  # (MINE) Use your own policy from a trained model (A2C_multiple_packs). You might need some exploration though here if you want MB to perform better than MF
@@ -133,7 +154,9 @@ for _ in range(num_episodes):  # (MINE) Use your own policy from a trained model
     obs = env.reset()
     while not done:
         action = policy(env, obs)  # If the action is discrete you wont have any probs as the action normalize wrapper will produce a 16-element vector with same elements (the discrete action) and the sokoban wrapper will select the argmax
-        obs, _, done, info = env.step(action)  # if it crashes done comes out from the duration wrappers as false!
+        # obs, _, done, info = env.step([action] * n_envs)obs, _, done, info = env.step([action] * n_envs)
+        obs, _, done, info = env.step(action)# obs, _, done, info = env.step([action]*n_envs)  # if it crashes done comes out from the duration wrappers as false!
+
     #Below the line is not working. Probably because of the CollectGymDataset
     episodes.append(info['episode'])  # seems that the last obs is not saved, only till one step before the goal. So the images are s_{goal-1}, action, s_goal, and the action is the action that leads to the goal. sgoal is not stored
 try:
