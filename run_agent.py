@@ -141,71 +141,98 @@ def make_custom_env(env_id, num_env, seed, wrapper_kwargs=None, start_index=0):
     #set_global_seeds(seed)
     return SubprocVecEnv([make_env(i + start_index) for i in range(num_env)])
 
+godiland_kingdom_maps =[(265, 308), (20, 94), (146, 456), (149, 341), (164, 90), (167, 174),
+                        (224,153), (241,163), (260,241), (265,311), (291,231),
+                        (308,110), (334,203), (360,112), (385,291), (330,352), (321,337)]
+
+default_params = {
+
+    'run': {
+        'model_name':'test_run',
+        'environment_id' : 'gridworld-v0',
+        'K_batches':1001,
+        'policy_type':'DeepFullyConv',
+        'training': False,
+        'verbose': True
+    },
+
+    'env': {
+
+        'submap_offsets': godiland_kingdom_maps,
+
+        'map_path': 'gym_gridworld/maps/',
+
+        #'episode_length':25,
+        #'curriculum_radius':25,
+
+        'goal_mode':'navigate',
+
+        'align_drone_and_hiker_heading':True,
+        'align_drone_and_hiker_altitude':True,
+
+        #'drone_initial_position':(5,5),
+        #'drone_intial_heading': HEADING.SOUTH_EAST,
+        #'drone_initial_altitude':3,
+
+        'use_hiker_altitude':True,
+        #'hiker_initial_altitude':3,
+        #'hiker_initial_position':(7,7),
+        #'hiker_initial_heading':HEADING.SOUTH_EAST,
+    }
+}
 
 class Simulation:
 
     def __init__(self,
+                 params = {},
 
-                 training=FLAGS.training,
-                 verbose = FLAGS.visualize,
-                 environment_id = 'gridworld-v0',
-                 model_name = FLAGS.model_name,
-                 policy_type = FLAGS.policy_type,
+                 #training=FLAGS.training,
+                 #verbose = FLAGS.visualize,
+                 #model_name = FLAGS.model_name,
+                 #policy_type = FLAGS.policy_type,
+                 #curriculum_radius=None,
+                 #goal_mode=None,
+                 #use_mavsim=None,
+                 #map_path='./gym_gridworld/maps',
+                 #submap_offsets=[(265, 308), (20, 94), (146, 456), (149, 341), (164, 90), (167, 174),
+                 #           (224,153), (241,163), (260,241), (265,311), (291,231),
+                 #           (308,110), (334,203), (360,112), (385,291), (330,352), (321,337)],
+                 #K_batches=FLAGS.K_batches,
+                 #episode_length=None
+               ):
 
-                 drone_initial_position=None,
-                 drone_initial_heading = None,
-                 drone_initial_altitude= None,
-                 hiker_initial_position=None,
+        self.params = params['run']
 
-                 curriculum_radius=None,
-                 goal_mode=None,
-                 use_mavsim=None,
-                 map_path='./gym_gridworld/maps',
-                 submap_offsets=[(265, 308), (20, 94), (146, 456), (149, 341), (164, 90), (167, 174),
-                            (224,153), (241,163), (260,241), (265,311), (291,231),
-                            (308,110), (334,203), (360,112), (385,291), (330,352), (321,337)],
-                 K_batches=FLAGS.K_batches,
-                 episode_length=None  ):
+        print("Creating simulation for model {}".format(params['run']['model_name']))
 
-        self.training = training
-        self.verbose = verbose
-        self.environment_id = environment_id
-        self.model_name = model_name
-        self.K_batches=K_batches
-        self.policy_type=policy_type
+        self.environment_id = self.params['environment_id']
 
 
         #TODO this runner is maybe too long and too messy..
-        self.full_checkpoint_path = os.path.join(FLAGS.checkpoint_path, self.model_name)
+        self.full_checkpoint_path = os.path.join(FLAGS.checkpoint_path, self.params['model_name'])
 
-        if self.training:
-            self.full_summary_path = os.path.join(FLAGS.summary_path, self.model_name)
+        if self.params['training']:
+            self.full_summary_path = os.path.join(FLAGS.summary_path, self.params['model_name'])
         else:
-            self.full_summary_path = os.path.join(FLAGS.summary_path, "no_training", self.model_name)
+            self.full_summary_path = os.path.join(FLAGS.summary_path, "no_training", self.params['model_name'])
 
 
-        if self.training:
+        if self.params['training']:
             check_and_handle_existing_folder(self.full_checkpoint_path)
             check_and_handle_existing_folder(self.full_summary_path)
 
-        kwargs= { 'drone_initial_position':drone_initial_position,
-                  'drone_initial_heading':drone_initial_heading,
-                  'drone_initial_altitude':drone_initial_altitude,
-                  'hiker_initial_position':hiker_initial_position,
-                  'goal_mode':goal_mode,
-                  'verbose':verbose,
-                  'map_path':map_path,
-                  'submap_offsets':submap_offsets,
-                  'episode_length':episode_length,
-                  'curriculum_radius':curriculum_radius,
-                  'use_mavsim':use_mavsim}
+        if not 'env' in params:
+            params['env']={}
+
+        kwargs= { 'params':params['env'],
+                  'verbose':self.params['verbose'] }
 
         #(MINE) Create multiple parallel environements (or a single instance for testing agent)
-        if self.training and self.verbose==False:
+        if self.params['training'] and self.params['verbose']==False:
             #envs = SubprocVecEnv((partial(make_sc2env, **env_args),) * FLAGS.n_envs)
             #envs = SubprocVecEnv([make_env(i,**env_args) for i in range(FLAGS.n_envs)])
             self.envs = make_custom_env(self.environment_id, FLAGS.n_envs, 1, wrapper_kwargs=kwargs)
-        elif self.training==False:
+        elif self.params['training']==False:
             #envs = make_custom_env('gridworld-v0', 1, 1)
             print("Making a single Environment for Testing")
             self.envs = gym.make(self.environment_id, **kwargs)
@@ -244,7 +271,7 @@ class Simulation:
             summary_path=self.full_summary_path,
             max_gradient_norm=FLAGS.max_gradient_norm,
             num_actions=self.envs.action_space.n,
-            policy=self.policy_type
+            policy=self.params['policy_type']
         )
         # Build Agent
         self.agent.build_model()
@@ -276,7 +303,7 @@ class Simulation:
             agent=self.agent,
             discount=FLAGS.discount,
             n_steps=self.n_steps_per_batch,
-            do_training=self.training,
+            do_training=self.params['training'],
             ppo_par=ppo_par,
             policy_type = FLAGS.policy_type
         )
@@ -338,8 +365,8 @@ class Simulation:
 
         # runner.reset() # Reset env which means you get first observation. You need reset if you run episodic tasks!!! SC2 is not episodic task!!!
 
-        if self.K_batches >= 0:
-            n_batches = self.K_batches  # (MINE) commented here so no need for thousands * 1000
+        if self.params['K_batches'] >= 0:
+            n_batches = self.params['K_batches']  # (MINE) commented here so no need for thousands * 1000
         else:
             n_batches = -1
 
@@ -347,7 +374,7 @@ class Simulation:
         all_data = [{'nav':[],'stuck':False} for x in range(episodes_to_run)]
 
 
-        if self.training:
+        if self.params['training']:
             i = 0
 
             try:
@@ -464,9 +491,9 @@ class Simulation:
 
                         mb_obs.append(self.runner.latest_obs)
                         # mb_flag.append(drop_flag)
-                        mb_heading.append(self.runner.envs.heading)
+                        mb_heading.append(self.runner.envs.drone_heading)
 
-                        drone_pos = np.where(self.runner.envs.map_volume['vol'] == self.runner.envs.map_volume['feature_value_map']['drone'][self.runner.envs.altitude]['val'])
+                        drone_pos = np.where(self.runner.envs.map_volume['vol'] == self.runner.envs.map_volume['feature_value_map']['drone'][self.runner.envs.drone_altitude]['val'])
                         mb_drone_pos.append(drone_pos)
                         mb_map_volume.append(self.runner.envs.map_volume) # what is contained here?
                         mb_ego.append(self.runner.envs.ego)
@@ -475,10 +502,10 @@ class Simulation:
                         #I need the egocentric view + hiker's position
                         #then drone steps, need action
                         step_data['volume'] = np.array(self.runner.envs.map_volume['vol'],copy=True)
-                        step_data['heading'] = self.runner.envs.heading
+                        step_data['heading'] = self.runner.envs.drone_heading
                         step_data['hiker'] = self.runner.envs.hiker_position
-                        step_data['altitude'] = self.runner.envs.altitude
-                        step_data['drone'] = np.where(step_data['volume'] == self.runner.envs.map_volume['feature_value_map']['drone'][self.runner.envs.altitude]['val'])
+                        step_data['altitude'] = self.runner.envs.drone_altitude
+                        step_data['drone'] = np.where(step_data['volume'] == self.runner.envs.map_volume['feature_value_map']['drone'][self.runner.envs.drone_altitude]['val'])
 
 
                         # dictionary[nav_runner.episode_counter]['observations'].append(nav_runner.latest_obs)
@@ -645,6 +672,8 @@ def augment_dataframe_with_reward_detail(df):
     info = df['info']
 
     Rhike=list()
+    Rhead=list()
+    Ralt = list()
     Rstep=list()
     Rcrash=list()
     Rtime=list()
@@ -658,6 +687,16 @@ def augment_dataframe_with_reward_detail(df):
             Rhike.append(row['Rhike'])
         else:
             Rhike.append(0)
+
+        if 'Rhead' in row:
+            Rhead.append(row['Rhead'])
+        else:
+            Rhead.append(0)
+
+        if 'Ralt' in row:
+            Ralt.append(row['Ralt'])
+        else:
+            Ralt.append(0)
 
         if 'Rstep' in row:
             Rstep.append(row['Rstep'])
@@ -680,6 +719,8 @@ def augment_dataframe_with_reward_detail(df):
             Success.append(0)
 
     df['Rhike']=Rhike
+    df['Ralt']=Ralt
+    df['Rhead']=Rhead
     df['Rstep']=Rstep
     df['Rcrash']=Rcrash
     df['Rtime']=Rtime
@@ -691,7 +732,7 @@ def augment_dataframe_with_reward_detail(df):
 
 def aggregate_rewards(dataframe):
 
-    stats = dataframe.groupby(['episode'])[['reward','Rstep','Rcrash','Rhike','Rtime','Success']].sum()
+    stats = dataframe.groupby(['episode'])[['reward','Rstep','Rcrash','Rhike','Rhead','Ralt','Rtime','Success']].sum()
     counts = dataframe.groupby(['episode'])[['reward']].count()
 
     stats['steps'] = counts
@@ -773,6 +814,8 @@ def to_mavsim_rewards(df_all, episode_num=0 ):
     info = df['info']
 
     Rhike=0
+    Rhead=0
+    Ralt=0
     Rstep=0
     Rcrash=0
     Rtime=0
@@ -784,6 +827,12 @@ def to_mavsim_rewards(df_all, episode_num=0 ):
         if 'Rhike' in row:
             Rhike=Rhike+row['Rhike']
 
+        if 'Rhead' in row:
+            Rhead=Rhead+row['Rhead']
+
+        if 'Ralt' in row:
+            Ralt=Ralt+row['Ralt']
+
         if 'Rstep' in row:
             Rstep=Rstep+row['Rstep']
 
@@ -793,11 +842,43 @@ def to_mavsim_rewards(df_all, episode_num=0 ):
         if 'Rtime' in row:
             Rtime=Rtime+row['Rtime']
 
-    Rsum = Rstep+Rhike+Rcrash+Rtime
+    Rsum = Rstep+Rhike+Rcrash+Rtime+Rhead+Ralt
 
     Rtot = df['reward'].sum()
 
-    return { 'Rhike':Rhike, 'Rstep':Rstep, 'Rcrash':Rcrash, 'Rtime':Rtime, 'Rsum':Rsum, 'Rtot':Rtot }
+    return { 'Rhike':Rhike, 'Ralign':Rhead,'Ralt':Ralt, 'Rstep':Rstep, 'Rcrash':Rcrash, 'Rtime':Rtime, 'Rsum':Rsum, 'Rtot':Rtot }
+
+
+def analyze_result(result):
+
+    all_data_df = extract_all_episodes(result)
+
+    num_episodes = len(all_data_df.index)
+
+    print("Analysis on {} runs".format(num_episodes))
+
+    all_data_with_reward_df = augment_dataframe_with_reward_detail(all_data_df)
+
+
+    pd.options.display.width = 0
+    #print(all_data_with_reward_df)
+
+    episode_reward_sums = aggregate_rewards(all_data_with_reward_df)
+    print(episode_reward_sums)
+
+    reward_stats = episode_reward_sums.mean(axis=0).to_dict()
+    print("Average accumulated reward per episode")
+    print(reward_stats)
+
+
+    actions = to_mavsim_actions(all_data_df)
+    print("Mavsim actions")
+    print(actions)
+
+    rewards = to_mavsim_rewards(all_data_df)
+    print("Mavsim rewards")
+    print(rewards)
+
 
 
 if __name__ == "__main__":

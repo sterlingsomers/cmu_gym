@@ -186,7 +186,8 @@ class ActionEnumeration:
                 return 0
             else:
                 return 1
-            
+
+
     def delta_heading(self,action_int):
         
         """Returns an integer in {-2,-1,0,1,2} corresponding to left 90, left 45, forward, right 45 or right 90 turn respectively
@@ -196,7 +197,8 @@ class ActionEnumeration:
             return None
         else:
             return (action_int % 5) - 2
-        
+
+
     def new_heading(self, old_heading, action_int):
 
         if action_int==None or action_int == self.DROP:
@@ -212,6 +214,7 @@ class ActionEnumeration:
 
         return heading
 
+
     def new_altitude(self, old_altitude, action_int):
 
         dz = self.delta_z(action_int)
@@ -224,11 +227,16 @@ class ActionEnumeration:
 
         return altitude
 
+
     def to_string(self,action_int):
+
         return self.action_to_description[action_int]
 
+
     def to_short_string(self,action_int):
+
         return self.action_to_short_description[action_int]
+
 
 ACTION = ActionEnumeration()
 
@@ -309,35 +317,32 @@ nixel_sample_map = np.array(
 
 )
 
+def list_ij_equal_to(A,x):
+
+    """"Given a 2D array A and a scalar value x,
+        return a list of row-colum i,j pairs where A is equal to x"""
+
+    i_and_j_lists = np.where(A==x)
+
+    ij_pairs = [ p for p in zip( i_and_j_lists[0], i_and_j_lists[1] ) ]
+
+    return ij_pairs
+
+
 class GridworldEnv(gym.Env):
 
     metadata = {'render.modes': ['human']}
     num_envs = 1
 
     def __init__(self,
-                 hiker_initial_position=None,
-                 drone_initial_position=None, drone_initial_altitude=None, drone_initial_heading=None,
+                 params={},
                  timestep_limit=1,
                  width=20, height=20,
                  use_mavsim=False,
-                 verbose=False,
-                 curriculum_radius=None,
-                 goal_mode='drop',
-                 map_path='./gym_gridworld/maps',
-                 submap_offsets=None,
-                 use_custom_map=None,
-                 episode_length=None):
+                 verbose=False         ):
 
 
-        self.map_path = map_path
-        self.use_custom_map=use_custom_map
-        self.hiker_initial_position=hiker_initial_position
-        self.drone_initial_position=drone_initial_position
-        self.drone_initial_altitude=drone_initial_altitude
-        self.drone_initial_heading=drone_initial_heading
-        self.curriculum_radius=curriculum_radius
-        self.goal_mode = goal_mode
-        self.episode_length=episode_length
+        self.params = params
 
 
         # # TODO: Pass the environment with arguments
@@ -352,7 +357,6 @@ class GridworldEnv(gym.Env):
         #self.submap_offsets =#[(400,35), (350,90), (430,110),(390,50), (230,70)] #[(86, 266)] (70,50) # For testing, 70,50 there is no where to drop in the whole map
         #[(149, 341)]#[(149, 341),(241,163), (260,241),(291,231),(308,110),(330,352)]
 
-        self.submap_offsets = submap_offsets
 
         self.mapw = 20
         self.maph = 20
@@ -360,8 +364,13 @@ class GridworldEnv(gym.Env):
         self.drop_package_grid_size_by_alt = {1: 3, 2: 5, 3: 7}
         self.factor = 5
         self.reward = 0
-        self.action_space = spaces.Discrete(16)
-        self.actions = list(range(self.action_space.n))
+
+        self.actions = [ ACTION.DOWN_LEFT_45, ACTION.DOWN_FORWARD, ACTION.DOWN_RIGHT_45,
+                         ACTION.LEVEL_LEFT_45, ACTION.LEVEL_FORWARD, ACTION.LEVEL_RIGHT_45,
+                         ACTION.UP_LEFT_45, ACTION.UP_FORWARD, ACTION.UP_RIGHT_45 ]
+
+        self.action_space = spaces.Discrete(len(self.actions))
+
         self.obs_shape = [100,100,3]
         self.observation_space = spaces.Box(low=0, high=255, shape=self.obs_shape)
         self.use_mavsim_simulator = use_mavsim
@@ -382,20 +391,53 @@ class GridworldEnv(gym.Env):
 
         self.image_layers = {}
 
-        # 5x5 plane descriptions
-        self.planes = {}
-        self.planes[1] = [[(0, 2), (1, 1), (1, 2), (1, 3), (2, 0), (2, 1), (2, 2), (2, 3), (2, 4)], np.zeros((5, 5, 3))]
-        self.planes[2] = [[(0, 0), (1, 1), (2, 2), (3, 3), (4, 4), (0, 4), (1, 3), (2, 3), (1, 2)], np.zeros((5, 5, 3))]
-        self.planes[3] = [[(0, 2), (1, 2), (2, 2), (3, 2), (4, 2), (1, 3), (2, 3), (3, 3), (2, 4)], np.zeros((5, 5, 3))]
-        self.planes[4] = [[(0, 4), (1, 3), (2, 3), (3, 3), (4, 4), (2, 2), (3, 2), (3, 1), (4, 0)], np.zeros((5, 5, 3))]
-        self.planes[5] = [[(2, 0), (2, 1), (2, 2), (2, 3), (2, 4), (3, 1), (3, 2), (3, 3), (4, 2)], np.zeros((5, 5, 3))]
-        self.planes[6] = [[(0, 0), (1, 1), (2, 2), (3, 3), (4, 4), (2, 1), (3, 1), (3, 2), (4, 0)], np.zeros((5, 5, 3))]
-        self.planes[7] = [[(2, 0), (1, 1), (2, 1), (3, 1), (0, 2), (1, 2), (2, 2), (3, 2), (4, 2)], np.zeros((5, 5, 3))]
-        self.planes[8] = [[(0, 0), (4, 0), (1, 1), (2, 1), (3, 1), (1, 2), (2, 2), (1, 3), (0, 4)], np.zeros((5, 5, 3))]
+        # The drone stencil gives the subset of pixel locations that need to be overwritten
+        # in the drone color scheme over top of the map cell.
+        #
+        # The drone stencil is heading dependent so that the appearance of the drone changes with heading
 
-        self.hikers = {}
-        self.hikers[0] = [[(0, 2), (1, 2), (2, 2), (3, 2), (4, 2), (2, 0), (2, 1), (2, 2), (2, 3), (2, 4)],
-                          np.zeros((5, 5, 3))]
+        self.drone_stencil = {}
+
+                        #Heading
+        self.drone_stencil[1] = [[(0, 2), (1, 1), (1, 2), (1, 3), (2, 0), (2, 1), (2, 2), (2, 3), (2, 4)], np.zeros((5, 5, 3))]
+        self.drone_stencil[2] = [[(0, 0), (1, 1), (2, 2), (3, 3), (4, 4), (0, 4), (1, 3), (2, 3), (1, 2)], np.zeros((5, 5, 3))]
+        self.drone_stencil[3] = [[(0, 2), (1, 2), (2, 2), (3, 2), (4, 2), (1, 3), (2, 3), (3, 3), (2, 4)], np.zeros((5, 5, 3))]
+        self.drone_stencil[4] = [[(0, 4), (1, 3), (2, 3), (3, 3), (4, 4), (2, 2), (3, 2), (3, 1), (4, 0)], np.zeros((5, 5, 3))]
+        self.drone_stencil[5] = [[(2, 0), (2, 1), (2, 2), (2, 3), (2, 4), (3, 1), (3, 2), (3, 3), (4, 2)], np.zeros((5, 5, 3))]
+        self.drone_stencil[6] = [[(0, 0), (1, 1), (2, 2), (3, 3), (4, 4), (2, 1), (3, 1), (3, 2), (4, 0)], np.zeros((5, 5, 3))]
+        self.drone_stencil[7] = [[(2, 0), (1, 1), (2, 1), (3, 1), (0, 2), (1, 2), (2, 2), (3, 2), (4, 2)], np.zeros((5, 5, 3))]
+        self.drone_stencil[8] = [[(0, 0), (4, 0), (1, 1), (2, 1), (3, 1), (1, 2), (2, 2), (1, 3), (0, 4)], np.zeros((5, 5, 3))]
+
+
+        # We describe an orthogonal and diagonal version of the hiker and then just rotate these to get full 8 headings
+
+        self.hiker_glyph_ortho = np.array([ [ 0,0,1,0,0 ],
+                                            [ 1,1,1,1,1 ],
+                                            [ 0,0,1,0,0 ],
+                                            [ 0,1,0,1,0 ],
+                                            [ 1,0,0,0,1 ], ])
+
+        self.hiker_glyph_diag  = np.array([ [ 0,0,1,0,1 ],
+                                            [ 0,0,0,1,0 ],
+                                            [ 1,1,1,0,1 ],
+                                            [ 0,0,1,0,0 ],
+                                            [ 0,0,1,0,0 ], ])
+
+        self.hiker_stencil = {}
+        self.hiker_stencil[1] = [ list_ij_equal_to( self.hiker_glyph_ortho, 1), np.zeros((5, 5, 3)) ]
+        self.hiker_stencil[2] = [ list_ij_equal_to( self.hiker_glyph_diag, 1), np.zeros((5, 5, 3)) ]
+
+        self.hiker_stencil[3] = [ list_ij_equal_to( np.rot90(self.hiker_glyph_ortho, k=1, axes=(1, 0)), 1), np.zeros((5, 5, 3)) ]
+        self.hiker_stencil[4] = [ list_ij_equal_to( np.rot90(self.hiker_glyph_diag, k=1, axes=(1, 0)), 1), np.zeros((5, 5, 3)) ]
+
+        self.hiker_stencil[5] = [ list_ij_equal_to( np.rot90(self.hiker_glyph_ortho, k=2, axes=(1, 0)), 1), np.zeros((5, 5, 3)) ]
+        self.hiker_stencil[6] = [ list_ij_equal_to( np.rot90(self.hiker_glyph_diag, k=2, axes=(1, 0)), 1), np.zeros((5, 5, 3)) ]
+
+        self.hiker_stencil[7] = [ list_ij_equal_to( np.rot90(self.hiker_glyph_ortho, k=3, axes=(1, 0)), 1), np.zeros((5, 5, 3)) ]
+        self.hiker_stencil[8] = [ list_ij_equal_to( np.rot90(self.hiker_glyph_diag, k=3, axes=(1, 0)), 1), np.zeros((5, 5, 3)) ]
+
+
+        #self.hikers[0] = [[(0, 2), (1, 2), (2, 2), (3, 2), (4, 2), (2, 0), (2, 1), (2, 2), (2, 3), (2, 4)], np.zeros((5, 5, 3))]
         self.hiker_image = np.zeros((5, 5, 3))
         # self.hiker_image[:,:,:] = self.map_volume['feature_value_map']['hiker']['color']
 
@@ -425,7 +467,7 @@ class GridworldEnv(gym.Env):
                              }
 
         # self.alt_rewards = {0:-1, 1:1, 2:-0.5, 3:-0.8} # This is bad!
-        self.alt_rewards = {0: 0, 1: 1, 2: 0.5, 3: 0.08}
+        self.alt_rewards = {0:0, 1:1, 2:0.5, 3:0.08 }
 
 
         self.possible_actions_map = {
@@ -634,7 +676,7 @@ class GridworldEnv(gym.Env):
 
         # cannot drop at edge because next move could leave map
         local_coordinates = np.where(
-            self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
+            self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.drone_altitude]['val'])
         self.no_action_flag = False
 
         if local_coordinates[1] == 0 or \
@@ -648,9 +690,9 @@ class GridworldEnv(gym.Env):
             #self.drop = True
             return 0
         self.drop = True
-        alt = self.altitude
-        drone_position = np.where(self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
-        region = self.drop_package_grid_size_by_alt[self.altitude]
+        alt = self.drone_altitude
+        drone_position = np.where(self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.drone_altitude]['val'])
+        region = self.drop_package_grid_size_by_alt[self.drone_altitude]
         neighbors, left, top, right, bottom = self.neighbors(self.original_map_volume['vol'][0], int(drone_position[1]),
                                               int(drone_position[2]), region)
         w = self.map_volume['vol'][0][left:right, top:bottom]
@@ -670,11 +712,11 @@ class GridworldEnv(gym.Env):
         if int(self.pack_dist) == 0:  # pack lands on top of the hiker. We need this condition to avoid the explosion of the inverse distance on 0
                 self.reward = 3#  reward + self.alt_rewards[self.altitude] + 1# reward + is_hiker_in_neighbors + 1 # altitude is implied so you might need to put it in
         else:
-                self.reward = (reward + self.alt_rewards[self.altitude])/((self.pack_dist** 2) + 1e-7)#reward + self.alt_rewards[self.altitude] + 1/((self.pack_dist** 2) + 1e-7)#
+                self.reward = (reward + self.alt_rewards[self.drone_altitude]) / ((self.pack_dist ** 2) + 1e-7)#reward + self.alt_rewards[self.altitude] + 1/((self.pack_dist** 2) + 1e-7)#
 
         self.package_position = pack_world_coords
         self.package_dropped = True
-        x = eval(self.actionvalue_heading_action[7][self.heading])
+        x = eval(self.actionvalue_heading_action[7][self.drone_heading])
 
 
     def take_action(self, delta_alt=0, delta_x=0, delta_y=0, new_heading=1):
@@ -683,7 +725,7 @@ class GridworldEnv(gym.Env):
         vol_shape = self.map_volume['vol'].shape
 
         local_coordinates = np.where(
-            self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
+            self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.drone_altitude]['val'])
 
         if int(local_coordinates[1]) + delta_y < 0 or \
                 int(local_coordinates[2]) + delta_x < 0 or \
@@ -698,12 +740,12 @@ class GridworldEnv(gym.Env):
         if (int(local_coordinates[1]) + delta_y, int(local_coordinates[2]) + delta_x) in forbidden:
             return 0
 
-        new_alt = self.altitude + delta_alt if self.altitude + delta_alt < 4 else 3
+        new_alt = self.drone_altitude + delta_alt if self.drone_altitude + delta_alt < 4 else 3
         if new_alt < 0:
             return 0
 
         # put back the original
-        self.map_volume['vol'][self.altitude][local_coordinates[1], local_coordinates[2]] = float(
+        self.map_volume['vol'][self.drone_altitude][local_coordinates[1], local_coordinates[2]] = float(
             self.original_map_volume['vol'][local_coordinates])
 
         # self.map_volume['flat'][local_coordinates[1],local_coordinates[2]] = float(self.original_map_volume['flat'][local_coordinates[1],local_coordinates[2]])
@@ -721,18 +763,18 @@ class GridworldEnv(gym.Env):
         #     if self.map_volume['vol'][i][local_coordinates[1],local_coordinates[2]]:
         #         self.map_volume['flat'][int(local_coordinates[1]),int(local_coordinates[2])] = float(self.map_volume['vol'][i][int(local_coordinates[1]),int(local_coordinates[2])])
         #         break
-        self.altitude = new_alt
-        self.heading = new_heading
+        self.drone_altitude = new_alt
+        self.drone_heading = new_heading
 
         if self.use_mavsim_simulator:
             drone_position = np.where(
-                self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
+                self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.drone_altitude]['val'])
 
             #success = self.mavsimhandler.fly_path(coordinates=[self.reference_coordinates[0] + int(drone_position[1]),
             #                                                   self.reference_coordinates[1] + int(drone_position[2])],
             #                                      altitude=self.altitude)
 
-            self.mavsimhandler.head_to(self.heading,self.altitude)
+            self.mavsimhandler.head_to(self.drone_heading, self.drone_altitude)
 
         return 1
 
@@ -749,7 +791,7 @@ class GridworldEnv(gym.Env):
         """Returns zero if drone is OK, -1 if drone descended to altitude zero
            and returns tile_id of the item crashed into if crashed into obstacle. """
 
-        if self.altitude == 0:
+        if self.drone_altitude == 0:
             return -1
 
         return int(self.original_map_volume['vol'][drone_position])
@@ -759,14 +801,14 @@ class GridworldEnv(gym.Env):
 
         ''' return next observation, reward, finished, success '''
 
-        action = int(action)
+        action = self.actions[int(action)]  # Convert from action index, to one of the gridworld_domain actions
+
         info = {}
         info['success'] = False
-
         done = False
 
         self.step_number = self.step_number + 1
-        if self.episode_length!=None and self.step_number >= self.episode_length:
+        if 'episode_length' in self.params and self.step_number >= self.params['episode_length']:
             done = True
             reward = -1
             info['success'] = False
@@ -775,17 +817,12 @@ class GridworldEnv(gym.Env):
 
             return (self.generate_observation(), reward, done, info)
 
-        hiker = self.hiker_position
-
-        # observation = self.generate_observation() # You took out this one in Jun 6, 2019 and you substitute the return(observation,...) with self.generate_observation (except the last one which is the return of the whole function)
-
 
         drone_position = self.get_drone_position()
 
-        self.dist = np.linalg.norm(np.array(drone_position[-2:]) - np.array(hiker[-2:])) # we remove height from the equation so we avoid going diagonally down
+        self.dist = np.linalg.norm(  np.array(drone_position[-2:]) - np.array(self.hiker_position[-2:])  ) # we remove height from the equation so we avoid going diagonally down
 
         crash = self.check_for_crash(drone_position)
-        info['success'] = not crash
 
         if crash!=0:
             reward = -1
@@ -794,33 +831,53 @@ class GridworldEnv(gym.Env):
             print("CRASH")
             info['ex'] = 'crash'
             info['crash_obj']=crash
+            info['success']= False
 
             if self.restart_once_done: # HAVE IT ALWAYS TRUE!!! It learned the first time WITHOUT RESETING FROM CRASH
                 return (self.generate_observation(), reward, done, info) # You should get the previous obs so no change here, or return obs=None
 
         # Do the action (drone is moving). If we crash we dont perform an action so no new observation
-        x = eval(self.actionvalue_heading_action[action][self.heading])
+
+        x = eval(self.actionvalue_heading_action[action][self.drone_heading])
+
         if self.no_action_flag == True:
-            reward = self.reward#-1#TODO: it was 0 in all successful training session with PPO. TRY -1 so it avoids dropping at the edges!!!! ahouls be = self.reward and fix self. reward in the drop package function
+            reward = self.reward
             done = True
             if self.restart_once_done: # HAVE IT ALWAYS TRUE!!!
                 return (self.generate_observation(), reward, done, info)
 
-        if self.goal_mode=='navigate':
+
+        if self.params['goal_mode']=='navigate':
+
             if self.check_for_drone_over_hiker(drone_position):
+
+                reward = 1
                 done = True
-                reward=1
                 info['ex']='arrived'
                 info['Rhike']=1
+
+                if 'align_drone_and_hiker_heading' in self.params and self.params['align_drone_and_hiker_heading']:
+                    print("Checking heading {} {}".format(HEADING.heading_to_short_description[self.drone_heading],
+                                                          HEADING.heading_to_short_description[self.hiker_heading]  )  )
+                    if self.drone_heading==self.hiker_heading:
+                        info['Rhead']=1
+                        reward=reward+1
+
+                if 'align_drone_and_hiker_altitude' in self.params and self.params['align_drone_and_hiker_altitude']:
+                    print("Checking altitude {} {}".format(self.drone_altitude, self.hiker_altitude))
+                    if self.drone_altitude == self.hiker_altitude:
+                        info['Ralt']=1
+                        reward=reward+1
+
                 return (self.generate_observation(), reward, done, info)
 
         # Multiple packages
 
-        if self.goal_mode=='drop' and self.drop:
+        if self.params['goal_mode']=='drop' and self.drop:
             self.drop = 0
             reward = self.reward
             info['Rdrop']=reward
-            print('DROP!!!', 'self.reward=', self.reward, 'alt_reward=', self.alt_rewards[self.altitude],
+            print('DROP!!!', 'self.reward=', self.reward, 'alt_reward=', self.alt_rewards[self.drone_altitude],
                   'hiker-package distance=', self.pack_dist)
             self.countdrop = self.countdrop + 1
             if self.countdrop >= 1: # 3 drops
@@ -845,13 +902,21 @@ class GridworldEnv(gym.Env):
 
         # print("state", [ self.observation[self.altitude]['drone'].nonzero()[0][0],self.observation[self.altitude]['drone'].nonzero()[1][0]] )
         self.dist_old = self.dist
-        reward = -0.0001#-0.01#(self.alt_rewards[self.altitude]*0.1)*((1/((self.dist**2)+1e-7))) # -0.01 + # The closer we are to the hiker the more important is to be close to its altitude
+
+        if self.drone_heading in [ HEADING.NORTH, HEADING.EAST, HEADING.SOUTH, HEADING.WEST ]:
+            reward = -0.01
+        else:  # Diagonal actions cost more
+            reward = -0.015
+
+
+        #-0.01#(self.alt_rewards[self.altitude]*0.1)*((1/((self.dist**2)+1e-7))) # -0.01 + # The closer we are to the hiker the more important is to be close to its altitude
         #print("scale:",(1/((self.dist**2+1e-7))), "dist=",self.dist+1e-7, "alt=", self.altitude, "drone:",drone, "hiker:", hiker,"found:", self.check_for_hiker())
+
         info['Rstep']=reward
         return (self.generate_observation(), reward, done, info)
 
 
-    def reset(self,curriculum_radius=None):
+    def reset(self):
 
         """ goal_mode in { None, 'navigate' } """
 
@@ -862,30 +927,29 @@ class GridworldEnv(gym.Env):
         #print("   curriculum_radius {}".format(curriculum_radius))
 
         self.step_number = 0
-        if curriculum_radius!=None:
-            self.curriculum_radius=curriculum_radius
+
 
         self.dist_old = 1000
         self.drop = False
         self.countdrop = 0
         self.no_action_flag = False
 
-        if self.drone_initial_heading==None:
-            self.heading = random.randint(1, 8)
+        if 'drone_initial_heading' in self.params:
+            self.drone_heading=self.drone_initial_heading
         else:
-            self.heading=self.drone_initial_heading
+            self.drone_heading = random.randint(1, 8)
 
-        if self.drone_initial_altitude==None:
-            self.altitude = random.randint(1,3)
+        if 'drone_intial_altitude' in self.params:
+            self.drone_altitude = self.drone_initial_altitude
         else:
-            self.altitude = self.drone_initial_altitude
+            self.drone_altitude = random.randint(1, 3)
 
         self.reward = 0
         self.crash = 0
         self.package_dropped = 0
         self.package_position = ()
 
-        if not self.use_custom_map is None:
+        if 'use_custom_map' in self.params:
 
             self.map_volume = CNP.create_custom_map(box_canyon_map)
             # self.generate_random_map()
@@ -893,16 +957,16 @@ class GridworldEnv(gym.Env):
 
         else:
 
-            self.submap_offset = random.choice(self.submap_offsets)
+            self.submap_offset = random.choice(self.params['submap_offsets'])
 
             if self.submap_offset[0]==999: # New style nixel maps
 
                 map_filename = '{}-{}.mp'.format(self.submap_offset[0],self.submap_offset[1])
-                self.map_volume = pickle.load( open(self.map_path+'/'+map_filename,'rb'))
+                self.map_volume = pickle.load( open(self.params['map_path']+'/'+map_filename,'rb'))
 
             else:  # Old style kingdom maps
 
-                self.map_volume = CNP.map_to_volume_dict( self.map_path,
+                self.map_volume = CNP.map_to_volume_dict( self.params['map_path'],
                                                           self.submap_offset[0], self.submap_offset[1],
                                                           self.mapw, self.maph )
             map_ = self.map_volume['flat']
@@ -914,7 +978,7 @@ class GridworldEnv(gym.Env):
 
         while not valid_hiker_drone_pair:
 
-            if self.hiker_initial_position==None:
+            if not 'hiker_initial_position' in self.params:
 
                 # ToDo: investigate this: hiker_safe_points = np.isin(map_, self.tile_ids_compatible_with_hiker)
 
@@ -930,18 +994,30 @@ class GridworldEnv(gym.Env):
                                                                  and y <= self.map_volume['vol'].shape[1] - 3       ]  #ToDo: Bob -replace with mapw, maph?
 
                 if len(hiker_safe_points)<1:
-                    print("WARNING Could not find safe hiker location on map {}. Setting to (0,0)".format(map_filename))
-                    hiker = (0,0)
+                    print("WARNING Could not find safe hiker location on map {}. Setting to (5,5)".format(map_filename))
+                    hiker = (5,5)
                 else:
                     hiker = random.choice(hiker_safe_points)
                 # int(self.original_map_volume['vol'][hiker])
             else:
-                hiker = self.hiker_initial_position
+                hiker = self.params['hiker_initial_position']
 
-            if self.drone_initial_position==None:
+            if not 'hiker_initial_heading' in self.params:
+
+                self.hiker_heading= random.choice(range(1,8+1))
+            else:
+                self.hiker_heading = self.params['hiker_initial_heading']
+
+            if not 'hiker_initial_altitude' in self.params:
+                self.hiker_altitude = random.choice(range(1,3+1))
+            else:
+                self.hiker_altitude = self.params['hiker_initial_altitude']
+
+
+            if not 'drone_initial_position' in self.params:
 
                 drone_safe_points = []
-                for val in self.tile_ids_compatible_with_drone_altitude[self.altitude]:
+                for val in self.tile_ids_compatible_with_drone_altitude[self.drone_altitude]:
 
                     where_array = np.where(map_ == val)
 
@@ -950,16 +1026,15 @@ class GridworldEnv(gym.Env):
                                                                   and x <= self.map_volume['vol'].shape[1] - 3    # ToDo: BOB - should one of these be shape[2]??
                                                                   and y <= self.map_volume['vol'].shape[1] - 3 ]
 
-
                 if len(drone_safe_points)<1:
                     print("WARNING Could not find safe drone location on map {}, setting to (1,1).".format(map_filename))
                     drone_safe_points=[(1,1)]
 
                 D = distance.cdist([hiker], drone_safe_points, 'chebyshev').astype(int) # Distances from hiker to all drone safe points
 
-                if self.curriculum_radius!=None:
-                    print("Using curriculum mode with radius:{}".format(self.curriculum_radius))
-                    close_location_idxs = D[0] < self.curriculum_radius
+                if 'curriculum_radius' in self.params:
+                    print("Using curriculum mode with radius:{}".format(self.params['curriculum_radius']))
+                    close_location_idxs = D[0] < self.params['curriculum_radius']
                     if sum(close_location_idxs)==0:
                         print("WARNING - no safe locations next to hiker location {} -- trying again ".format(hiker))
                     else:
@@ -973,7 +1048,7 @@ class GridworldEnv(gym.Env):
 
             else:
                 valid_hiker_drone_pair=True
-                drone = self.drone_initial_position
+                drone = self.params['drone_initial_position']
 
             #print("Chose hiker position ",hiker)
             #print("Chose drone position ",drone)
@@ -1046,13 +1121,13 @@ class GridworldEnv(gym.Env):
 
 
         # put the drone in
-        self.map_volume['vol'][self.altitude][drone[0], drone[1]] = \
-                   self.map_volume['feature_value_map']['drone'][self.altitude]['val']
+        self.map_volume['vol'][self.drone_altitude][drone[0], drone[1]] = \
+                   self.map_volume['feature_value_map']['drone'][self.drone_altitude]['val']
 
         # self.map_volume['flat'][drone[0], drone[1]] = self.map_volume['feature_value_map']['drone'][self.altitude][
         #     'val']
 
-        self.map_volume['img'][drone[0], drone[1]] = self.map_volume['feature_value_map']['drone'][self.altitude][
+        self.map_volume['img'][drone[0], drone[1]] = self.map_volume['feature_value_map']['drone'][self.drone_altitude][
             'color']
 
 
@@ -1159,9 +1234,9 @@ class GridworldEnv(gym.Env):
 
         '''Returns a 5x5 image as np array'''
 
-        for point in self.planes[heading][0]:
-            self.planes[heading][1][point[0], point[1]] = color
-        return self.planes[heading][1]
+        for point in self.drone_stencil[heading][0]:
+            self.drone_stencil[heading][1][point[0], point[1]] = color
+        return self.drone_stencil[heading][1]
 
     def create_image_from_volume(self, altitude):
 
@@ -1190,13 +1265,13 @@ class GridworldEnv(gym.Env):
         canvas = np.zeros((5, 5, 3), dtype=np.uint8)
         slice = np.zeros((5, 5))
         drone_position = np.where(
-            self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
+            self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.drone_altitude]['val'])
         drone_position_flat = [int(drone_position[1]), int(drone_position[2])]
         # hiker_found = False
         # hiker_point = [0, 0]
         # hiker_background_color = None
         column_number = 0
-        for xy in self.possible_actions_map[self.heading]:
+        for xy in self.possible_actions_map[self.drone_heading]:
             if drone_position_flat[0] + xy[0] >= 0 and drone_position_flat[1] + xy[1] >= 0 and drone_position_flat[0] + \
                     xy[0] <= self.map_volume['vol'].shape[1] - 1 and drone_position_flat[1] + xy[1] <= \
                     self.map_volume['vol'].shape[2] - 1:
@@ -1213,7 +1288,7 @@ class GridworldEnv(gym.Env):
             #print("ok")
         # put the drone in
         # cheat
-        slice[self.altitude, 2] = int(self.map_volume['vol'][drone_position])
+        slice[self.drone_altitude, 2] = int(self.map_volume['vol'][drone_position])
         combinations = list(itertools.product(range(0, canvas.shape[0]), range(0, canvas.shape[0])))
         for x, y in combinations:
             if slice[x, y] == 0.0:
@@ -1237,38 +1312,41 @@ class GridworldEnv(gym.Env):
 
         # put the drone in the image layer
         drone_position = np.where(
-            self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
+            self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.drone_altitude]['val'])
 
-        drone_position = (int(drone_position[1]) * self.factor, int(drone_position[2]) * self.factor)
+        drone_image_offset = (int(drone_position[1]) * self.factor, int(drone_position[2]) * self.factor)
 
+        drone_color = self.map_volume['feature_value_map']['drone'][ self.drone_altitude ]['color']
+        for point in self.drone_stencil[self.drone_heading][0]:
+            image_layers[ self.drone_altitude ][ drone_image_offset[0] + point[0], drone_image_offset[1] + point[1], :] = drone_color
 
-        for point in self.planes[self.heading][0]:
-            image_layers[self.altitude][drone_position[0] + point[0], drone_position[1] + point[1], :] = \
-            self.map_volume['feature_value_map']['drone'][self.altitude]['color']
 
         # put the hiker in the image layers
-        hiker_position = (int(self.hiker_position[1] * self.factor), int(self.hiker_position[2]) * self.factor)
-        for point in self.hikers[0][0]:
-            image_layers[0][hiker_position[0] + point[0], hiker_position[1] + point[1], :] = \
-            self.map_volume['feature_value_map']['hiker']['color']
+        hiker_image_offset = (int(self.hiker_position[1] * self.factor), int(self.hiker_position[2]) * self.factor)
+        hiker_color = self.map_volume['feature_value_map']['hiker']['color']
+
+        if 'use_hiker_altitude' in self.params and self.params['use_hiker_altitude']:
+            hiker_color_adjusted = [ c*( self.hiker_altitude )/3 for c in hiker_color]
+
+        for point in self.hiker_stencil[self.hiker_heading][0]:
+            image_layers[0][hiker_image_offset[0] + point[0], hiker_image_offset[1] + point[1], :] = hiker_color_adjusted
 
         # map = self.original_map_volume['img']
         map = imresize(map, self.factor * 100, interp='nearest')  # resize by factor of 5
         # add the hiker
-        hiker_position = (int(self.hiker_position[1] * 5), int(self.hiker_position[2]) * 5)
+        hiker_image_offset = (int(self.hiker_position[1] * 5), int(self.hiker_position[2]) * 5)
         # map[hiker_position[0]:hiker_position[0]+5,hiker_position[1]:hiker_position[1]+5,:] = self.hiker_image
-        for point in self.hikers[0][0]:
-            map[hiker_position[0] + point[0], hiker_position[1] + point[1], :] = \
-            self.map_volume['feature_value_map']['hiker']['color']
+        for point in self.hiker_stencil[self.hiker_heading][0]:
+            map[hiker_image_offset[0] + point[0], hiker_image_offset[1] + point[1], :] = hiker_color_adjusted
 
         # add the drone
-        drone_position = np.where(
-            self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
-        drone_position = (int(drone_position[1]) * 5, int(drone_position[2]) * 5)
+        drone_image_offset = np.where(
+            self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.drone_altitude]['val'])
+        drone_image_offset = (int(drone_image_offset[1]) * 5, int(drone_image_offset[2]) * 5)
 
-        for point in self.planes[self.heading][0]:
-            map[drone_position[0] + point[0], drone_position[1] + point[1], :] = \
-                self.map_volume['feature_value_map']['drone'][self.altitude]['color']
+        for point in self.drone_stencil[self.drone_heading][0]:
+            map[drone_image_offset[0] + point[0], drone_image_offset[1] + point[1], :] = \
+                self.map_volume['feature_value_map']['drone'][self.drone_altitude]['color']
 
         # maybe put the package in
         # print('pack drop flag',self.package_dropped)
@@ -1286,8 +1364,8 @@ class GridworldEnv(gym.Env):
         # map = imresize(map, (1000,1000), interp='nearest')
 
         '''vertical slices at drone's position'''
-        drone_position = np.where(
-            self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.altitude]['val'])
+        drone_image_offset = np.where(
+            self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.drone_altitude]['val'])
 
         nextstepimage = self.create_nextstep_image()
 
@@ -1307,7 +1385,7 @@ class GridworldEnv(gym.Env):
         if self.use_mavsim_simulator:
             return self.mavsimhandler.get_drone_position()
         else:
-            drone_tile_id = self.map_volume['feature_value_map']['drone'][self.altitude]['val']
+            drone_tile_id = self.map_volume['feature_value_map']['drone'][self.drone_altitude]['val']
 
             # Find tile that looks like the drone
 
@@ -1321,7 +1399,7 @@ class GridworldEnv(gym.Env):
         """returns the position of the hiker as a tuple with altitude first and then x and y positions (Z,X,Y)"""
         # Here the appearance of the drone is altitude dependent so we need to look this up every time
 
-        drone_tile_id = self.map_volume['feature_value_map']['hiker'][self.altitude]['val']
+        drone_tile_id = self.map_volume['feature_value_map']['hiker'][self.drone_altitude]['val']
 
         # Find tile that looks like the drone
 

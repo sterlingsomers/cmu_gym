@@ -13,10 +13,11 @@ import pandas as pd
 
 if __name__ == "__main__":
 
-    episodes_to_run = 500
+    episodes_to_run = 10#500
 
     train_maps = [ (999,i  ) for i in range( 0, 2700, 2 ) ]
     test_maps  = [ (999,i+1) for i in range( 0, 2700, 2 ) ]
+
 
     sim = Simulation(
         training=False,
@@ -33,7 +34,7 @@ if __name__ == "__main__":
 
     result = sim.run(
         episodes_to_run = episodes_to_run,
-        sleep_time=1,
+        sleep_time=0.1,
     )
 
 
