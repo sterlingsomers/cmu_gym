@@ -19,17 +19,22 @@ if __name__ == "__main__":
         default_params,
         {
             'run': {
-                'model_name':'parc_2019-07-26-A',
+                'training':False,
+                'model_name':'parc_2019-07-29-B',
                 'episodes_to_run': 500,
-                'sleep_time': 0.2},
-
-            'env': {
-                'map_path':'gym_gridworld/maps/nixel_maps',
-                'submap_offsets':test_maps,
-                'episode_length':5,
-                'curriculum_radius':20,
+                'sleep_time': 0.0
             },
 
+            'env': {
+                'verbose':True,
+                'map_path':'gym_gridworld/maps/nixel_maps',
+                'submap_offsets':test_maps,
+                'episode_length':25
+            },
+
+            'agent' : {
+                'action_neg_entropy_weight': 0.01
+            }
             
         } )
 

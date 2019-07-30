@@ -16,6 +16,7 @@ from PIL import Image as Image
 import threading
 import random
 import pickle
+from util import deep_update
 
 from scipy.misc import imresize
 import matplotlib.pyplot as plt
@@ -334,12 +335,7 @@ class GridworldEnv(gym.Env):
     metadata = {'render.modes': ['human']}
     num_envs = 1
 
-    def __init__(self,
-                 params={},
-                 timestep_limit=1,
-                 width=20, height=20,
-                 use_mavsim=False,
-                 verbose=False         ):
+    def __init__(self, params={} ):
 
 
         self.params = params
@@ -348,14 +344,12 @@ class GridworldEnv(gym.Env):
         # # TODO: Pass the environment with arguments
 
         #num_alts = 4
-        self.verbose = verbose # to show the environment or not
+        self.verbose = params['verbose'] # to show the environment or not
         self.dropping = True # This is for the reset to select the proper starting locations for hiker and drone
         self.restart_once_done = True  # restart or not once done
         self.drop = False
         self.countdrop = 0
         self.no_action_flag = False
-        #self.submap_offsets =#[(400,35), (350,90), (430,110),(390,50), (230,70)] #[(86, 266)] (70,50) # For testing, 70,50 there is no where to drop in the whole map
-        #[(149, 341)]#[(149, 341),(241,163), (260,241),(291,231),(308,110),(330,352)]
 
 
         self.mapw = 20
@@ -365,28 +359,29 @@ class GridworldEnv(gym.Env):
         self.factor = 5
         self.reward = 0
 
-        self.actions = [ ACTION.DOWN_LEFT_45, ACTION.DOWN_FORWARD, ACTION.DOWN_RIGHT_45,
+        self.actions = [ ACTION.DOWN_LEFT_45,  ACTION.DOWN_FORWARD,  ACTION.DOWN_RIGHT_45,
                          ACTION.LEVEL_LEFT_45, ACTION.LEVEL_FORWARD, ACTION.LEVEL_RIGHT_45,
-                         ACTION.UP_LEFT_45, ACTION.UP_FORWARD, ACTION.UP_RIGHT_45 ]
+                         ACTION.UP_LEFT_45,    ACTION.UP_FORWARD,    ACTION.UP_RIGHT_45 ]
 
         self.action_space = spaces.Discrete(len(self.actions))
 
         self.obs_shape = [100,100,3]
         self.observation_space = spaces.Box(low=0, high=255, shape=self.obs_shape)
-        self.use_mavsim_simulator = use_mavsim
+
         self.crash = 0
         self.package_dropped = 0
         self.package_position = ()
         # self._max_episode_steps = 10 # Max timesteps
 
         self.tile_ids_compatible_with_hiker = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 16, 18, 21, 22]
+
         self.tile_ids_compatible_with_drone_altitude = {
             1: [2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 16, 18, 21, 22],
             2: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 16, 18, 21, 22, 19, 24, 30, 32],
             3: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 16, 18, 21, 22, 19, 24, 30, 32, 13, 17, 19, 25, 28]
         }
 
-        if self.use_mavsim_simulator:
+        if self.params['use_mavsim_simulator']:
             self.mavsimhandler = MavsimUDPHandler()
 
         self.image_layers = {}
@@ -409,6 +404,7 @@ class GridworldEnv(gym.Env):
         self.drone_stencil[8] = [[(0, 0), (4, 0), (1, 1), (2, 1), (3, 1), (1, 2), (2, 2), (1, 3), (0, 4)], np.zeros((5, 5, 3))]
 
 
+        # Hiker glyphs (supposed to look like a person with arms and legs outstretched)
         # We describe an orthogonal and diagonal version of the hiker and then just rotate these to get full 8 headings
 
         self.hiker_glyph_ortho = np.array([ [ 0,0,1,0,0 ],
@@ -436,10 +432,7 @@ class GridworldEnv(gym.Env):
         self.hiker_stencil[7] = [ list_ij_equal_to( np.rot90(self.hiker_glyph_ortho, k=3, axes=(1, 0)), 1), np.zeros((5, 5, 3)) ]
         self.hiker_stencil[8] = [ list_ij_equal_to( np.rot90(self.hiker_glyph_diag, k=3, axes=(1, 0)), 1), np.zeros((5, 5, 3)) ]
 
-
-        #self.hikers[0] = [[(0, 2), (1, 2), (2, 2), (3, 2), (4, 2), (2, 0), (2, 1), (2, 2), (2, 3), (2, 4)], np.zeros((5, 5, 3))]
         self.hiker_image = np.zeros((5, 5, 3))
-        # self.hiker_image[:,:,:] = self.map_volume['feature_value_map']['hiker']['color']
 
         # package description
         self.package = {}
@@ -466,6 +459,7 @@ class GridworldEnv(gym.Env):
                              # "CRASHED": -30
                              }
 
+        # Altitude rewards
         # self.alt_rewards = {0:-1, 1:1, 2:-0.5, 3:-0.8} # This is bad!
         self.alt_rewards = {0:0, 1:1, 2:0.5, 3:0.08 }
 
@@ -766,7 +760,7 @@ class GridworldEnv(gym.Env):
         self.drone_altitude = new_alt
         self.drone_heading = new_heading
 
-        if self.use_mavsim_simulator:
+        if self.params['use_mavsim_simulator']:
             drone_position = np.where(
                 self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.drone_altitude]['val'])
 
@@ -782,6 +776,8 @@ class GridworldEnv(gym.Env):
     def check_for_drone_over_hiker(self,drone_position):
 
         """returns true if drone is over hiker"""
+
+        # First coordinate is altitude, second is x and third is y
 
         return (drone_position[1], drone_position[2]) == (self.hiker_position[1], self.hiker_position[2])
 
@@ -801,14 +797,21 @@ class GridworldEnv(gym.Env):
 
         ''' return next observation, reward, finished, success '''
 
+
+        if self.params['verbose']:
+            print("gridworld_env.step(action={}) step {}".format(action,self.step_number))
+
         action = self.actions[int(action)]  # Convert from action index, to one of the gridworld_domain actions
 
         info = {}
         info['success'] = False
         done = False
 
+        if self.params['verbose']:
+            print("   gridworld_env.step params[episode_length] {}".format(self.params['episode_length']))
+
         self.step_number = self.step_number + 1
-        if 'episode_length' in self.params and self.step_number >= self.params['episode_length']:
+        if self.step_number > self.params['episode_length']:
             done = True
             reward = -1
             info['success'] = False
@@ -820,11 +823,15 @@ class GridworldEnv(gym.Env):
 
         drone_position = self.get_drone_position()
 
-        self.dist = np.linalg.norm(  np.array(drone_position[-2:]) - np.array(self.hiker_position[-2:])  ) # we remove height from the equation so we avoid going diagonally down
+        # Euclidean distance on the ground (ignore height difference)
+        self.dist = np.linalg.norm(  np.array(drone_position[-2:]) - np.array(self.hiker_position[-2:])  )
 
         crash = self.check_for_crash(drone_position)
 
         if crash!=0:
+            if self.params['verbose']:
+                print('   gridworld_env.step crashed')
+
             reward = -1
             info['Rcrash']=-1
             done = True
@@ -850,6 +857,9 @@ class GridworldEnv(gym.Env):
         if self.params['goal_mode']=='navigate':
 
             if self.check_for_drone_over_hiker(drone_position):
+
+                if self.params['verbose']:
+                    print('gridworld_env.step reached position over hiker')
 
                 reward = 1
                 done = True
@@ -903,9 +913,9 @@ class GridworldEnv(gym.Env):
         # print("state", [ self.observation[self.altitude]['drone'].nonzero()[0][0],self.observation[self.altitude]['drone'].nonzero()[1][0]] )
         self.dist_old = self.dist
 
-        if self.drone_heading in [ HEADING.NORTH, HEADING.EAST, HEADING.SOUTH, HEADING.WEST ]:
+        if self.drone_heading in [ HEADING.NORTH, HEADING.EAST, HEADING.SOUTH, HEADING.WEST ]:  # orthogonal moves cost less
             reward = -0.01
-        else:  # Diagonal actions cost more
+        else:  # Diagonal moves in space cost more
             reward = -0.015
 
 
@@ -916,7 +926,7 @@ class GridworldEnv(gym.Env):
         return (self.generate_observation(), reward, done, info)
 
 
-    def reset(self):
+    def reset(self, param_updates={} ):
 
         """ goal_mode in { None, 'navigate' } """
 
@@ -925,6 +935,12 @@ class GridworldEnv(gym.Env):
 
         #print("   initial hiker position={} )".format( hiker_initial_position))
         #print("   curriculum_radius {}".format(curriculum_radius))
+
+        deep_update( self.params, param_updates )
+
+        if self.params['verbose']:
+            if 'curriculum_radius' in self.params:
+                print("gridworld_env.reset params[curriculum_radius] {}".format(self.params['curriculum_radius']))
 
         self.step_number = 0
 
@@ -990,7 +1006,7 @@ class GridworldEnv(gym.Env):
 
                     hiker_safe_points = hiker_safe_points + [ (x, y) for x, y in zip(where_array[0], where_array[1])
                                                               if     x >= 3 and y >= 3
-                                                                 and x <= self.map_volume['vol'].shape[1] - 3    # ToDo: BOB - should one of these be shape[2]??
+                                                                 and x <= self.map_volume['vol'].shape[1] - 3          # ToDo: BOB - should one of these be shape[2]??
                                                                  and y <= self.map_volume['vol'].shape[1] - 3       ]  #ToDo: Bob -replace with mapw, maph?
 
                 if len(hiker_safe_points)<1:
@@ -1033,7 +1049,8 @@ class GridworldEnv(gym.Env):
                 D = distance.cdist([hiker], drone_safe_points, 'chebyshev').astype(int) # Distances from hiker to all drone safe points
 
                 if 'curriculum_radius' in self.params:
-                    print("Using curriculum mode with radius:{}".format(self.params['curriculum_radius']))
+                    if self.params['verbose']:
+                        print("   gridworld_env.step Using curriculum mode with radius:{}".format(self.params['curriculum_radius']))
                     close_location_idxs = D[0] < self.params['curriculum_radius']
                     if sum(close_location_idxs)==0:
                         print("WARNING - no safe locations next to hiker location {} -- trying again ".format(hiker))
@@ -1050,12 +1067,9 @@ class GridworldEnv(gym.Env):
                 valid_hiker_drone_pair=True
                 drone = self.params['drone_initial_position']
 
-            #print("Chose hiker position ",hiker)
-            #print("Chose drone position ",drone)
-            # print('Distance:',D[0])
-            # print('Hiker',hiker)
-            # print('safe_drone',drone_safe_points)
-            # print('safe_hiker', hiker_safe_points)
+
+            if self.params['verbose']:
+                print('gridworld_env.reset hiker_position {} drone_position {} with distance {}'.format(hiker,drone,D[0]))
 
             if False:
 
@@ -1327,6 +1341,8 @@ class GridworldEnv(gym.Env):
 
         if 'use_hiker_altitude' in self.params and self.params['use_hiker_altitude']:
             hiker_color_adjusted = [ c*( self.hiker_altitude )/3 for c in hiker_color]
+        else:
+            hiker_color_adjusted= hiker_color
 
         for point in self.hiker_stencil[self.hiker_heading][0]:
             image_layers[0][hiker_image_offset[0] + point[0], hiker_image_offset[1] + point[1], :] = hiker_color_adjusted
@@ -1382,7 +1398,7 @@ class GridworldEnv(gym.Env):
 
         # The appearance (tile type) of the drone is altitude dependent so we need to look this up every time
 
-        if self.use_mavsim_simulator:
+        if self.params['use_mavsim_simulator']:
             return self.mavsimhandler.get_drone_position()
         else:
             drone_tile_id = self.map_volume['feature_value_map']['drone'][self.drone_altitude]['val']
@@ -1411,7 +1427,7 @@ class GridworldEnv(gym.Env):
     def render(self, mode='human', close=False):
 
         # return
-        if self.verbose == False:
+        if not self.params['verbose']:
            return
         # img = self.observation
         # map = self.original_map_volume['img']

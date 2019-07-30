@@ -8,7 +8,7 @@ from time import sleep
 import numpy as np
 import pickle
 import timeit
-
+from util import deep_update
 import pandas as pd
 #from functools import partial
 
@@ -49,7 +49,8 @@ flags.DEFINE_boolean("training", False,
 flags.DEFINE_float("sleep_time", 0, "Time-delay in the demo")
 
 
-flags.DEFINE_integer("n_envs", 10, "Number of environments to run in parallel")  # Constantinos uses 80 here for A2C - maybe up to 250 on the right machine
+flags.DEFINE_integer("n_envs", 1, #10,
+                     "Number of environments to run in parallel")  # Constantinos uses 80 here for A2C - maybe up to 250 on the right machine
 flags.DEFINE_integer("episodes", 5, "Number of complete episodes")
 flags.DEFINE_integer("n_steps_per_batch", 32,
                      "Number of steps per batch, if None use 8 for a2c and 128 for ppo")  # (MINE) TIMESTEPS HERE!!! You need them cauz you dont want to run till it finds the beacon especially at first episodes - will take forever
@@ -153,101 +154,76 @@ default_params = {
         'K_batches':1001,
         'policy_type':'DeepFullyConv',
         'training': False,
-        'verbose': True
+        'verbose': True,
+        'sleep_time': 0,
+        'n_envs':10
     },
 
     'env': {
 
         'submap_offsets': godiland_kingdom_maps,
-
         'map_path': 'gym_gridworld/maps/',
 
-        #'episode_length':25,
-        #'curriculum_radius':25,
+        #'episode_length':25,     # Maximum steps allowed for drone to achieve goal --- shorter than batch step len so that penalizes timeouts
+        #'curriculum_radius':25,  # Max distance generated between hiker and drone on setup of scenario
 
-        'goal_mode':'navigate',
+        'goal_mode':'navigate',   # Complete goal if we arrive at hiker (ignore dropping of package)
 
-        'align_drone_and_hiker_heading':True,
-        'align_drone_and_hiker_altitude':True,
+        #'align_drone_and_hiker_heading':True,
+        #'align_drone_and_hiker_altitude':True,
 
         #'drone_initial_position':(5,5),
         #'drone_intial_heading': HEADING.SOUTH_EAST,
         #'drone_initial_altitude':3,
 
-        'use_hiker_altitude':True,
+        #'use_hiker_altitude':True,
         #'hiker_initial_altitude':3,
         #'hiker_initial_position':(7,7),
         #'hiker_initial_heading':HEADING.SOUTH_EAST,
+
+        'use_mavsim_simulator':False,
+        'verbose':False
+    },
+
+    'agent' : {
+        'action_neg_entropy_weight': 0.001
     }
+
 }
 
 class Simulation:
 
-    def __init__(self,
-                 params = {},
+    def __init__(self,  params = {} ):
 
-                 #training=FLAGS.training,
-                 #verbose = FLAGS.visualize,
-                 #model_name = FLAGS.model_name,
-                 #policy_type = FLAGS.policy_type,
-                 #curriculum_radius=None,
-                 #goal_mode=None,
-                 #use_mavsim=None,
-                 #map_path='./gym_gridworld/maps',
-                 #submap_offsets=[(265, 308), (20, 94), (146, 456), (149, 341), (164, 90), (167, 174),
-                 #           (224,153), (241,163), (260,241), (265,311), (291,231),
-                 #           (308,110), (334,203), (360,112), (385,291), (330,352), (321,337)],
-                 #K_batches=FLAGS.K_batches,
-                 #episode_length=None
-               ):
-
-        self.params = params['run']
+        self.run_params = params['run']
 
         print("Creating simulation for model {}".format(params['run']['model_name']))
 
-        self.environment_id = self.params['environment_id']
-
-
         #TODO this runner is maybe too long and too messy..
-        self.full_checkpoint_path = os.path.join(FLAGS.checkpoint_path, self.params['model_name'])
+        self.full_checkpoint_path = os.path.join(FLAGS.checkpoint_path, self.run_params['model_name'])
 
-        if self.params['training']:
-            self.full_summary_path = os.path.join(FLAGS.summary_path, self.params['model_name'])
+        if self.run_params['training']:
+            self.full_summary_path = os.path.join(FLAGS.summary_path, self.run_params['model_name'])
         else:
-            self.full_summary_path = os.path.join(FLAGS.summary_path, "no_training", self.params['model_name'])
+            self.full_summary_path = os.path.join(FLAGS.summary_path, "no_training", self.run_params['model_name'])
 
 
-        if self.params['training']:
+        if self.run_params['training']:
             check_and_handle_existing_folder(self.full_checkpoint_path)
             check_and_handle_existing_folder(self.full_summary_path)
 
-        if not 'env' in params:
-            params['env']={}
 
-        kwargs= { 'params':params['env'],
-                  'verbose':self.params['verbose'] }
+        kwargs= { 'params':params['env'] }
 
         #(MINE) Create multiple parallel environements (or a single instance for testing agent)
-        if self.params['training'] and self.params['verbose']==False:
-            #envs = SubprocVecEnv((partial(make_sc2env, **env_args),) * FLAGS.n_envs)
-            #envs = SubprocVecEnv([make_env(i,**env_args) for i in range(FLAGS.n_envs)])
-            self.envs = make_custom_env(self.environment_id, FLAGS.n_envs, 1, wrapper_kwargs=kwargs)
-        elif self.params['training']==False:
-            #envs = make_custom_env('gridworld-v0', 1, 1)
-            print("Making a single Environment for Testing")
-            self.envs = gym.make(self.environment_id, **kwargs)
+        if self.run_params['training'] and self.run_params['verbose']==False:
+            self.envs = make_custom_env(self.run_params['environment_id'], self.run_params['n_envs'], 1, wrapper_kwargs=kwargs)
+        elif self.run_params['training']==False:
+            self.envs = gym.make(self.run_params['environment_id'], **kwargs)
         else:
             print('Wrong choices in FLAGS training and visualization')
             return
 
-            #envs = SingleEnv(make_sc2env(**env_args))
-        #envs = gym.make('gridworld-v0')
-        # envs = SubprocVecEnv([make_env(i) for i in range(FLAGS.n_envs)])
-        # envs = VecNormalize(env)
-        # use for debugging 'Breakout-v0', Grid-v0, gridworld-v0
-        #envs = VecFrameStack(make_custom_env('gridworld-v0', FLAGS.n_envs, 1), 1) # One is number of frames to stack within each env
-        #envs = make_custom_env('gridworld-v0', FLAGS.n_envs, 1)
-        print("Requested environments created successfully")
         #env = gym.make('gridworld-v0')
         tf.reset_default_graph()
         # The following lines fix the problem with using more than 2 envs!!!
@@ -264,14 +240,14 @@ class Simulation:
             spatial_dim=FLAGS.resolution, # Here you pass the resolution which is used in the step for the output probabilities map
             unit_type_emb_dim=5,
             loss_value_weight=FLAGS.loss_value_weight,
-            entropy_weight_action_id=FLAGS.entropy_weight_action,
+            entropy_weight_action_id=params['agent']['action_neg_entropy_weight'], #'FLAGS.entropy_weight_action,
             entropy_weight_spatial=FLAGS.entropy_weight_spatial,
             scalar_summary_freq=FLAGS.scalar_summary_freq,
             all_summary_freq=FLAGS.all_summary_freq,
             summary_path=self.full_summary_path,
             max_gradient_norm=FLAGS.max_gradient_norm,
             num_actions=self.envs.action_space.n,
-            policy=self.params['policy_type']
+            policy=self.run_params['policy_type']
         )
         # Build Agent
         self.agent.build_model()
@@ -303,11 +279,10 @@ class Simulation:
             agent=self.agent,
             discount=FLAGS.discount,
             n_steps=self.n_steps_per_batch,
-            do_training=self.params['training'],
+            do_training=self.run_params['training'],
             ppo_par=ppo_par,
             policy_type = FLAGS.policy_type
         )
-
 
 
     def _save_if_training(self,agent):
@@ -316,11 +291,7 @@ class Simulation:
         sys.stdout.flush()
 
 
-
-    def run(self,
-            episodes_to_run=FLAGS.episodes,
-            curriculum_radius=None,
-            sleep_time = FLAGS.sleep_time):
+    def run(self, param_updates={}):
 
 
         """Runs one or more episodes/batches and records the outcomes, optionally providing a visualization.
@@ -353,44 +324,48 @@ class Simulation:
                             
                             """
 
+        print("run_agent:simulation.run")
+
+        if 'run' in param_updates:
+            print("Updating run parameters")
+            deep_update(self.run_params, param_updates['run'])
+
         self.run_start_time = timeit.default_timer()
 
-        if curriculum_radius!=None:
-            self.curriculum_radius=curriculum_radius
-            self.runner.reset(curriculum_radius=curriculum_radius)
-
-        self.episodes_to_run = episodes_to_run
-        self.sleep_time=sleep_time
         self.trajectory = list()
 
         # runner.reset() # Reset env which means you get first observation. You need reset if you run episodic tasks!!! SC2 is not episodic task!!!
 
-        if self.params['K_batches'] >= 0:
-            n_batches = self.params['K_batches']  # (MINE) commented here so no need for thousands * 1000
+        if self.run_params['K_batches'] >= 0:
+            n_batches = self.run_params['K_batches']  # (MINE) commented here so no need for thousands * 1000
         else:
             n_batches = -1
 
+        print("Number of batches {}".format(n_batches))
 
-        all_data = [{'nav':[],'stuck':False} for x in range(episodes_to_run)]
+        all_data = [{'nav':[],'stuck':False} for x in range(n_batches)]
 
 
-        if self.params['training']:
+        if self.run_params['training']:
+
             i = 0
+            print("Training mode")
 
             try:
-                print("run_agent.py:main.training reset")
-                self.runner.reset()
+                print("run_agent.py:main.training reset {}".format(i))
+                if 'env' in param_updates:
+                    print("Updating environment parameters")
+                    self.runner.reset(param_updates=param_updates['env'])
+                else:
+                    self.runner.reset()
                 t=0
                 while True:
-                    # For below you have to enable monitor's early reset. You might want to take out Monitor
-                    # if t==390:
-                    #     runner.reset()
-                    #     t=0
 
                     if i % 500 == 0:
                         _print(i)
                     if i % FLAGS.step2save == 0:
                         self._save_if_training(self.agent)
+
                     if FLAGS.policy_type == 'MetaPolicy':
                         self.runner.run_meta_batch()
                     else:
@@ -404,6 +379,7 @@ class Simulation:
                 pass
         else: # Test the agent
 
+            print("Testing mode")
             try:
                 import pygame
                 import time
@@ -417,8 +393,6 @@ class Simulation:
                 RED = (255, 192, 192)
                 BLACK = (0, 0, 0)
                 WHITE = (255, 255, 255)
-
-                sleep_time = self.sleep_time
 
                 pygame.init()
                 gameDisplay = pygame.display.set_mode((display_w, display_h))
@@ -443,7 +417,8 @@ class Simulation:
                 step_data = {}
                 dictionary = {}
                 running = True
-                while self.runner.episode_counter < self.episodes_to_run and running==True:
+                while self.runner.episode_counter < self.run_params['episodes_to_run'] and running==True:
+
                     print('Episode: ', self.runner.episode_counter)
 
                     # Init storage structures
@@ -479,7 +454,7 @@ class Simulation:
                     for event in pygame.event.get():
                         if event.type == pygame.QUIT:
                             running = False
-                    sleep(sleep_time)
+                    sleep(self.run_params['sleep_time'])
                     # Timestep counter
                     t=0
 
@@ -510,11 +485,11 @@ class Simulation:
 
                         # dictionary[nav_runner.episode_counter]['observations'].append(nav_runner.latest_obs)
                         # dictionary[nav_runner.episode_counter]['flag'].append(drop_flag)
-                        print("Agent taking step")
+                        print("   Agent taking step {}".format(t))
                         # INTERACTION
                         obs, action, value, reward, done, info, fc, action_probs = self.runner.run_trained_batch()
 
-                        print("Is done?? ",done)
+                        print("   Is done?? ",done)
 
                         step_data['action'] = action
 
@@ -528,7 +503,7 @@ class Simulation:
 
 
                         if done and not info['success']:
-                            print('Crash, terminate episode')
+                            print('   Crash, terminate episode')
                             break # Also we prevent new data for the new time step to be saved
 
                         mb_actions.append(action)
@@ -544,7 +519,7 @@ class Simulation:
                         screen_mssg_variable("Reward: ", np.round(reward,3), (168, 372))
                         pygame.display.update()
                         pygame.event.get()
-                        sleep(sleep_time)
+                        sleep(self.run_params['sleep_time'])
 
                         if action==15:
                             drop_flag = 1
@@ -553,7 +528,7 @@ class Simulation:
                             screen_mssg_variable("Package state:", self.runner.envs.package_state, (20, 350)) # The update of the text will be at the same time with the update of state
                             pygame.display.update()
                             pygame.event.get()  # Update the screen
-                            sleep(sleep_time)
+                            sleep(self.run_params['sleep_time'])
                         mb_flag.append(drop_flag)
 
                         if done:
@@ -570,7 +545,7 @@ class Simulation:
                         # Update finally the screen with all the images you blitted in the run_trained_batch
                         pygame.display.update() # Updates only the blitted parts of the screen, pygame.display.flip() updates the whole screen
                         pygame.event.get() # Show the last state and then reset
-                        sleep(sleep_time)
+                        sleep(self.run_params['sleep_time'])
 
                         t += 1
                         if t == 70:
@@ -878,6 +853,7 @@ def analyze_result(result):
     rewards = to_mavsim_rewards(all_data_df)
     print("Mavsim rewards")
     print(rewards)
+
 
 
 

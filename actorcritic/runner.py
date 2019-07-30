@@ -114,7 +114,7 @@ class Runner(object):
         for b in batches:
             self.agent.train_recurrent(b, rnn_state) # IMPORTANT : όταν κανεις training δεν χρειαζεσαι την rnn_State, ξεκινας απο το 0 και αθτη παιρνη την μορφή πουπρεπει να εχει
 
-    def run_batch(self,episode):
+    def run_batch(self, batch):
         #(MINE) MAIN LOOP!!!
         # The reset is happening through Monitor (except the first one of the first batch (is in hte run_agent)
         mb_actions = []
@@ -129,7 +129,7 @@ class Runner(object):
             # could calculate value estimate from obs when do training
             # but saving values here will make n step reward calculation a bit easier
             action_ids, value_estimate = self.agent.step(latest_obs)
-            print('|episode:',episode,'|step:', n, '|actions:', action_ids)  # (MINE) If you put it after the envs.step the SUCCESS appears at the envs.step so it will appear oddly
+            print('|batch:', batch, '|step:', n, '|actions:', action_ids)  # (MINE) If you put it after the envs.step the SUCCESS appears at the envs.step so it will appear oddly
             # (MINE) Store actions and value estimates for all steps:
             mb_values[:, n] = value_estimate
             mb_obs.append(latest_obs)

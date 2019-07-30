@@ -24,7 +24,7 @@ if __name__ == "__main__":
                  {
 
                     'run': {
-                        'model_name':'parc_2019-07-26-A',
+                        'model_name':'parc_2019-07-29-D',
                         'training': True,
                         'verbose': False,
                         'K_batches': 1001,
@@ -34,11 +34,13 @@ if __name__ == "__main__":
                     'env': {
                         'map_path': 'gym_gridworld/maps/nixel_maps',
                         'submap_offsets':train_maps,
-                        'episode_length':7,
+                        'episode_length':25,
                         'verbose':False
                     },
 
-
+                    'agent' : {
+                        'action_neg_entropy_weight': 0.01
+                    }
 
                 } )
 
