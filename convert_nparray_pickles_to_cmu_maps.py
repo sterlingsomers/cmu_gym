@@ -5,6 +5,7 @@ import imageio
 import argparse
 import glob
 import shutil
+import re
 import matplotlib.pyplot as plt
 
 from gym_gridworld.envs import create_np_map as CNP
@@ -19,25 +20,34 @@ def convert_directory(source_directory,scale):
     abs_src_dir = os.path.abspath(source_directory)
     print("Current working directory: {}".format(os.getcwd()))
 
-    pathname = os.path.join( abs_src_dir,'*.mp')
-    print("Pathname",pathname)
-    filenames = glob.glob(pathname)
+    glob_spec = os.path.join( abs_src_dir,'*.mp')
+    print("Source path",glob_spec)
+    pathnames = glob.glob(glob_spec)
 
 
     abs_dest_dir = os.path.join(abs_src_dir,'converted')
+    print("Destination path",abs_dest_dir)
 
     if os.path.exists(abs_dest_dir):
         shutil.rmtree(abs_dest_dir)
     os.mkdir(abs_dest_dir)
 
-    for i,filename in enumerate(filenames):
+    n = len(pathnames)
 
-        print("file# {} name: {}".format(i,filename))
-        map_array = pickle.load( open(filename,'rb'))
+    for i, pathname in enumerate(pathnames):
+
+        basename = os.path.basename(pathname)
+        match = re.match( "(\d+)_(\d+).mp", basename)
+        x = match.group(1)
+        y = match.group(2)
+
+        print("file# {} of {} name: {} x:{} y:{}".format(i, n, basename,x,y))
+
+        map_array = pickle.load(open(pathname, 'rb'))
 
         map = CNP.create_custom_map(map_array) # This creates an 'img' structure in the map dictionary
 
-        outfile_name = '999-{}'.format(i)
+        outfile_name = '{}-{}'.format(x,y)
         print("saving map to ", os.path.join( abs_dest_dir, outfile_name + '.mp'))
 
         pickle_out = open( os.path.join( abs_dest_dir, outfile_name + '.mp'), 'wb')
