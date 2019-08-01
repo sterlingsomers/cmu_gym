@@ -109,39 +109,6 @@ flags.DEFINE_bool("save_replay", False, "Whether to save a replay at the end.")
 
 FLAGS(sys.argv)
 
-def check_and_handle_existing_folder(f):
-    if os.path.exists(f):
-        if FLAGS.if_output_exists == "overwrite":
-            shutil.rmtree(f)
-            print("removed old folder in %s" % f)
-        elif FLAGS.if_output_exists == "fail":
-            raise Exception("folder %s already exists" % f)
-
-
-def _print(i):
-    print(datetime.now())
-    print("# batch %d" % i)
-    sys.stdout.flush()
-
-
-
-
-def make_custom_env(env_id, num_env, seed, wrapper_kwargs=None, start_index=0):
-    """
-    Create a wrapped, monitored SubprocVecEnv for Atari.
-    """
-    if wrapper_kwargs is None: wrapper_kwargs = {}
-    def make_env(rank): # pylint: disable=C0111
-        def _thunk():
-            env = gym.make(env_id, **wrapper_kwargs)
-            env.seed(seed + rank)
-            # Monitor should take care of reset!
-            env = Monitor(env, logger.get_dir() and os.path.join(logger.get_dir(), str(rank)), allow_early_resets=True) # SUBPROC NEEDS 4 OUTPUS FROM STEP FUNCTION
-            return env
-        return _thunk
-    #set_global_seeds(seed)
-    return SubprocVecEnv([make_env(i + start_index) for i in range(num_env)])
-
 godiland_kingdom_maps =[(265, 308), (20, 94), (146, 456), (149, 341), (164, 90), (167, 174),
                         (224,153), (241,163), (260,241), (265,311), (291,231),
                         (308,110), (334,203), (360,112), (385,291), (330,352), (321,337)]
@@ -153,10 +120,12 @@ default_params = {
         'environment_id' : 'gridworld-v0',
         'K_batches':1001,
         'policy_type':'DeepFullyConv',
+        'show_pygame_display':True,
         'training': False,
-        'verbose': True,
+        'verbose': False,
         'sleep_time': 0,
-        'n_envs':10
+        'n_envs':10,
+        'if_output_exists':'fail'   # 'continue', 'overwrite'
     },
 
     'env': {
@@ -168,6 +137,7 @@ default_params = {
         #'curriculum_radius':25,  # Max distance generated between hiker and drone on setup of scenario
 
         'goal_mode':'navigate',   # Complete goal if we arrive at hiker (ignore dropping of package)
+        'render_hiker_altitude':True,
 
         #'align_drone_and_hiker_heading':True,
         #'align_drone_and_hiker_altitude':True,
@@ -209,15 +179,15 @@ class Simulation:
 
 
         if self.run_params['training']:
-            check_and_handle_existing_folder(self.full_checkpoint_path)
-            check_and_handle_existing_folder(self.full_summary_path)
+            self.check_and_handle_existing_folder(self.full_checkpoint_path)
+            self.check_and_handle_existing_folder(self.full_summary_path)
 
 
         kwargs= { 'params':params['env'] }
 
         #(MINE) Create multiple parallel environements (or a single instance for testing agent)
         if self.run_params['training'] and self.run_params['verbose']==False:
-            self.envs = make_custom_env(self.run_params['environment_id'], self.run_params['n_envs'], 1, wrapper_kwargs=kwargs)
+            self.envs = self.make_custom_env(self.run_params['environment_id'], self.run_params['n_envs'], 1, wrapper_kwargs=kwargs)
         elif self.run_params['training']==False:
             self.envs = gym.make(self.run_params['environment_id'], **kwargs)
         else:
@@ -285,6 +255,42 @@ class Simulation:
         )
 
 
+
+    def check_and_handle_existing_folder(self,f):
+        if os.path.exists(f):
+            if self.run_params['if_output_exists'] == "overwrite":
+                shutil.rmtree(f)
+                print("removed old folder in %s" % f)
+            elif self.run_params['if_output_exists'] == "fail":
+                raise Exception("folder %s already exists" % f)
+            else:
+                print("Continuing training on same model")
+
+
+    def _print(self,i):
+        print(datetime.now())
+        print("# batch %d" % i)
+        sys.stdout.flush()
+
+
+
+
+    def make_custom_env(self,env_id, num_env, seed, wrapper_kwargs=None, start_index=0):
+        """
+        Create a wrapped, monitored SubprocVecEnv for Atari.
+        """
+        if wrapper_kwargs is None: wrapper_kwargs = {}
+        def make_env(rank): # pylint: disable=C0111
+            def _thunk():
+                env = gym.make(env_id, **wrapper_kwargs)
+                env.seed(seed + rank)
+                # Monitor should take care of reset!
+                env = Monitor(env, logger.get_dir() and os.path.join(logger.get_dir(), str(rank)), allow_early_resets=True) # SUBPROC NEEDS 4 OUTPUS FROM STEP FUNCTION
+                return env
+            return _thunk
+        #set_global_seeds(seed)
+        return SubprocVecEnv([make_env(i + start_index) for i in range(num_env)])
+
     def _save_if_training(self,agent):
         agent.save(self.full_checkpoint_path)
         agent.flush_summaries()
@@ -318,6 +324,8 @@ class Simulation:
                         'fc':       vector given the activations of the fully connected layer of the policy
                         'action_probs':  distribution over actions
                         'info':      a dictionary giving additional information about environment events
+                                    It contains a breakdown of reward function into many components and
+                                    breakdown of success probabilities for various substates.
                         'map':      map used
                 }
                             
@@ -362,7 +370,7 @@ class Simulation:
                 while True:
 
                     if i % 500 == 0:
-                        _print(i)
+                        self._print(i)
                     if i % FLAGS.step2save == 0:
                         self._save_if_training(self.agent)
 
@@ -381,6 +389,7 @@ class Simulation:
 
             print("Testing mode")
             try:
+
                 import pygame
                 import time
                 import random
@@ -394,11 +403,12 @@ class Simulation:
                 BLACK = (0, 0, 0)
                 WHITE = (255, 255, 255)
 
-                pygame.init()
-                gameDisplay = pygame.display.set_mode((display_w, display_h))
-                gameDisplay.fill(DARK_BLUE)
-                pygame.display.set_caption('Neural Introspection')
-                clock = pygame.time.Clock()
+                if self.run_params['show_pygame_display']:
+                    pygame.init()
+                    gameDisplay = pygame.display.set_mode((display_w, display_h))
+                    gameDisplay.fill(DARK_BLUE)
+                    pygame.display.set_caption('Neural Introspection')
+                    clock = pygame.time.Clock()
 
                 def screen_mssg_variable(text, variable, area):
                     font = pygame.font.SysFont('arial', 16)
@@ -417,7 +427,7 @@ class Simulation:
                 step_data = {}
                 dictionary = {}
                 running = True
-                while self.runner.episode_counter < self.run_params['episodes_to_run'] and running==True:
+                while self.runner.episode_counter < self.run_params['K_batches'] and running==True:
 
                     print('Episode: ', self.runner.episode_counter)
 
@@ -436,14 +446,18 @@ class Simulation:
                     mb_map_volume = [] # obs[0]['volume']==envs.map_volume
                     mb_ego = []
 
-                    self.runner.reset_demo()  # Cauz of differences in the arrangement of the dictionaries
+                    if 'env' in param_updates:
+                        self.runner.reset_demo(param_updates=param_updates['env'])  # Cauz of differences in the arrangement of the dictionaries
+                    else:
+                        self.runner.reset_demo()
 
-                    map_name = str(self.runner.envs.submap_offset)
-                    map_xy = self.runner.envs.map_image
-                    map_alt = self.runner.envs.alt_view
-                    process_img(map_xy, 20, 20)
-                    process_img(map_alt, 20, 400)
-                    pygame.display.update()
+                    if self.run_params['show_pygame_display']:
+                        map_name = str(self.runner.envs.submap_offset)
+                        map_xy = self.runner.envs.map_image
+                        map_alt = self.runner.envs.alt_view
+                        process_img(map_xy, 20, 20)
+                        process_img(map_alt, 20, 400)
+                        pygame.display.update()
 
                     dictionary[self.runner.episode_counter]['hiker_pos'] = self.runner.envs.hiker_position
                     # dictionary[nav_runner.episode_counter]['map_volume'] = map_xy
@@ -451,10 +465,13 @@ class Simulation:
                     # Quit pygame if the (X) button is pressed on the top left of the window
                     # Seems that without this for event quit doesnt show anything!!!
                     # Also it seems that the pygame.event.get() is responsible to REALLY updating the screen contents
-                    for event in pygame.event.get():
-                        if event.type == pygame.QUIT:
-                            running = False
-                    sleep(self.run_params['sleep_time'])
+
+                    if self.run_params['show_pygame_display']:
+
+                        for event in pygame.event.get():
+                            if event.type == pygame.QUIT:
+                                running = False
+                        sleep(self.run_params['sleep_time'])
                     # Timestep counter
                     t=0
 
@@ -485,11 +502,13 @@ class Simulation:
 
                         # dictionary[nav_runner.episode_counter]['observations'].append(nav_runner.latest_obs)
                         # dictionary[nav_runner.episode_counter]['flag'].append(drop_flag)
-                        print("   Agent taking step {}".format(t))
+                        if self.run_params['verbose']:
+                            print("   Agent taking step {}".format(t))
                         # INTERACTION
                         obs, action, value, reward, done, info, fc, action_probs = self.runner.run_trained_batch()
 
-                        print("   Is done?? ",done)
+                        if self.run_params['verbose']:
+                            print("   Is done?? ",done)
 
                         step_data['action'] = action
 
@@ -498,12 +517,13 @@ class Simulation:
                         step_data['action_probs'] = action_probs
                         step_data['info'] = info
                         step_data['map'] = self.runner.envs.submap_offset
-                        print("run_agent.py:run episode {} appending step_data ".format(self.runner.episode_counter))
+
                         all_data[self.runner.episode_counter]['nav'].append(step_data)
 
 
                         if done and not info['success']:
-                            print('   Crash, terminate episode')
+                            if self.run_params['verbose']:
+                                print('   Crash, terminate episode')
                             break # Also we prevent new data for the new time step to be saved
 
                         mb_actions.append(action)
@@ -515,20 +535,24 @@ class Simulation:
 
 
 
-                        screen_mssg_variable("Value    : ", np.round(value,3), (168, 350))
-                        screen_mssg_variable("Reward: ", np.round(reward,3), (168, 372))
-                        pygame.display.update()
-                        pygame.event.get()
-                        sleep(self.run_params['sleep_time'])
+                        if self.run_params['show_pygame_display']:
+                            screen_mssg_variable("Value    : ", np.round(value,3), (168, 350))
+                            screen_mssg_variable("Reward: ", np.round(reward,3), (168, 372))
+                            pygame.display.update()
+                            pygame.event.get()
+                            sleep(self.run_params['sleep_time'])
 
                         if action==15:
+
                             drop_flag = 1
                             # dictionary[runner.episode_counter]['pack-hiker_dist'] = runner.envs.pack_dist
                             # dictionary[runner.episode_counter]['pack condition'] = runner.envs.package_state
-                            screen_mssg_variable("Package state:", self.runner.envs.package_state, (20, 350)) # The update of the text will be at the same time with the update of state
-                            pygame.display.update()
-                            pygame.event.get()  # Update the screen
-                            sleep(self.run_params['sleep_time'])
+                            if self.run_params['show_pygame_display']:
+
+                                screen_mssg_variable("Package state:", self.runner.envs.package_state, (20, 350)) # The update of the text will be at the same time with the update of state
+                                pygame.display.update()
+                                pygame.event.get()  # Update the screen
+                                sleep(self.run_params['sleep_time'])
                         mb_flag.append(drop_flag)
 
                         if done:
@@ -537,15 +561,17 @@ class Simulation:
 
                         # BLIT!!!
                         # First Background covering everyything from previous session
-                        gameDisplay.fill(DARK_BLUE)
-                        map_xy = obs[0]['img']
-                        map_alt = obs[0]['nextstepimage']
-                        process_img(map_xy, 20, 20)
-                        process_img(map_alt, 20, 400)
-                        # Update finally the screen with all the images you blitted in the run_trained_batch
-                        pygame.display.update() # Updates only the blitted parts of the screen, pygame.display.flip() updates the whole screen
-                        pygame.event.get() # Show the last state and then reset
-                        sleep(self.run_params['sleep_time'])
+                        if self.run_params['show_pygame_display']:
+
+                            gameDisplay.fill(DARK_BLUE)
+                            map_xy = obs[0]['img']
+                            map_alt = obs[0]['nextstepimage']
+                            process_img(map_xy, 20, 20)
+                            process_img(map_alt, 20, 400)
+                            # Update finally the screen with all the images you blitted in the run_trained_batch
+                            pygame.display.update() # Updates only the blitted parts of the screen, pygame.display.flip() updates the whole screen
+                            pygame.event.get() # Show the last state and then reset
+                            sleep(self.run_params['sleep_time'])
 
                         t += 1
                         if t == 70:
@@ -575,7 +601,10 @@ class Simulation:
                     episode_dict['stuck_epis'] = stuck_flag# if stuck_flag else 0
 
                     self.runner.episode_counter += 1
-                    clock.tick(15)
+
+                    if self.run_params['show_pygame_display']:
+
+                        clock.tick(15)
 
                 print("...saving dictionary.")
 
@@ -652,7 +681,10 @@ def augment_dataframe_with_reward_detail(df):
     Rstep=list()
     Rcrash=list()
     Rtime=list()
-    Success=list()
+
+    OKloc=list()
+    OKalt=list()
+    OKhead=list()
 
     for row in info:
 
@@ -689,9 +721,19 @@ def augment_dataframe_with_reward_detail(df):
             Rtime.append(0)
 
         if 'ex' in row and row['ex']=='arrived':
-            Success.append(1)
+            OKloc.append(1)
         else:
-            Success.append(0)
+            OKloc.append(0)
+
+        if 'OKalt' in row and row['OKalt']==1:
+            OKalt.append(1)
+        else:
+            OKalt.append(0)
+
+        if 'OKhead' in row and row['OKhead']==1:
+            OKhead.append(1)
+        else:
+            OKhead.append(0)
 
     df['Rhike']=Rhike
     df['Ralt']=Ralt
@@ -699,15 +741,16 @@ def augment_dataframe_with_reward_detail(df):
     df['Rstep']=Rstep
     df['Rcrash']=Rcrash
     df['Rtime']=Rtime
-    df['Success']=Success
-
+    df['OKloc']=OKloc
+    df['OKalt']=OKalt
+    df['OKhead']=OKhead
 
     return df
 
 
 def aggregate_rewards(dataframe):
 
-    stats = dataframe.groupby(['episode'])[['reward','Rstep','Rcrash','Rhike','Rhead','Ralt','Rtime','Success']].sum()
+    stats = dataframe.groupby(['episode'])[['reward','Rstep','Rcrash','Rhike','Rhead','Ralt','Rtime','OKloc','OKalt','OKhead']].sum()
     counts = dataframe.groupby(['episode'])[['reward']].count()
 
     stats['steps'] = counts
@@ -783,6 +826,14 @@ def to_mavsim_actions(df_all,episode_num=0):
 
 def to_mavsim_rewards(df_all, episode_num=0 ):
 
+    """Rtot is the total reward applied to the agent
+       Rsum is the sum of all of the reward components. Should be equal to Rtot. If not, you are missing a term.
+       Ralt is reward due to altitude alignment
+       Rhead is reward due to heading alignment
+       Rcrash is penality due to crashing
+       Rhike is reward due to attaining hiker location
+       Rtime is penalty per step for travel
+       """
 
     df = df_all[  df_all['episode'] == episode_num  ]
 
@@ -826,36 +877,39 @@ def to_mavsim_rewards(df_all, episode_num=0 ):
 
 def analyze_result(result):
 
+    """
+    By default we return mavsim actions and rewards for first trajectory in the set.
+    The value n is the number of trajectories in the set and
+    statistics are computed on all trajectories in the set.
+
+    Returns actions,reward,n,statistics  """
+
     all_data_df = extract_all_episodes(result)
 
     num_episodes = len(all_data_df.index)
 
-    print("Analysis on {} runs".format(num_episodes))
-
     all_data_with_reward_df = augment_dataframe_with_reward_detail(all_data_df)
 
 
-    pd.options.display.width = 0
-    #print(all_data_with_reward_df)
-
-    episode_reward_sums = aggregate_rewards(all_data_with_reward_df)
-    print(episode_reward_sums)
-
-    reward_stats = episode_reward_sums.mean(axis=0).to_dict()
-    print("Average accumulated reward per episode")
-    print(reward_stats)
-
-
     actions = to_mavsim_actions(all_data_df)
-    print("Mavsim actions")
-    print(actions)
 
     rewards = to_mavsim_rewards(all_data_df)
-    print("Mavsim rewards")
-    print(rewards)
+
+    episode_reward_sums = aggregate_rewards(all_data_with_reward_df)
+
+    n = len(episode_reward_sums.index)
+
+    reward_stats = episode_reward_sums.mean(axis=0).to_dict()
+
+    return actions, rewards, n, reward_stats
 
 
+def analyze_and_display_result(result):
 
+    actions,rewards, statistics = analyze_result(result)
+    print("Actions:")
+    print("Rewards:")
+    print("Statistics:")
 
 if __name__ == "__main__":
 

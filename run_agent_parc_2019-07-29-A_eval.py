@@ -7,7 +7,7 @@ from run_agent import analyze_result
 from run_agent import default_params
 from util import deep_update
 
-"""First test of 1000 generated maps from Jacobs collection of ~2700"""
+"""First test of 1350 generated maps from Jacobs collection of ~2700"""
 
 if __name__ == "__main__":
 
@@ -20,9 +20,9 @@ if __name__ == "__main__":
         {
             'run': {
                 'training':False,
-                'model_name':'parc_2019-07-29-B',
+                'model_name':'parc_2019-07-29-D',
                 'episodes_to_run': 500,
-                'sleep_time': 0.0
+                'sleep_time': 0.3
             },
 
             'env': {

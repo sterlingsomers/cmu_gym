@@ -8,9 +8,11 @@ import random
 
 MAX_NUM_TO_DISPLAY=49
 
-def plot_all_maps(dir):
+def plot_all_maps(dir, rows=11, cols=12, width=10, height=10):
 
-    print("Parsed args dir={}".format(dir))
+    print("Source dir={}".format(dir))
+    print("rows={} cols={} width={}, height={}".format(rows,cols,width,height))
+
     cwd = os.getcwd()
 
     print("Current working directory {}".format(cwd))
@@ -28,20 +30,25 @@ def plot_all_maps(dir):
     num_files = len(files)
     print("Found {} files".format(num_files))
 
+    ncol = int(cols)
+    nrow = int(rows) #int(math.ceil(num_files/ncol))
+    width = int(width)
+    height = int(height)
+
+    MAX_NUM_TO_DISPLAY = ncol*nrow
+
 
     if num_files > MAX_NUM_TO_DISPLAY:
-        title = "Subsample of {} maps out of {} from {}".format(MAX_NUM_TO_DISPLAY, num_files, dir)
+        title = "{} map sample of {} from {}".format(MAX_NUM_TO_DISPLAY, num_files, dir)
         num_files=MAX_NUM_TO_DISPLAY
         files = random.sample(files,num_files)
     else:
         title = "All {} maps from {}".format(num_files,dir)
 
-    ncol = 7
-    nrow = int(math.ceil(num_files/ncol))
 
-    fig, axs = plt.subplots(nrow,ncol)
+    fig, axs = plt.subplots(nrow, ncol, figsize=(width, height))
 
-    fig.subplots_adjust(hspace = 0.3, wspace=.3)
+    fig.subplots_adjust(left=0.01,right=0.99, bottom=0.01,hspace = 0.4, wspace=.05)
 
 
     fig.suptitle(title)
@@ -88,7 +95,10 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Convert numpy arrays pickle files to CMU maps')
     parser.add_argument('dir', help='directory of python pickle files to convert')
-
+    parser.add_argument('--rows', help='number of rows to display',default=7)
+    parser.add_argument('--cols', help='number of cols to display',default=7)
+    parser.add_argument('--width', help='width of plot in inches',default=10)
+    parser.add_argument('--height', help='height of plot in inches',default=10)
     args = parser.parse_args()
 
-    plot_all_maps(args.dir)
+    plot_all_maps(args.dir, args.rows, args.cols, args.width, args.height )

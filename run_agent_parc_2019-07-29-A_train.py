@@ -28,7 +28,8 @@ if __name__ == "__main__":
                         'training': True,
                         'verbose': False,
                         'K_batches': 1001,
-                        'n_envs':10
+                        'n_envs':10,
+                        'if_output_exists':'continue'
                     },
 
                     'env': {
@@ -49,7 +50,7 @@ if __name__ == "__main__":
 
     print("Training")
 
-    for i in range(2,21):
+    for i in range(20,26):
         print("run_agent_parc_* starting new outer loop with curriculm_radius {}".format(i))
         result = sim.run( param_updates={ 'env':{'curriculum_radius':i+1} } )
 

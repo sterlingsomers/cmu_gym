@@ -866,17 +866,22 @@ class GridworldEnv(gym.Env):
                 info['ex']='arrived'
                 info['Rhike']=1
 
+
                 if 'align_drone_and_hiker_heading' in self.params and self.params['align_drone_and_hiker_heading']:
-                    print("Checking heading {} {}".format(HEADING.heading_to_short_description[self.drone_heading],
-                                                          HEADING.heading_to_short_description[self.hiker_heading]  )  )
+                    if self.params['verbose']:
+                        print("Checking heading {} {}".format(HEADING.heading_to_short_description[self.drone_heading],
+                                                              HEADING.heading_to_short_description[self.hiker_heading]  )  )
                     if self.drone_heading==self.hiker_heading:
                         info['Rhead']=1
+                        info['OKhead']=True
                         reward=reward+1
 
                 if 'align_drone_and_hiker_altitude' in self.params and self.params['align_drone_and_hiker_altitude']:
-                    print("Checking altitude {} {}".format(self.drone_altitude, self.hiker_altitude))
+                    if self.params['verbose']:
+                        print("Checking altitude {} {}".format(self.drone_altitude, self.hiker_altitude))
                     if self.drone_altitude == self.hiker_altitude:
                         info['Ralt']=1
+                        info['OKAlt']=True
                         reward=reward+1
 
                 return (self.generate_observation(), reward, done, info)
@@ -930,17 +935,13 @@ class GridworldEnv(gym.Env):
 
         """ goal_mode in { None, 'navigate' } """
 
-        #print("GridworldEnv.reset\n   initial drone position={}, heading={}, altitude={}, ... "
-        #      .format(drone_initial_position,drone_initial_heading, drone_initial_altitude))
-
-        #print("   initial hiker position={} )".format( hiker_initial_position))
-        #print("   curriculum_radius {}".format(curriculum_radius))
-
         deep_update( self.params, param_updates )
 
         if self.params['verbose']:
             if 'curriculum_radius' in self.params:
                 print("gridworld_env.reset params[curriculum_radius] {}".format(self.params['curriculum_radius']))
+            if 'drone_initial_position' in self.params:
+                print("gridworld_env.reset params[drone_initial_position] {}".format(self.params['drone_initial_position']))
 
         self.step_number = 0
 
@@ -951,12 +952,12 @@ class GridworldEnv(gym.Env):
         self.no_action_flag = False
 
         if 'drone_initial_heading' in self.params:
-            self.drone_heading=self.drone_initial_heading
+            self.drone_heading=self.params['drone_initial_heading']
         else:
             self.drone_heading = random.randint(1, 8)
 
-        if 'drone_intial_altitude' in self.params:
-            self.drone_altitude = self.drone_initial_altitude
+        if 'drone_initial_altitude' in self.params:
+            self.drone_altitude = self.params['drone_initial_altitude']
         else:
             self.drone_altitude = random.randint(1, 3)
 
@@ -975,16 +976,18 @@ class GridworldEnv(gym.Env):
 
             self.submap_offset = random.choice(self.params['submap_offsets'])
 
-            if self.submap_offset[0]==999: # New style nixel maps
+            #if self.submap_offset[0]==999: # New style nixel maps
 
-                map_filename = '{}-{}.mp'.format(self.submap_offset[0],self.submap_offset[1])
-                self.map_volume = pickle.load( open(self.params['map_path']+'/'+map_filename,'rb'))
+            map_filename = '{}-{}.mp'.format(self.submap_offset[0],self.submap_offset[1])
+            self.map_volume = pickle.load( open(self.params['map_path']+'/'+map_filename,'rb'))
 
-            else:  # Old style kingdom maps
+            #else:  # Old style kingdom maps  -- REMOVING SUPPORT FOR THESE
+            #
+            #    self.map_volume = CNP.map_to_volume_dict( self.params['map_path'],
+            #                                              self.submap_offset[0], self.submap_offset[1],
+            #                                              self.mapw, self.maph )
 
-                self.map_volume = CNP.map_to_volume_dict( self.params['map_path'],
-                                                          self.submap_offset[0], self.submap_offset[1],
-                                                          self.mapw, self.maph )
+
             map_ = self.map_volume['flat']
 
 
@@ -1069,7 +1072,7 @@ class GridworldEnv(gym.Env):
 
 
             if self.params['verbose']:
-                print('gridworld_env.reset hiker_position {} drone_position {} with distance {}'.format(hiker,drone,D[0]))
+                print('gridworld_env.reset hiker_position {} drone_position {} '.format(hiker,drone))
 
             if False:
 
@@ -1339,7 +1342,7 @@ class GridworldEnv(gym.Env):
         hiker_image_offset = (int(self.hiker_position[1] * self.factor), int(self.hiker_position[2]) * self.factor)
         hiker_color = self.map_volume['feature_value_map']['hiker']['color']
 
-        if 'use_hiker_altitude' in self.params and self.params['use_hiker_altitude']:
+        if 'render_hiker_altitude' in self.params and self.params['render_hiker_altitude']:
             hiker_color_adjusted = [ c*( self.hiker_altitude )/3 for c in hiker_color]
         else:
             hiker_color_adjusted= hiker_color
@@ -1427,8 +1430,8 @@ class GridworldEnv(gym.Env):
     def render(self, mode='human', close=False):
 
         # return
-        if not self.params['verbose']:
-           return
+        #if not self.params['verbose']:
+        #   return
         # img = self.observation
         # map = self.original_map_volume['img']
         obs = self.generate_observation()

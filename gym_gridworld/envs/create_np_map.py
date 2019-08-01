@@ -214,7 +214,7 @@ def map_to_volume_dict(path_str, x=0,y=0,width=5,height=5):
     return convert_map_to_volume_dict(x,y,map,width,height)
 
 
-def create_custom_map(map):
+def create_custom_map(map,offset=(-1,-1)):
     features_to_values, values_to_features = get_feature_value_maps(0, 0, 0)
     if not features_to_values:
         return None
@@ -264,6 +264,8 @@ def create_custom_map(map):
     return_dict['vol'] = vol
     return_dict['flat'] = map
     return_dict['img'] = img
+    return_dict['offset'] = offset
+
     print("OK")
     return return_dict
 

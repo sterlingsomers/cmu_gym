@@ -27,9 +27,11 @@ class Runner(object):
             do_training=True,
             ppo_par: PPORunParams = None,
             n_envs=1,
-            policy_type = None
+            policy_type = None,
+            params={}
     ):
         self.envs = envs
+        self.params = params
         self.n_envs = n_envs
         self.agent = agent
         self.obs_processer = ObsProcesser()

@@ -8,6 +8,20 @@ import shutil
 import re
 import matplotlib.pyplot as plt
 
+def pathname_to_offset(pathname):
+
+    """Takes a map filename of the form  xxx_yyy.mp OR xxx-yyy.mp
+       and extracts the x and y values and returns them as a pair"""
+
+    basename = os.path.basename(pathname)
+
+    match = re.match( "(\d+)[_-](\d+).mp", basename)
+    x = match.group(1)
+    y = match.group(2)
+
+    return x,y
+
+
 from gym_gridworld.envs import create_np_map as CNP
 
 def scale_image(image, scale):
@@ -37,15 +51,14 @@ def convert_directory(source_directory,scale):
     for i, pathname in enumerate(pathnames):
 
         basename = os.path.basename(pathname)
-        match = re.match( "(\d+)_(\d+).mp", basename)
-        x = match.group(1)
-        y = match.group(2)
+
+        x,y = filename_to_offset(basename)
 
         print("file# {} of {} name: {} x:{} y:{}".format(i, n, basename,x,y))
 
         map_array = pickle.load(open(pathname, 'rb'))
 
-        map = CNP.create_custom_map(map_array) # This creates an 'img' structure in the map dictionary
+        map = CNP.create_custom_map(map_array,offset=(x,y)) # This creates an 'img' structure in the map dictionary
 
         outfile_name = '{}-{}'.format(x,y)
         print("saving map to ", os.path.join( abs_dest_dir, outfile_name + '.mp'))
