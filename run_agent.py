@@ -151,6 +151,7 @@ default_params = {
         #'hiker_initial_position':(7,7),
         #'hiker_initial_heading':HEADING.SOUTH_EAST,
 
+        'mavsim_scenario':'kingdom-base-A-7',
         'use_mavsim_simulator':False,
         'verbose':False
     },

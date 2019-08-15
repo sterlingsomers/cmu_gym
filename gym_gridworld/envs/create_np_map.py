@@ -14,6 +14,7 @@ def get_feature_value_maps(x,y,map):
     feature_value_map = {}
     value_feature_map = {}
     #first check for existing feature maps
+    print("create_np_map.py:get_feature_value_maps cwd {}".format(os.getcwd()))
     feature_to_value = Path(path+'features/features_to_values.dict')
     value_to_feature = Path(path+'features/values_to_features.dict')
 
