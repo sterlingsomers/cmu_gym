@@ -5,10 +5,12 @@ import os
 import random
 import copy
 
-from sklearn.cluster import MeanShift
-import matplotlib.pyplot as plt
+from scipy.stats import entropy
 
-from pandas import DataFrame
+# from sklearn.cluster import MeanShift
+# import matplotlib.pyplot as plt
+
+# from pandas import DataFrame
 
 
 
@@ -120,6 +122,8 @@ def convert_data_to_chunks(all_data):
 
 
 
+
+
             # also want distance  to hiker
             chunk.extend(['distance_to_hiker',
                           ['distance_to_hiker', distance_to_hiker(np.array(step['drone']), np.array(step['hiker']))]])
@@ -132,8 +136,14 @@ def convert_data_to_chunks(all_data):
 
             #last part of the observation side will be the vector
             if include_fc:
+                # also add the entropy
+                entropy_value = entropy(step['action_probs'][0])
+                chunk.extend(['entropy', ['entropy', entropy_value]])
+                #add the fc
                 fc_list = step['fc'].tolist()[0]
                 chunk.extend(['fc', ['fc', fc_list]])
+
+
 
             # if step['action'] == 15:
             #     print('15')
@@ -206,7 +216,7 @@ def convert_data_to_chunks(all_data):
             # if include_fc:
             #     chunk.extend(['fc', ['fc', step['fc']]])
 
-        print("episode complete")
+        # print("episode complete")
     memory = [nav, drop]
     return memory
 
@@ -738,10 +748,11 @@ for bin in navs_by_action:
         navs_by_action[bin][i] = clean_example
 
 
-original_labels_nav = []
-navs_by_action_array = {}
-for key, val in navs_by_action.items():
-    navs_by_action_array[key],original_labels_nav = convert_data_to_ndarray(val)
+#this turns the chunks into arrays, and keeps track of their labels for reconstruction
+# original_labels_nav = []
+# navs_by_action_array = {}
+# for key, val in navs_by_action.items():
+#     navs_by_action_array[key],original_labels_nav = convert_data_to_ndarray(val)
 
 #don't cluster, just pick randomly 100 examples from each bin.
 #if it doesn't have 100, it doesn't continue
@@ -749,9 +760,9 @@ for key, val in navs_by_action.items():
 for key in navs_by_action:
     random.shuffle(navs_by_action[key])
     if key == 'drop':
-        navs_by_action[key] = navs_by_action[key][:200]
+        navs_by_action[key] = navs_by_action[key][:] #[:200] - but I don't want to limit it anymore.
     else:
-        navs_by_action[key] = navs_by_action[key][:200]
+        navs_by_action[key] = navs_by_action[key][:]
 
 print('stop')
 
@@ -805,7 +816,7 @@ for key,value in navs_by_action.items():#nav_by_action_clusters_chunks.items()
 #ms.fit(X)
 #labels = ms.labels_
 #cluster_centers = ms.cluster_centers_
-with open('chunks_cluster_centers_15actions_2000_fc_ALLMAPS_200randommax_ego.pkl','wb') as handle:
+with open('chunks_cluster_centers_15actions_2000_fc_ALLMAPS_ALLrandommax_ego_entropy.pkl','wb') as handle:
     pickle.dump(nav_complete_list,handle)
 
 print('stop')

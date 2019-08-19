@@ -7,6 +7,7 @@ from datetime import datetime
 from time import sleep
 import numpy as np
 import pickle
+from scipy.stats import entropy
 #from functools import partial
 
 from absl import flags
@@ -369,6 +370,7 @@ def main():
                     step_data['reward'] = reward
                     step_data['fc'] = fc
                     step_data['action_probs'] = action_probs
+                    # step_data['entropy'] = entropy(action_probs[0])
 
                     all_data[runner.episode_counter]['nav'].append(step_data)
 
