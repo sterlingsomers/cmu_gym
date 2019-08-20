@@ -754,17 +754,23 @@ for bin in navs_by_action:
 # for key, val in navs_by_action.items():
 #     navs_by_action_array[key],original_labels_nav = convert_data_to_ndarray(val)
 
-#don't cluster, just pick randomly 100 examples from each bin.
-#if it doesn't have 100, it doesn't continue
-#put those examples as chunks
-for key in navs_by_action:
-    random.shuffle(navs_by_action[key])
-    if key == 'drop':
-        navs_by_action[key] = navs_by_action[key][:] #[:200] - but I don't want to limit it anymore.
-    else:
-        navs_by_action[key] = navs_by_action[key][:]
 
-print('stop')
+###select some_N items from the dictionary, after shuffling.
+###don't cluster, just pick randomly 100 examples from each bin.
+###if it doesn't have 100, it doesn't continue
+###put those examples as chunks
+# for key in navs_by_action:
+#     random.shuffle(navs_by_action[key])
+#     if key == 'drop':
+#         navs_by_action[key] = navs_by_action[key][:] #[:200] - but I don't want to limit it anymore.
+#     else:
+#         navs_by_action[key] = navs_by_action[key][:]
+#
+# print('stop')
+
+
+
+
 
 
 
@@ -797,18 +803,18 @@ print('stop')
 # for key in nav_by_action_clusters:
 #     nav_by_action_clusters_chunks[key] = convert_centroids_to_chunks(key, nav_by_action_clusters[key],original_labels_nav,kind='nav')
 
-#convert the dictionary back into a list of all chunks
-nav_complete_list = []
-for key,value in navs_by_action.items():#nav_by_action_clusters_chunks.items()
-    count = 0
-    for chunk in value:
-        count += 1
-        # if count >= 7:
-        #     continue#break
-        nav_complete_list.append(chunk)
-        for slot in actions:
-            chunk.append(slot)
-            chunk.append([slot, int(slot == key)])
+###convert the dictionary back into a list of all chunks
+# nav_complete_list = []
+# for key,value in navs_by_action.items():#nav_by_action_clusters_chunks.items()
+#     count = 0
+#     for chunk in value:
+#         count += 1
+#         # if count >= 7:
+#         #     continue#break
+#         nav_complete_list.append(chunk)
+#         for slot in actions:
+#             chunk.append(slot)
+#             chunk.append([slot, int(slot == key)])
 
 
 #X,original_labels = navs_by_action_array[('up','left')]
@@ -816,10 +822,17 @@ for key,value in navs_by_action.items():#nav_by_action_clusters_chunks.items()
 #ms.fit(X)
 #labels = ms.labels_
 #cluster_centers = ms.cluster_centers_
-with open('chunks_cluster_centers_15actions_2000_fc_ALLMAPS_ALLrandommax_ego_entropy.pkl','wb') as handle:
-    pickle.dump(nav_complete_list,handle)
 
-print('stop')
+###SAVE the LIST of chunks
+# with open('chunks_cluster_centers_15actions_2000_fc_ALLMAPS_ALLrandommax_ego_entropy.pkl','wb') as handle:
+#     pickle.dump(nav_complete_list,handle)
+
+
+###SAVE the dictionary
+with open('chunk_dict_ego_entropy.pkl', 'wb') as handle:
+    pickle.dump(navs_by_action, handle)
+
+
 ##commented out below to try k-means
 # #find the virtual center of each bin, then find the farthest n points
 # ran_out = False
