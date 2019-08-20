@@ -1,3 +1,9 @@
+# cmu_drone
+
+Includes A2C actor critic implementation, internal gridworld simulation 
+and an interface to external PARC MAVSim simulator.
+
+
 # gym-gridworld
 
 Basic implementation of gridworld game 

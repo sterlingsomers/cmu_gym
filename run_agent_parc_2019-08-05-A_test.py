@@ -7,13 +7,17 @@ from run_agent import analyze_result
 from run_agent import default_params,to_mavsim_actions,to_mavsim_rewards
 from util import deep_update
 from gym_gridworld.envs.gridworld_env import HEADING
+import itertools
 
 """First test of 1350 generated maps from Jacobs collection of ~2700"""
 
 if __name__ == "__main__":
 
 
-    test_map  = [ ( 300, 100) ]
+    map_ordinates = [ i for i in range(0,490,10) ]
+    test_map = [ p for p in itertools.product(map_ordinates,map_ordinates) ]
+
+    num_maps = len(test_map)
 
     deep_update(
         default_params,
@@ -21,14 +25,13 @@ if __name__ == "__main__":
             'run': {
                 'training':False,
                 'model_name':'parc_2019-07-31-B',
-                'K_batches': 3,
-                'sleep_time': 0.3,
+                'K_batches': 5,
+                'sleep_time': 0,
                 'verbose':False
             },
 
             'env': {
                 'verbose':False,
-                'map_path':'gym_gridworld/maps/nixel_maps_2',
                 'submap_offsets':test_map,
                 'episode_length':25,
                 'render_hiker_altitude':True,
@@ -44,7 +47,7 @@ if __name__ == "__main__":
 
     sim = Simulation( params = default_params )
 
-    param = { 'env': {'drone_initial_position':(6,3),
+    param = { 'env': {'drone_initial_position':(5,10),
                       'drone_initial_heading': HEADING.WEST,
                       'drone_initial_altitude':2,
 
@@ -55,6 +58,9 @@ if __name__ == "__main__":
     result = sim.run(  )
 
     actions,rewards,n,statistics = analyze_result(result)
+
+    print("Statistics:")
+    print(statistics)
 
     print("Actions:")
     print(actions)

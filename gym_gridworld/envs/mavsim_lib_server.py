@@ -6,9 +6,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import random
 import os
-from mavsimgym.util import *
+#from mavsimgym.util import *
 from gym_gridworld.envs.create_np_map import create_custom_map
 import threading
+import ast
+import yaml
+
+
 
 
 class MavsimLibHandler:
@@ -23,9 +27,9 @@ class MavsimLibHandler:
        See the _create_mavsim function for details.
     """
 
-    def __init__(self, scenario_name):
+    def __init__(self, params):
 
-        self.scenario_name = scenario_name
+        self.params = params
 
         self.drone_location = np.array([-1,-1,-1])  # Location as discrete 3 element integer array (x,y,alt)
         self.drone_heading = -1
@@ -39,6 +43,8 @@ class MavsimLibHandler:
         #    del self.mavsim
         self._create_mavsim()
 
+        self._load_scenario( self.params['scenario'] )
+        self._extract_or_load_global_scenario_map()
 
 
     def reset(self, submap_offset, submap_shape):
@@ -46,8 +52,6 @@ class MavsimLibHandler:
         """Sets up a new scenario. Calls mavsim to reload map. Setsup a new submap for cmu drone to use.
            This is a hard reset that takes a while to execute. """
 
-        self._load_scenario(self.scenario_name)
-        self._extract_or_load_global_scenario_map()
 
         self.submap_offset = np.array(submap_offset)
         self.submap_shape =  np.array(submap_shape)
@@ -56,12 +60,12 @@ class MavsimLibHandler:
         self.trajectory = []
         self.callback_event = threading.Event()
 
-        self._arm_drone_to_get_initial_location()
-        self._choose_random_goal_near_drone()
-        self.waypoint_location = self.drone_location
+        #self._arm_drone_to_get_initial_location()
+        #self._choose_random_goal_near_drone()
+        #self.waypoint_location = self.drone_location
         self.crashed=False
 
-        self._auto_takeoff()
+        #self._auto_takeoff()
 
         return self._create_observation()
 
@@ -79,6 +83,7 @@ class MavsimLibHandler:
 
         self._command("('FLIGHT','MS_SET_AOI', %d, %d, %d, %d)" % (x1, y1, dimensions[0], dimensions[1]))
 
+        print("   completed submap setup")
 
     def get_submap(self):
 
@@ -116,7 +121,7 @@ class MavsimLibHandler:
 
         self.drone_location = global_position
         self.crashed = False
-        print("mavsim_lib_server set_drone_position({})->{}".format(new_position, global_position))
+        #print("mavsim_lib_server set_drone_position({})->{}".format(new_position, global_position))
         self._command(
             "('SIM','LOAD', %d, %d, %d, 1, 3, 999999, 'True', 1, ['Food', 'Radio', 'Food', 'Radio'], 1, 'True', 0, '[]', '[]')"  \
             % (global_position[0], global_position[1], global_position[2]))
@@ -174,7 +179,7 @@ class MavsimLibHandler:
 
         self._command( "('FLIGHT','HEAD_TO', {},{},{})".format(heading,distance,altitude))
 
-        print("mavsim_lib_server head_to old drone location {}  new drone location {}".format(old_drone_location, self.drone_location))
+        #print("mavsim_lib_server head_to old drone location {}  new drone location {}".format(old_drone_location, self.drone_location))
 
 
 
@@ -237,7 +242,7 @@ class MavsimLibHandler:
 
     def _create_observation(self):
 
-        return self.drone_location, self.goal_location, self.waypoint_location
+        return self.drone_location
 
 
     def _arm_drone_to_get_initial_location(self):
@@ -264,15 +269,15 @@ class MavsimLibHandler:
 
 
         self.mavsim = mavsim.MAVSim(
-            verbose = True,
+            verbose = self.params['verbose'],
             quiet   = True,
-            nodb    = True,
+            nodb    = self.params['nodb'],
             server_ip = '0.0.0.0',
             server_port = 14555,
             instance_name = 'MAVSim',
             session_name = 'Training Mission 1',
             pilot_name   = 'Sally',
-            database_url = 'postgresql://postgres:docker@localhost:5432/apm_missions',
+            database_url =  self.params['database_url'], #'postgresql://postgres:docker@localhost:5432/apm_missions', # -- need to set this to none otherwise it connects anyway
             telemetry_cb = lambda msg: self._callback(msg),
             sim_op_state = 1 )
 
@@ -282,7 +287,7 @@ class MavsimLibHandler:
 
         # Make sure any previous scenario is terminated, otherwise new one will not start
 
-        self.mavsim.command( "('SIM','CLOSE','Closing previous scenario so we can start a new one')")
+        #self.mavsim.command( "('SIM','CLOSE','Closing previous scenario so we can start a new one')")
 
 
         # Start new scenario
@@ -290,9 +295,15 @@ class MavsimLibHandler:
         print("Overriding scenario name to avoid using nixel spec as filename in disk cache")
         self.scenario_name = 'nixel_test'
 
-        dna = "['COGLE_0:stubland_1:512_2:512_3:256_4:7_5:24|-0.1426885426044464/Terrain_0:0_1:100_2:0.05_3:0.5_4:0.05_5:0.5_6:0.05_7:0.5_8:0.5_9:0.5_10:0.7_11:0.3_12:0.5_13:0.5_14:True/', '0.36023542284965515/Ocean_0:60/', '-0.43587446212768555/River_0:0.01_1:100/', '-0.3501245081424713/Tree_0:500_1:20.0_2:4.0_3:0.01_4:2.0_5:0.1_6:1.9_7:3.0_8:2.2_9:3.5/', '0.6151155829429626/Airport_0:15.0_1:25_2:35_3:1000_4:[]/', '0.34627288579940796/Building_0:150_1:10.0_2:[]_3:1/', '0.31582069396972656/Road_0:3_1:500/', '-0.061891376972198486/DropPackageMission_0:1_3:Find the hiker last located at (88, 186, 41)_4:Provision the hiker with Food_5:Return and report to Southeast International Airport (SEI) airport_6:Southeast Regional Airport_7:Southeast International Airport_8:0_9:20.0_10:20.0_11:40.0/', '-0.25830233097076416/Stub_0:0.8_1:1.0_2:1.0_3:1.0_4:1.0_5:1.0/']"
 
-        self.mavsim.command( "('SIM','NEW',\"{}\",'1234')".format(dna) )
+        #dna = "['COGLE_0:stubland_1:512_2:512_3:256_4:7_5:24|-0.1426885426044464/Terrain_0:0_1:100_2:0.05_3:0.5_4:0.05_5:0.5_6:0.05_7:0.5_8:0.5_9:0.5_10:0.7_11:0.3_12:0.5_13:0.5_14:True/', '0.36023542284965515/Ocean_0:60/', '-0.43587446212768555/River_0:0.01_1:100/', '-0.3501245081424713/Tree_0:500_1:20.0_2:4.0_3:0.01_4:2.0_5:0.1_6:1.9_7:3.0_8:2.2_9:3.5/', '0.6151155829429626/Airport_0:15.0_1:25_2:35_3:1000_4:[]/', '0.34627288579940796/Building_0:150_1:10.0_2:[]_3:1/', '0.31582069396972656/Road_0:3_1:500/', '-0.061891376972198486/DropPackageMission_0:1_3:Find the hiker last located at (88, 186, 41)_4:Provision the hiker with Food_5:Return and report to Southeast International Airport (SEI) airport_6:Southeast Regional Airport_7:Southeast International Airport_8:0_9:20.0_10:20.0_11:40.0/', '-0.25830233097076416/Stub_0:0.8_1:1.0_2:1.0_3:1.0_4:1.0_5:1.0/']"
+        dna = self.params['scenario']
+
+        cmd = "('SIM','NEW',\"{}\",'1234')".format(dna)
+
+        print("Calling mavsim with : {}".format(cmd))
+
+        self.mavsim.command( cmd )
 
 
 
@@ -339,7 +350,7 @@ class MavsimLibHandler:
 
         self.map = np.stack( (self.map_altitudes, self.map_types ), axis = 2)
 
-        self.global_map_show()
+        #self.global_map_show()
 
 
     def _command(self,command_str,block=False):
@@ -348,14 +359,41 @@ class MavsimLibHandler:
         # It turns out the mavsim.command library function is actually synchronous in the sense
         # that it will send out all of its callbacks before returning so we don't need external coordination.
 
-        print( self.mavsim.command(command_str) )
+        response = self.mavsim.command(command_str)
 
+        if  self.params['halt_on_error'] and 'ERR' in response:
+            raise Exception("mavsim generated an error : "+response)
+
+
+    def parse_message(self,msg):
+
+        """Takes a callback message from MAVSIM and extracts the 'COMMAND' and a dictionary of attributes and returns it
+
+        :param string :msg
+        :return ( command_str,  dictionary_of_attribute_value_pairs ) """
+
+
+        command_str = "ERROR"
+        attributes = {}
+
+        try:
+            command_str, _, arg_string = msg.partition(" ")
+            #attributes = literal_eval(arg_string)
+            # THIS IS NOT SAFE, BUT DICTIONARIES ARE NOT LITERAL COMPLIANT
+            attributes = yaml.load(arg_string)
+            #attributes = ast.literal_eval(arg_string)
+
+        except Exception as e:
+            print("mavsim_lib_server could not parse ",arg_string)
+            print("Error ",e)
+
+        return (command_str, attributes)
 
 
     def _callback(self, message):
 
-        print("CALLBACK MSG >> %s" % message)
-        command_str, attributes = parse_message(message)
+        #print("CALLBACK MSG >> %s" % message)
+        command_str, attributes = self.parse_message(message)
         #print("   Command ",command_str)
         #print("   Args", attributes)
 
@@ -367,15 +405,15 @@ class MavsimLibHandler:
 
                 self.drone_heading = attributes['hdg']
 
-                print("mavsim_lib_server updated drone location {} heading {}".format(new_location,self.drone_heading))
+                #print("mavsim_lib_server updated drone location {} heading {}".format(new_location,self.drone_heading))
 
 
                 if new_location[0] >= self.submap_offset[0] and \
                    new_location[1] >= self.submap_offset[1] and \
-                   new_location[0] < self.submap_offset[0]+self.submap_shape[0] and \
-                   new_location[1] < self.submap_offset[1]+self.submap_shape[1]:
+                   new_location[0] <  self.submap_offset[0] + self.submap_shape[0] and \
+                   new_location[1] <  self.submap_offset[1] + self.submap_shape[1]:
 
-                    print("mavsim_lib_server drone inside 20x20 grid {}")
+                   # print("mavsim_lib_server drone inside 20x20 grid {}")
 
                     self.drone_location = new_location
                 else:

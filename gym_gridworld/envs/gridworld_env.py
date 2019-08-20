@@ -338,6 +338,8 @@ class GridworldEnv(gym.Env):
     def __init__(self, params={} ):
 
 
+        print("gridworld_env: NEW GRIDWORLD CREATED")
+
         self.params = params
 
 
@@ -383,7 +385,7 @@ class GridworldEnv(gym.Env):
         }
 
         if self.params['use_mavsim_simulator']:
-            self.mavsimhandler = MavsimLibHandler(self.params['mavsim_scenario'])
+            self.mavsimhandler = MavsimLibHandler(self.params['mavsim'])
 
 
         self.image_layers = {}
@@ -718,13 +720,15 @@ class GridworldEnv(gym.Env):
     def take_action(self, delta_alt=0, delta_x=0, delta_y=0, new_heading=1):
 
         """Take the action and update the world with its effects.
+           In the case of mavsim, it updates old heading to new_heading and then takes a step in this direction.
+
            Returns 0 if action was OK and non-zero if action resulted in a failure of some kind - likely a crash"""
 
         action_ok = 0   #
 
         if self.params['use_mavsim_simulator']:
 
-            print("take_action mavsim heading {} {}".format(new_heading, HEADING.heading_to_short_description[new_heading]))
+            #print("take_action mavsim heading {} {}".format(new_heading, HEADING.heading_to_short_description[new_heading]))
 
             vol_shape = self.map_volume['vol'].shape
             distance = 1
@@ -734,7 +738,7 @@ class GridworldEnv(gym.Env):
             new_alt = self.drone_altitude + delta_alt if self.drone_altitude + delta_alt < 4 else 3
 
             # Ma
-            self.mavsimhandler.head_to( self.drone_heading , distance, new_alt )
+            self.mavsimhandler.head_to( new_heading , distance, new_alt )
 
             self.drone_heading = self.mavsimhandler.get_drone_heading()
             drone_position = self.mavsimhandler.get_drone_position()
@@ -805,10 +809,10 @@ class GridworldEnv(gym.Env):
         """Returns zero if drone is OK, -1 if drone descended to altitude zero
            and returns tile_id of the item crashed into if crashed into obstacle. """
 
-        print("Checking for crash at drone_position {}".format(drone_position))
+        #print("Checking for crash at drone_position {}".format(drone_position))
 
         if self.params['use_mavsim_simulator']:
-            print("mavsim simulator crash state {}".format(self.mavsimhandler.crashed))
+            #print("mavsim simulator crash state {}".format(self.mavsimhandler.crashed))
             if self.mavsimhandler.crashed:
                 return 1 # int(self.original_map_volume['vol'][tuple(drone_position)])
             else:
@@ -849,7 +853,7 @@ class GridworldEnv(gym.Env):
 
 
         drone_position = self.get_drone_position()
-        print("Step getting drone position: {}".format(drone_position))
+        #print("Step getting drone position: {}".format(drone_position))
 
         # Euclidean distance on the ground (ignore height difference)
         self.dist = np.linalg.norm(  np.array(drone_position[-2:]) - np.array(self.hiker_position[-2:])  )
@@ -896,17 +900,21 @@ class GridworldEnv(gym.Env):
 
 
                 if 'align_drone_and_hiker_heading' in self.params and self.params['align_drone_and_hiker_heading']:
+
                     if self.params['verbose']:
                         print("Checking heading {} {}".format(HEADING.heading_to_short_description[self.drone_heading],
                                                               HEADING.heading_to_short_description[self.hiker_heading]  )  )
+
                     if self.drone_heading==self.hiker_heading:
                         info['Rhead']=1
                         info['OKhead']=True
                         reward=reward+1
 
                 if 'align_drone_and_hiker_altitude' in self.params and self.params['align_drone_and_hiker_altitude']:
+
                     if self.params['verbose']:
                         print("Checking altitude {} {}".format(self.drone_altitude, self.hiker_altitude))
+
                     if self.drone_altitude == self.hiker_altitude:
                         info['Ralt']=1
                         info['OKAlt']=True
@@ -968,8 +976,10 @@ class GridworldEnv(gym.Env):
         deep_update( self.params, param_updates )
 
         if self.params['verbose']:
+
             if 'curriculum_radius' in self.params:
                 print("gridworld_env.reset params[curriculum_radius] {}".format(self.params['curriculum_radius']))
+
             if 'drone_initial_position' in self.params:
                 print("gridworld_env.reset params[drone_initial_position] {}".format(self.params['drone_initial_position']))
 
@@ -1041,7 +1051,7 @@ class GridworldEnv(gym.Env):
                                                                  and y <= self.map_volume['vol'].shape[1] - 3       ]  #ToDo: Bob -replace with mapw, maph?
 
                 if len(hiker_safe_points)<1:
-                    print("WARNING Could not find safe hiker location on map {}. Setting to (5,5)".format(map_filename))
+                    print("WARNING Could not find safe hiker location on map. Setting to (5,5)")
                     hiker = (5,5)
                 else:
                     hiker = random.choice(hiker_safe_points)
@@ -1051,6 +1061,7 @@ class GridworldEnv(gym.Env):
 
             if self.params['use_mavsim_simulator']:
                 self.mavsimhandler.set_hiker_position(hiker)
+                print("gridworld_env set hiker position")
 
 
 
@@ -1188,6 +1199,7 @@ class GridworldEnv(gym.Env):
 
         observation = self.generate_observation()
         self.render()
+
         return observation
 
     def generate_random_map(self):
@@ -1357,7 +1369,7 @@ class GridworldEnv(gym.Env):
 
         drone_position = self.get_drone_position()
 
-        print("generate_observation drone_position {} ".format(drone_position))
+        #print("generate_observation drone_position {} ".format(drone_position))
 
         #drone_position = np.where(
         #    self.map_volume['vol'] == self.map_volume['feature_value_map']['drone'][self.drone_altitude]['val'])

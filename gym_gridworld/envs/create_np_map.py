@@ -267,7 +267,6 @@ def create_custom_map(map,offset=(-1,-1)):
     return_dict['img'] = img
     return_dict['offset'] = offset
 
-    print("OK")
     return return_dict
 
 
