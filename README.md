@@ -2,6 +2,32 @@
 
 Includes A2C actor critic implementation, internal gridworld simulation 
 and an interface to external PARC MAVSim simulator.
+It also comes with 2700 sample worlds for training using the 
+in built gridworld simulator.
+
+# MAVSim integration
+
+The MAVSim world allows the generation of a wide variety of interesting
+highly textured worlds to support training on diverse inputs.
+This should help generalization considerably.
+
+To use mavsim integration you need to checkout the mavsim library.
+Currently we are using the 'develop' branch.
+Wihtin your chosen environment (anaconda, virtualenv)
+simply do a 
+
+    python setup.py install
+    
+CMU gridworld will then be able to talk to MAVsim directly.
+
+# Setting up experiments and using models
+
+Control of the cmu gridworld system is done through nested dictionaries.
+The default dictionary is in run_agent.py.
+
+Sample experiments such as run_agent_parc_2019-07-31-B.test.py
+send in partial dictionaries whose entries overwrite overlapping 
+entries in the default dictionary.
 
 
 # gym-gridworld
