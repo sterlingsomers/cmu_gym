@@ -376,7 +376,7 @@ def reset_actr():
         model_name = 'egocentric_allocentric_salience.lisp'
         model_path = '/Users/paulsomers/COGLE/gym-gridworld/'
 
-        chunk_file_name = 'chunks_cluster_centers_15actions_2000_fc_ALLMAPS_400randommax_ego.pkl'
+        chunk_file_name = 'chunks_cluster_centers_15actions_2000_fc_ALLMAPS_ALLrandommax_ego_entropy.pkl'
         #chunk_path = os.path.join(model_path,'data')
         chunk_path = ''
         actr.add_command('similarity_function',similarity)
