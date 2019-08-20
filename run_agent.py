@@ -455,7 +455,7 @@ def main():
             pickle_in = open(path,'wb')
             pickle.dump(dictionary, pickle_in)
 
-            with open('./data/all_data' + map_name + '_' + drone_init_loc + '_' + drone_head_alt + '_' + hiker_loc + str(FLAGS.episodes) + '.lst', 'wb') as handle:
+            with open('./data/all_data' + 'TEST' +map_name + '_' + drone_init_loc + '_' + drone_head_alt + '_' + hiker_loc + str(FLAGS.episodes) + '.lst', 'wb') as handle:
                 pickle.dump(all_data, handle)
             # with open('./data/All_maps_20x20_500.tj', 'wb') as handle:
             #     pickle.dump(dictionary, handle)

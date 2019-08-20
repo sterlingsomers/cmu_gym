@@ -10,6 +10,7 @@ from common.util import calculate_n_step_reward, general_n_step_advantage, combi
     dict_of_lists_to_list_of_dicst
 import tensorflow as tf
 from absl import flags
+import random
 # from time import sleep
 from actorcritic.policy import FullyConvPolicy, MetaPolicy, RelationalPolicy
 
@@ -376,9 +377,9 @@ def reset_actr():
         model_name = 'egocentric_allocentric_salience.lisp'
         model_path = '/Users/paulsomers/COGLE/gym-gridworld/'
 
-        chunk_file_name = 'chunks_cluster_centers_15actions_2000_fc_ALLMAPS_ALLrandommax_ego_entropy.pkl'
+        chunk_file_name = 'chunk_dict_ego_entropy.pkl'
         #chunk_path = os.path.join(model_path,'data')
-        chunk_path = ''
+        chunk_path = '/Users/paulsomers/COGLE/gym-gridworld/'
         actr.add_command('similarity_function',similarity)
         actr.add_command('ticker', actr_time)
 
@@ -418,19 +419,25 @@ def reset_actr():
 
         #load all the chunks
         allchunks = pickle.load(open(os.path.join(chunk_path,chunk_file_name),'rb'))
-        for chunk in allchunks:
+        for action_category in allchunks:
+            action_chunks = allchunks[action_category]
+            random.shuffle(action_chunks)
+            action_chunks = action_chunks[:100] #select the first 100 (after randomized)
 
-            #fc needs to be transformed
-            fc_index = chunk.index('fc') + 1
-            fc = [chunk[fc_index][1]]
-            # fc = np.array(chunk[fc_index][1])
-            # fc.reshape(1,-1)
-            fc_transform = normalizer.transform(fc)
-            chunk[fc_index] = ['fc',fc_transform.astype(float).tolist()[0]]
+            #before addding, fc needs to be transformed, and floats have to be fixed to be json-able
+            for chunk in action_chunks:
 
-            chunk = [float(x) if type(x) == np.float64 else x for x in chunk]
-            chunk = [int(x) if type(x) == np.int64 else x for x in chunk]
-            actr.add_dm(chunk)
+                #fc needs to be transformed
+                fc_index = chunk.index('fc') + 1
+                fc = [chunk[fc_index][1]]
+                # fc = np.array(chunk[fc_index][1])
+                # fc.reshape(1,-1)
+                fc_transform = normalizer.transform(fc)
+                chunk[fc_index] = ['fc',fc_transform.astype(float).tolist()[0]]
+
+                chunk = [float(x) if type(x) == np.float64 else x for x in chunk]
+                chunk = [int(x) if type(x) == np.int64 else x for x in chunk]
+                actr.add_dm(chunk)
 
         # ignore_list = ['left', 'diagonal_left', 'center', 'diagonal_right', 'right', 'type', 'drop', 'up', 'down', 'level']
         ignore_list = ['left_down','diagonal_left_down','center_down','diagonal_right_down','right_down',
