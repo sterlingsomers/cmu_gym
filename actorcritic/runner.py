@@ -27,6 +27,7 @@ import threading
 import time
 from scipy import spatial
 from scipy.interpolate import interp1d
+from scipy.stats import entropy
 
 from sklearn import preprocessing
 
@@ -374,7 +375,7 @@ def reset_actr():
 
 
     if not actr_initialized or actr_initialized:
-        model_name = 'egocentric_allocentric_salience.lisp'
+        model_name = 'egocentric_allocentric_salience_entropy.lisp'
         model_path = '/Users/paulsomers/COGLE/gym-gridworld/'
 
         chunk_file_name = 'chunk_dict_ego_entropy.pkl'
@@ -517,7 +518,11 @@ def create_actr_observation(step):
                   'ego_center',  ['ego_center',altitudes[2]],
                   'ego_diagonal_right', ['ego_diagonal_right', altitudes[3]],
                   'ego_right', ['ego_right',altitudes[4]]])
+    #include the entropy
+    chunk.extend(['entropy',['entropy',float(entropy(step['action_probs'][0]))]])
+
     chunk.append('fc')
+
     step['fc'] = step['fc'].astype(float).tolist()[0]
     step['fc'] = interp_dict['fc'].transform([step['fc']]).astype(float).tolist()[0]
     chunk.append(['fc',step['fc']])
@@ -955,6 +960,7 @@ class Runner(object):
         step_data['altitude'] = self.envs.altitude
         step_data['drone'] = np.where(
         step_data['volume'] == self.envs.map_volume['feature_value_map']['drone'][self.envs.altitude]['val'])
+        step_data['action_probs'] = action_probs
 
         step_data['fc'] = fc
         #     interp_dict['fc'].transform(fc)
