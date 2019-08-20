@@ -137,7 +137,7 @@ def convert_data_to_chunks(all_data):
             #last part of the observation side will be the vector
             if include_fc:
                 # also add the entropy
-                entropy_value = entropy(step['action_probs'][0])
+                entropy_value = float(entropy(step['action_probs'][0]))
                 chunk.extend(['entropy', ['entropy', entropy_value]])
                 #add the fc
                 fc_list = step['fc'].tolist()[0]
