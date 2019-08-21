@@ -417,13 +417,33 @@ def reset_actr():
                 max_val = max(min_max)
                 func = interp1d([min_val, max_val], [0, 1])
                 interp_dict[trans] = func
+        # ignore_list = ['left', 'diagonal_left', 'center', 'diagonal_right', 'right', 'type', 'drop', 'up', 'down', 'level']
+        ignore_list = ['left_down','diagonal_left_down','center_down','diagonal_right_down','right_down',
+                       'left_level','diagonal_left_level','center_level','diagonal_right_level','right_level',
+                       'left_up','diagonal_left_up','center_up','diagonal_right_up','right_up', 'drop', 'type', 'fc']
+
+        action_category_values = {'yaw':{'diagonal_left_down':-0.5,'diagonal_left_level':-0.5,
+                                         'diagonal_left_up':-0.5,'diagonal_right_up':0.5,
+                                         'diagonal_right_down':0.5,'diagonal_right_level':0.5,
+                                         'left_down':-1.0,'left_up':-1.0,
+                                         'left_level':-1.0,'right_up':1.0,
+                                         'right_level':1.0, 'right_down':1.0,
+                                         'center_level':0.0,'center_down':0.0,'center_up':0.0},
+                                  'pitch':{'diagonal_left_down':-1.0,'diagonal_left_level':0.0,
+                                         'diagonal_left_up':1.0,'diagonal_right_up':1.0,
+                                         'diagonal_right_down':-1.0,'diagonal_right_level':0.0,
+                                         'left_down':-1.0,'left_up':1.0,
+                                         'left_level':0.0,'right_up':1.0,
+                                         'right_level':0.0, 'right_down':-1.0,
+                                         'center_level':0.0,'center_down':-1.0,'center_up':1.0}}
 
         #load all the chunks
         allchunks = pickle.load(open(os.path.join(chunk_path,chunk_file_name),'rb'))
+
         for action_category in allchunks:
             action_chunks = allchunks[action_category]
             random.shuffle(action_chunks)
-            action_chunks = action_chunks[:100] #select the first 100 (after randomized)
+            action_chunks = action_chunks[:400] #select the first 100 (after randomized)
 
             #before addding, fc needs to be transformed, and floats have to be fixed to be json-able
             for chunk in action_chunks:
@@ -438,6 +458,23 @@ def reset_actr():
 
                 chunk = [float(x) if type(x) == np.float64 else x for x in chunk]
                 chunk = [int(x) if type(x) == np.int64 else x for x in chunk]
+
+                #add the actions to the chunk
+                # for action in ignore_list[:-1]:
+                #     chunk.extend([action,[action,int(action == action_category)]])
+                #add the actions in the new scheme
+                for action in action_category_values:
+                    if action_category == 'drop':
+                        continue
+                    chunk.extend([action,[action,action_category_values[action][action_category]]])
+                    chunk.extend(['drop', ['drop', 0.0]])
+
+                if action_category == 'drop':
+                    chunk.extend(['drop', ['drop',1.0]])
+                    chunk.extend(['yaw', ['yaw', 0.0]])
+                    chunk.extend(['pitch', ['pitch',0.0]])
+
+
                 actr.add_dm(chunk)
 
         # ignore_list = ['left', 'diagonal_left', 'center', 'diagonal_right', 'right', 'type', 'drop', 'up', 'down', 'level']
@@ -946,6 +983,7 @@ class Runner(object):
 
     def run_trained_batch(self):
         step_data = {}
+
         #gameDisplay.fill((1, 50, 130))
         # STATE, ACTION, REWARD, NEXT STATE
         # YOU NEED TO DISPLAY FIRST IMAGE HERE AS YOU HAVE RESETED AND THERE ARE OBS THERE AS WELL (YOUR FIRST ONES!)
@@ -990,6 +1028,9 @@ class Runner(object):
 
         #reset actr every step (load chunks, etc.)
         # reset_actr()
+        if flags.FLAGS.reset_actr:
+            reset_actr()
+            flags.FLAGS.reset_actr = False
 
         print('|actions:', 'net', network_action_ids, 'actr', action_ids)
 
