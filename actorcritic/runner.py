@@ -375,7 +375,7 @@ def reset_actr():
 
 
     if not actr_initialized or actr_initialized:
-        model_name = 'egocentric_allocentric_salience_entropy.lisp'
+        model_name = 'egocentric_allocentric_salience_entropy_pitch_yaw.lisp'
         model_path = '/Users/paulsomers/COGLE/gym-gridworld/'
 
         chunk_file_name = 'chunk_dict_ego_entropy.pkl'
@@ -443,7 +443,7 @@ def reset_actr():
         for action_category in allchunks:
             action_chunks = allchunks[action_category]
             random.shuffle(action_chunks)
-            action_chunks = action_chunks[:400] #select the first 100 (after randomized)
+            action_chunks = action_chunks[:200] #select the first 100 (after randomized)
 
             #before addding, fc needs to be transformed, and floats have to be fixed to be json-able
             for chunk in action_chunks:
@@ -640,13 +640,57 @@ def handle_observation(observation):
     #I can do an overwrite and get rid of p2/p3
 
     #HACK - carry out the action here.
-    action_choice = {'left_down':0,'diagonal_left_down':0,'center_down':0,'diagonal_right_down':0,'right_down':0,
-                     'left_level':0,'diagonal_left_level':0,'center_level':0,'diagonal_right_level':0,'right_level':0,
-                     'left_up':0,'diagonal_left_up':0,'center_up':0,'diagonal_right_up':0,'right_up':0,
-                     'drop':0}
-    for key in action_choice:
-        action_choice[key] = actr.chunk_slot_value(b, key)
-    action = max(action_choice.items(), key=operator.itemgetter(1))[0]
+    # action_choice = {'left_down':0,'diagonal_left_down':0,'center_down':0,'diagonal_right_down':0,'right_down':0,
+    #                  'left_level':0,'diagonal_left_level':0,'center_level':0,'diagonal_right_level':0,'right_level':0,
+    #                  'left_up':0,'diagonal_left_up':0,'center_up':0,'diagonal_right_up':0,'right_up':0,
+    #                  'drop':0}
+    # for key in action_choice:
+    #     action_choice[key] = actr.chunk_slot_value(b, key)
+    # action = max(action_choice.items(), key=operator.itemgetter(1))[0]
+
+    #new way to pick the action
+    yaw_pitch_to_category = {'yaw': {0:['center_level','center_down','center_up'],
+                                     0.5:['diagonal_right_down','diagonal_right_level','diagonal_right_up'],
+                                     1.0:['right_up','right_level','right_down'],
+                                     -0.5:['diagonal_left_up','diagonal_left_down','diagonal_left_level'],
+                                     -1.0:['left_up','left_down','left_level']},
+                             'pitch':{0:['left_level','center_level','diagonal_left_level','diagonal_right_level','right_level'],
+                                      1:['left_up','right_up','center_up','diagonal_right_up','diagonal_left_up'],
+                                      -1:['left_down','right_down','diagnoal_right_down','diagonal_left_down','center_down']}
+                             }
+
+
+    action_category_values = {'yaw': {'diagonal_left_down': -0.5, 'diagonal_left_level': -0.5,
+                                      'diagonal_left_up': -0.5, 'diagonal_right_up': 0.5,
+                                      'diagonal_right_down': 0.5, 'diagonal_right_level': 0.5,
+                                      'left_down': -1.0, 'left_up': -1.0,
+                                      'left_level': -1.0, 'right_up': 1.0,
+                                      'right_level': 1.0, 'right_down': 1.0,
+                                      'center_level': 0.0, 'center_down': 0.0, 'center_up': 0.0},
+                              'pitch': {'diagonal_left_down': -1.0, 'diagonal_left_level': 0.0,
+                                        'diagonal_left_up': 1.0, 'diagonal_right_up': 1.0,
+                                        'diagonal_right_down': -1.0, 'diagonal_right_level': 0.0,
+                                        'left_down': -1.0, 'left_up': 1.0,
+                                        'left_level': 0.0, 'right_up': 1.0,
+                                        'right_level': 0.0, 'right_down': -1.0,
+                                        'center_level': 0.0, 'center_down': -1.0, 'center_up': 1.0}}
+    yaw = actr.chunk_slot_value(b, 'yaw')
+    pitch = actr.chunk_slot_value(b, 'pitch')
+    drop = actr.chunk_slot_value(b, 'drop')
+
+    action = None
+    if drop > (yaw + pitch) / 2.0:
+        action = 'drop'
+    else:
+        #round them to the nearest 0.5 for yaw and near 1.0 for pitch
+        yaw = round(yaw * 2.0) / 2
+        pitch = round(pitch)
+        yaw_categories = yaw_pitch_to_category['yaw'][yaw]
+        pitch_categories = yaw_pitch_to_category['pitch'][pitch]
+        action = [x for x in yaw_categories if x in pitch_categories][0]
+        print('stop...')
+
+
 
     actr.erase_buffer('blending')
 
