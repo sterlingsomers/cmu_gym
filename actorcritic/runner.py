@@ -679,7 +679,7 @@ def handle_observation(observation):
     drop = actr.chunk_slot_value(b, 'drop')
 
     action = None
-    if drop > (yaw + pitch) / 2.0:
+    if drop > yaw and drop > pitch:
         action = 'drop'
     else:
         #round them to the nearest 0.5 for yaw and near 1.0 for pitch
