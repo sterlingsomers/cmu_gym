@@ -276,8 +276,8 @@ def similarity(val1, val2):
         # return 0
         # r1 = spatial.distance.minkowski(val1[1], val2[1],1) * - 1
         r2 = spatial.distance.euclidean(val1[1], val2[1]) * - 1
-        # r3 = spatial.distance.cosine(val1[1], val2[1]) * -1
-        return r2
+        r3 = spatial.distance.cosine(val1[1], val2[1]) * -1
+        return r3
 
     # return 0
     return_value = abs(val1[1] - val2[1]) * -1
@@ -443,7 +443,7 @@ def reset_actr():
         for action_category in allchunks:
             action_chunks = allchunks[action_category]
             random.shuffle(action_chunks)
-            action_chunks = action_chunks[:200] #select the first 100 (after randomized)
+            action_chunks = action_chunks[:3] #select the first 100 (after randomized)
 
             #before addding, fc needs to be transformed, and floats have to be fixed to be json-able
             for chunk in action_chunks:
@@ -453,7 +453,7 @@ def reset_actr():
                 fc = [chunk[fc_index][1]]
                 # fc = np.array(chunk[fc_index][1])
                 # fc.reshape(1,-1)
-                fc_transform = normalizer.transform(fc)
+                fc_transform = interp_dict['fc'].transform(fc)#step['fc'] = interp_dict['fc'].transform([step['fc']]).astype(float).tolist()[0]#normalizer.transform(fc)
                 chunk[fc_index] = ['fc',fc_transform.astype(float).tolist()[0]]
 
                 chunk = [float(x) if type(x) == np.float64 else x for x in chunk]
@@ -656,7 +656,7 @@ def handle_observation(observation):
                                      -1.0:['left_up','left_down','left_level']},
                              'pitch':{0:['left_level','center_level','diagonal_left_level','diagonal_right_level','right_level'],
                                       1:['left_up','right_up','center_up','diagonal_right_up','diagonal_left_up'],
-                                      -1:['left_down','right_down','diagnoal_right_down','diagonal_left_down','center_down']}
+                                      -1:['left_down','right_down','diagonal_right_down','diagonal_left_down','center_down']}
                              }
 
 
@@ -687,6 +687,7 @@ def handle_observation(observation):
         pitch = round(pitch)
         yaw_categories = yaw_pitch_to_category['yaw'][yaw]
         pitch_categories = yaw_pitch_to_category['pitch'][pitch]
+        print(yaw_categories, pitch_categories)
         action = [x for x in yaw_categories if x in pitch_categories][0]
         # print('stop...')
 

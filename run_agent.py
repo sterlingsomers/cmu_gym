@@ -78,7 +78,7 @@ flags.DEFINE_bool("trace", False, "Whether to trace the code execution.")
 flags.DEFINE_bool("save_replay", False, "Whether to save a replay at the end.")
 
 #ACTR FLAGS
-flags.DEFINE_integer('episodes_per_actr_load', 5, 'how many episodes before resetting actr')
+flags.DEFINE_integer('episodes_per_actr_load', 20, 'how many episodes before resetting actr')
 flags.DEFINE_integer('episode_count', 0, 'count')
 flags.DEFINE_bool('reset_actr', False, 'to reset actr on step or not')
 # flags.DEFINE_integer('data_per_action_category', 200, 'number of data points to load into declarative for each action type')
