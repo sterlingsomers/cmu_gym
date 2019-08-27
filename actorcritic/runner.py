@@ -10,6 +10,7 @@ from common.util import calculate_n_step_reward, general_n_step_advantage, combi
     dict_of_lists_to_list_of_dicst
 import tensorflow as tf
 from absl import flags
+import random
 # from time import sleep
 from actorcritic.policy import FullyConvPolicy, MetaPolicy, RelationalPolicy
 
@@ -258,6 +259,9 @@ def similarity(val1, val2):
     '''Linear tranformation, abslute difference'''
     #val2 is recalled, val1 is the observation
     # import pdb; pdb.set_trace()
+    # if not val1[0] == 'FC':
+    #     print(val1[0])
+
     if val1 == val2:
         return 0
     # import pdb; pdb.set_trace()
@@ -272,9 +276,9 @@ def similarity(val1, val2):
 
     if val1[0] == 'FC':
         # return 0
-        # r1 = spatial.distance.minkowski(val1[1], val2[1],1) * - 1
+        r1 = spatial.distance.minkowski(val1[1], val2[1],1) * - 1
         r2 = spatial.distance.euclidean(val1[1], val2[1]) * - 1
-        # r3 = spatial.distance.cosine(val1[1], val2[1]) * -1
+        r3 = spatial.distance.cosine(val1[1], val2[1]) * -1
         return r2
 
     # return 0
@@ -376,9 +380,9 @@ def reset_actr():
         model_name = 'egocentric_allocentric_salience.lisp'
         model_path = '/Users/paulsomers/COGLE/gym-gridworld/'
 
-        chunk_file_name = 'chunks_cluster_centers_15actions_2000_fc_ALLMAPS_400randommax_ego.pkl'
+        chunk_file_name = 'chunk_dict_ego_entropy.pkl'
         #chunk_path = os.path.join(model_path,'data')
-        chunk_path = ''
+        chunk_path = '/Users/paulsomers/COGLE/gym-gridworld/'
         actr.add_command('similarity_function',similarity)
         actr.add_command('ticker', actr_time)
 
@@ -418,7 +422,14 @@ def reset_actr():
 
         #load all the chunks
         allchunks = pickle.load(open(os.path.join(chunk_path,chunk_file_name),'rb'))
-        for chunk in allchunks:
+
+        for action_category in allchunks:
+            action_chunks = allchunks[action_category]
+            random.shuffle(action_chunks)
+            action_chunks = action_chunks[:3] #select the first 100 (after randomized)
+
+            #before addding, fc needs to be transformed, and floats have to be fixed to be json-able
+            for chunk in action_chunks:
 
             #fc needs to be transformed
             fc_index = chunk.index('fc') + 1
@@ -606,7 +617,7 @@ def handle_observation(observation):
     #     action_choice[key] = access_by_key(key.upper(), blend_return)
     # action = max(action_choice.items(), key=operator.itemgetter(1))[0]
 
-    return combos_to_actions[action]
+    return action_choice#combos_to_actions[action]
 
     # action_choice_pitch = {'up': 0, 'down': 0, 'level': 0}
     # action_choice_yaw = {'left': 0, 'diagonal_left': 0, 'center': 0, 'diagonal_right': 0, 'right': 0}
@@ -970,13 +981,16 @@ class Runner(object):
 
         network_action_ids = np.array(action_ids, copy=True)
         actr_observation = create_actr_observation(step_data)
-        actr_action = handle_observation(actr_observation)
+        actr_distribution = handle_observation(actr_observation)
 
-        action_ids = np.array([actr_action])
+        # action_ids = np.array([actr_action])
         # nav_runner.envs.step(action)
 
         #reset actr every step (load chunks, etc.)
         # reset_actr()
+        if flags.FLAGS.reset_actr:
+            reset_actr()
+            flags.FLAGS.reset_actr = False
 
         print('|actions:', 'net', network_action_ids, 'actr', action_ids)
 
@@ -992,4 +1006,4 @@ class Runner(object):
         self.batch_counter += 1
         #print('Batch %d finished' % self.batch_counter)
         sys.stdout.flush()
-        return obs_raw[0:-3], action_ids[0], value_estimate[0], obs_raw[1], obs_raw[2], obs_raw[3], fc, action_probs
+        return obs_raw[0:-3], action_ids[0], value_estimate[0], obs_raw[1], obs_raw[2], obs_raw[3], fc, action_probs, actr_distribution

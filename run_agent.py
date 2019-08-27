@@ -77,6 +77,12 @@ flags.DEFINE_bool("trace", False, "Whether to trace the code execution.")
 
 flags.DEFINE_bool("save_replay", False, "Whether to save a replay at the end.")
 
+#ACTR FLAGS
+flags.DEFINE_integer('episodes_per_actr_load', 20, 'how many episodes before resetting actr')
+flags.DEFINE_integer('episode_count', 0, 'count')
+flags.DEFINE_bool('reset_actr', False, 'to reset actr on step or not')
+flags.DEFINE_bool('trace_mode', False, 'Change trace mode to T if you want the net to take the action, ACTR to follow')
+# flags.DEFINE_integer('data_per_action_category', 200, 'number of data points to load into declarative for each action type')
 #flags.DEFINE_string("map", None, "Name of a map to use.")
 
 
@@ -288,6 +294,10 @@ def main():
             while runner.episode_counter <= (FLAGS.episodes - 1) and running==True:
                 print('Episode: ', runner.episode_counter)
 
+                if flags.FLAGS.episode_count >= flags.FLAGS.episodes_per_actr_load:
+                    flags.FLAGS.reset_actr = True
+                    flags.FLAGS.episode_count = 0
+
                 #intialize for the experiments
                 runner.envs.hiker = (11,8)
                 runner.envs.drone = (18,11)
@@ -309,6 +319,7 @@ def main():
                 mb_crash = []
                 mb_map_volume = [] # obs[0]['volume']==envs.map_volume
                 mb_ego = []
+                mb_actr_probs = []
 
                 runner.reset_demo()  # Cauz of differences in the arrangement of the dictionaries
                 map_xy = runner.envs.map_image
@@ -359,7 +370,7 @@ def main():
                     # dictionary[nav_runner.episode_counter]['flag'].append(drop_flag)
 
                     # INTERACTION
-                    obs, action, value, reward, done, info, fc, action_probs = runner.run_trained_batch()
+                    obs, action, value, reward, done, info, fc, action_probs, actr_probs = runner.run_trained_batch()
 
                     if done and not info['success']:
                         print('Crash, terminate episode')
@@ -372,6 +383,7 @@ def main():
                     mb_fc.append(fc)
                     mb_values.append(value)
                     mb_crash.append(runner.envs.crash)
+                    mb_actr_probs.append(actr_probs)
 
                     step_data['action'] = action
                     step_data['reward'] = reward
@@ -440,10 +452,11 @@ def main():
                 dictionary[runner.episode_counter]['stuck_epis'] = stuck_flag# if stuck_flag else 0
 
                 runner.episode_counter += 1
+                flags.FLAGS.episode_count += 1
                 clock.tick(15)
 
             print("...saving dictionary.")
-            folder = '/Users/paulsomers/COGLE/gym-gridworld/data/experiment/'
+            folder = '/Users/paulsomers/COGLE/gym-gridworld/data/test/'
             ACTR_st = 'eBEHAVE_FC_noise030_MP3_' #BEHAVE_FC_noisexxx_
             map_name = str(runner.envs._map[0]) + '-' + str(runner.envs._map[1])#'custom'#str(runner.envs._map[0]) + '-' + str(runner.envs._map[1])
             drone_init_loc = str(runner.envs.drone[0]) + '-' + str(runner.envs.drone[1])
@@ -451,11 +464,11 @@ def main():
             hiker_loc = str(runner.envs.hiker[0]) + '-' + str(runner.envs.hiker[1])
             type = '.tj'
             # path = folder + map_name + '_' + drone_init_loc + '_' + drone_head_alt + '_' + hiker_loc + '_' + str(FLAGS.episodes) + type
-            path = folder + ACTR_st + 'MAP' + map_name + '_' + 'D' + drone_init_loc + '_' + 'HeadAlt' + drone_head_alt + '_' + 'H' + hiker_loc + '_' + str(FLAGS.episodes) + type
+            path = folder + ACTR_st + 'TEST' + 'MAP' + map_name + '_' + 'D' + drone_init_loc + '_' + 'HeadAlt' + drone_head_alt + '_' + 'H' + hiker_loc + '_' + str(FLAGS.episodes) + type
             pickle_in = open(path,'wb')
             pickle.dump(dictionary, pickle_in)
 
-            with open('./data/all_data' + map_name + '_' + drone_init_loc + '_' + drone_head_alt + '_' + hiker_loc + str(FLAGS.episodes) + '.lst', 'wb') as handle:
+            with open('./data/all_data' + 'TEST' +map_name + '_' + drone_init_loc + '_' + drone_head_alt + '_' + hiker_loc + str(FLAGS.episodes) + '.lst', 'wb') as handle:
                 pickle.dump(all_data, handle)
             # with open('./data/All_maps_20x20_500.tj', 'wb') as handle:
             #     pickle.dump(dictionary, handle)
