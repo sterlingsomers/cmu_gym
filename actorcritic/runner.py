@@ -11,7 +11,7 @@ from common.util import calculate_n_step_reward, general_n_step_advantage, combi
 import tensorflow as tf
 from absl import flags
 # from time import sleep
-from actorcritic.policy import FullyConvPolicy, MetaPolicy, RelationalPolicy, FullyConv3DPolicy, FullyConvPolicyAlt
+from actorcritic.policy import FullyConvPolicy, MetaPolicy, RelationalPolicy, FullyConv3DPolicy, FullyConvPolicyAlt#, LSTM
 
 PPORunParams = namedtuple("PPORunParams", ["lambda_par", "batch_size", "n_epochs"])
 
@@ -51,6 +51,8 @@ class Runner(object):
             self.policy_type = FullyConv3DPolicy
         elif policy_type == 'AlloAndAlt':
             self.policy_type = FullyConvPolicyAlt
+        elif policy_type == 'LSTM':
+            self.policy_type = LSTM
         else: print('Unknown Policy')
 
         assert self.agent.mode in [ACMode.A2C, ACMode.PPO]
@@ -77,6 +79,10 @@ class Runner(object):
         summary = tf.Summary()
         summary.value.add(tag='sc2/episode_score', simple_value=score)
         self.agent.summary_writer.add_summary(summary, self.episode_counter)
+
+    def first_nonzero(self, arr, axis):#, invalid_val=self.n_steps):
+        mask = arr != 0
+        return np.where(mask.any(axis=axis), mask.argmax(axis=axis), self.n_steps)
 
     def _handle_episode_end(self, timestep, length, last_step_r):
         #(MINE) This timestep is actually the last set of feature observations
@@ -202,6 +208,7 @@ class Runner(object):
         mb_values = np.zeros((self.envs.num_envs, self.n_steps + 1), dtype=np.float32)
         mb_rewards = np.zeros((self.envs.num_envs, self.n_steps), dtype=np.float32) # n x d array (ndarray)
         mb_done = np.zeros((self.envs.num_envs, self.n_steps), dtype=np.int32)
+
         # EVERYTHING IS HAPPENING ON PARALLEL!!!
         r_=np.zeros((self.envs.num_envs, 1), dtype=np.float32) # Instead of 1 you might use n_steps
         a_=np.zeros((self.envs.num_envs), dtype=np.int32)
@@ -234,7 +241,7 @@ class Runner(object):
                 if t == True: # done=true
                     # Put reward in scores
                     epis_reward = obs_raw[3][indx]['episode']['r']
-                    epis_length = obs_raw[3][indx]['episode']['l']
+                    epis_length = obs_raw[3][indx]['episode']['l'] # EPISODE LENGTH HERE!!!
                     last_step_r = obs_raw[1][indx]
                     self._handle_episode_end(epis_reward, epis_length, last_step_r) # The printing score process is NOT a parallel process apparrently as you input every reward (t) independently
                     # Here you have to reset the rnn_state of that env: rnn_state[i] = 0 or smth like that
@@ -243,10 +250,18 @@ class Runner(object):
                     #reset the relevant r_ and a_
                     r_[indx] = 0
                     a_[indx] = 0
+
                 indx = indx + 1 # finished envs count
 
+        mb_l = self.first_nonzero(mb_done,axis=1) # the last obs s-->sdone are not getting in the training!!!This is because sdone--> ? and R=0
+        # Substitute 0s with 1 declaring 1 step
+        # mb_l[mb_l==0] = 1
+        mb_l = mb_l + 1 # You start stepping from step 0 to 1
+        # Below: r + gammaV(s')(1-done) - V(s)// V(s')=mb_values[:,-1] but if its done we dont care if we put the last nstep V or the actual V(s_done+1) as the whole term is gonna be zero
+        # From V(nstep) estimate the expected reward - what if though we finished the sequence earlier???
+        # This is for the last obs which you do not store. All other values that will be used as targets are available
         mb_values[:, -1] = self.agent.get_recurrent_value(latest_obs, rnn_state, r_, a_) # Put at last slot the estimated future expected reward for bootstrap the Vt+1
-
+        # Mask below the values that enter the nstep advantage
         n_step_advantage = general_n_step_advantage(
             mb_rewards,
             mb_values,
@@ -265,15 +280,16 @@ class Runner(object):
 
         full_input.update(self.action_processer.combine_batch(mb_actions))
         full_input.update(self.obs_processer.combine_batch(mb_obs))
-        full_input.update(self.action_processer.combine_batch(prev_actions))
-        full_input.update(self.action_processer.combine_batch(prev_rewards))
-        full_input = {k: combine_first_dimensions(v) for k, v in full_input.items()}
+        # full_input.update(self.action_processer.combine_batch(prev_actions)) # THIS FEEDS AGAIN THE SELECTED_ID_ACTION PLACEHOLDER!!!!
+        # full_input.update(self.action_processer.combine_batch(prev_rewards)) # THIS FEEDS AGAIN THE SELECTED_ID_ACTION PLACEHOLDER!!!!
+        full_input = {k: combine_first_dimensions(v) for k, v in full_input.items()} # YOU CAN COMMENT THIS AND UNCOMMENT BELOW
+        # full_input = {k: np.swapaxes(v,0,1) for k, v in full_input.items()}
 
         if not self.do_training:
             pass
         elif self.agent.mode == ACMode.A2C:
             if self.policy_type == MetaPolicy:
-                self.agent.train_recurrent(full_input,prev_rewards,prev_actions)
+                self.agent.train_recurrent(full_input,prev_rewards,prev_actions, mb_l)
             else:
                 self.agent.train(full_input)
         elif self.agent.mode == ACMode.PPO:

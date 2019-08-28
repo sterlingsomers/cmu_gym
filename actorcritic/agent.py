@@ -5,7 +5,7 @@ import tensorflow as tf
 from pysc2.lib import actions
 from tensorflow.contrib import layers
 from tensorflow.contrib.layers.python.layers.optimizers import OPTIMIZER_SUMMARIES
-from actorcritic.policy import FullyConvPolicy, MetaPolicy, RelationalPolicy, FullyConvPolicyAlt, FullyConv3DPolicy
+from actorcritic.policy import FullyConvPolicy, MetaPolicy, RelationalPolicy, FullyConvPolicyAlt, FullyConv3DPolicy#, LSTM
 from common.preprocess import ObsProcesser, FEATURE_KEYS, AgentInputTuple
 from common.util import weighted_random_sample, select_from_each_row, ravel_index_pairs
 import tensorboard.plugins.beholder as beholder_lib
@@ -33,8 +33,8 @@ def _get_placeholders(spatial_dim):
         (FEATURE_KEYS.selected_spatial_action, tf.int32, [None, 2]),
         (FEATURE_KEYS.selected_action_id, tf.int32, [None]),
         (FEATURE_KEYS.value_target, tf.float32, [None]),
-        (FEATURE_KEYS.rgb_screen, tf.float32, [None, 100, 100, 3]),
-        (FEATURE_KEYS.alt_view, tf.float32, [None, 100, 100, 3]),
+        (FEATURE_KEYS.rgb_screen, tf.float32, [None, 32, 100, 100, 3]),
+        (FEATURE_KEYS.alt_view, tf.float32, [None, 32, 100, 100, 3]),
         (FEATURE_KEYS.player_relative_screen, tf.int32, [None, sd, sd]),
         (FEATURE_KEYS.player_relative_minimap, tf.int32, [None, sd, sd]),
         (FEATURE_KEYS.advantage, tf.float32, [None]),
@@ -132,6 +132,8 @@ class ActorCriticAgent:
             self.policy = FullyConv3DPolicy
         elif policy == 'AlloAndAlt':
             self.policy = FullyConvPolicyAlt
+        elif policy == 'LSTM':
+            self.policy = LSTM
         else: print('Unknown Policy')
 
 
@@ -295,21 +297,27 @@ class ActorCriticAgent:
     def step_recurrent(self, obs, rnn_state, prev_reward, prev_action):
         # (MINE) Pass the observations through the net
         feed_dict = self._input_to_feed_dict(obs)
+        feed_dict['rgb_screen:0'] = np.expand_dims(feed_dict['rgb_screen:0'],axis=1)
+        feed_dict['rgb_screen:0'] = np.tile(feed_dict['rgb_screen:0'], (1, 32, 1, 1, 1)) # ones declare no change in dimension of the original array
+        feed_dict['alt_view:0'] = np.expand_dims(feed_dict['alt_view:0'],axis=1)
+        feed_dict['alt_view:0'] = np.tile(feed_dict['alt_view:0'], (1, 32, 1, 1, 1))
 
         action_id, value_estimate, state_out = self.sess.run(
             [self.sampled_action_id, self.value_estimate, self.theta.state_out],
             feed_dict={
                 self.placeholders.rgb_screen: feed_dict['rgb_screen:0'],
                 self.placeholders.alt_view: feed_dict['alt_view:0'],
-                self.theta.prev_rewards: prev_reward,#np.vstack(prev_rewards),
-                self.theta.prev_actions: prev_action,
+                # self.theta.prev_rewards: prev_reward,#np.vstack(prev_rewards),
+                # self.theta.prev_actions: prev_action,
                 # self.theta.state : rnn_state
-                # self.theta.step_size: [1],
+                self.theta.mb_dones: [1,1],
                 self.theta.state_in[0]: rnn_state[0], # when you feed it has to be numpy and not a tensor
                 self.theta.state_in[1]: rnn_state[1]
             }
         )
 
+        action_id = np.reshape(action_id, [2, 32])[:,0]
+        value_estimate = np.reshape(value_estimate, [2, 32])[:, 0]
         return action_id, value_estimate, state_out
 
     def step_eval(self, obs):
@@ -350,8 +358,13 @@ class ActorCriticAgent:
 
         self.train_step += 1
 
-    def train_recurrent(self, input_dict, prev_reward, prev_action): # The input dictionary is designed in the runner with advantage function and other stuff in order to be used in the training.
+    def train_recurrent(self, input_dict, prev_reward, prev_action, mb_l): # The input dictionary is designed in the runner with advantage function and other stuff in order to be used in the training.
         feed_dict = self._input_to_feed_dict(input_dict)
+        feed_dict['rgb_screen:0'] = np.expand_dims(feed_dict['rgb_screen:0'],axis=1)
+        feed_dict['rgb_screen:0'] = np.reshape(feed_dict['rgb_screen:0'], [2, 32, 100, 100, 3]) #TODO: BETTER TO BRING THEM IN READY AS WE DONT KNOW IF ORDER IS PRESERVED WHEN HE COMBINES DIMS in runner
+        feed_dict['alt_view:0'] = np.expand_dims(feed_dict['alt_view:0'], axis=1)
+        feed_dict['alt_view:0'] = np.reshape(feed_dict['alt_view:0'], [2, 32, 100, 100, 3])
+
         ops = [self.train_op] # (MINE) From build model above the train_op contains all the operations for training
 
         write_all_summaries = (
@@ -375,9 +388,10 @@ class ActorCriticAgent:
             self.placeholders.selected_action_id: feed_dict['selected_action_id:0'],
             self.placeholders.rgb_screen: feed_dict['rgb_screen:0'],
             self.placeholders.alt_view: feed_dict['alt_view:0'],
-            self.theta.prev_rewards: prev_reward,# feed_dict['prev_rewards:0'],  # np.vstack(prev_rewards),
-            self.theta.prev_actions: prev_action,#feed_dict['prev_actions:0'],
+            # self.theta.prev_rewards: prev_reward,# feed_dict['prev_rewards:0'],  # np.vstack(prev_rewards),
+            # self.theta.prev_actions: prev_action,#feed_dict['prev_actions:0'],
             # self.theta.step_size: [32],
+            self.theta.mb_dones: mb_l,
             self.theta.state_in[0]: rnn_state[0],
             self.theta.state_in[1]: rnn_state[1]
         })  # (MINE) TRAIN!!!
@@ -393,16 +407,23 @@ class ActorCriticAgent:
 
     def get_recurrent_value(self, obs, rnn_state, prev_reward, prev_action):
         feed_dict = self._input_to_feed_dict(obs)
-        return self.sess.run(self.value_estimate,            feed_dict={
+        feed_dict['rgb_screen:0'] = np.expand_dims(feed_dict['rgb_screen:0'],axis=1)
+        feed_dict['rgb_screen:0'] = np.tile(feed_dict['rgb_screen:0'], (1, 32, 1, 1, 1)) # ones declare no change in dimension of the original array
+        feed_dict['alt_view:0'] = np.expand_dims(feed_dict['alt_view:0'],axis=1)
+        feed_dict['alt_view:0'] = np.tile(feed_dict['alt_view:0'], (1, 32, 1, 1, 1))
+
+        value_estimate =  self.sess.run(self.value_estimate, feed_dict={
                 self.placeholders.rgb_screen: feed_dict['rgb_screen:0'],
                 self.placeholders.alt_view: feed_dict['alt_view:0'],
-                self.theta.prev_rewards: prev_reward,#np.vstack(prev_rewards),
-                self.theta.prev_actions: prev_action,
-                # self.theta.step_size: [1],
+                # self.theta.prev_rewards: prev_reward,#np.vstack(prev_rewards),
+                # self.theta.prev_actions: prev_action,
+                self.theta.mb_dones: [1,1],
                 self.theta.state_in[0]: rnn_state[0], # when you feed it has to be numpy and not a tensor
                 self.theta.state_in[1]: rnn_state[1]
             }
-                             )
+             )
+        value_estimate = np.reshape(value_estimate, [2, 32])[:, 0]
+        return value_estimate
 
     def flush_summaries(self):
         self.summary_writer.flush()

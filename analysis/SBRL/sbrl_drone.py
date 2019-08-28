@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from pysbrl import BayesianRuleList, train_sbrl
-from sklearn.datasets import load_iris, load_breast_cancer
+#from sklearn.datasets import load_iris, load_breast_cancer
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from mdlp.discretization import MDLP
@@ -79,7 +79,7 @@ df['actions'].value_counts()
 
 def predict_action(df):
     # Select and combine columns
-    data = df[['altitudes','hiker_in_ego','drone_alt']]
+    data = df[['altitudes','hiker_in_ego','drone_alt']] # altitude vectors contain 5 features.  Drone_alt might need one hot encoding
     data['combined']= data.values.tolist()
     v = data['combined'].values
     # Format the nested lists into a flat vector
