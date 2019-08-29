@@ -20,7 +20,7 @@ class MavsimLibHandlerTests(unittest.TestCase):
 
         map = mavsim.get_submap( (0,0),(20,20) )
 
-        numpy = map['img']
+        numpy = map['rgb_image_with_actors']
 
         plt.imshow(numpy)
         plt.show()

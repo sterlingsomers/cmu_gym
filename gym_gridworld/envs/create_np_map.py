@@ -6,15 +6,17 @@ from pathlib import Path
 import itertools
 path='./gym_gridworld/'
 
+MAX_ALTITUDE = 5
 
-def get_feature_value_maps(x,y,map):
+def get_feature_value_maps():
+
     '''This will create, load, and expand a feature-> value dictionary and
     a value-> feature dictionary.
     Will return 2 dictionaries.'''
     feature_value_map = {}
     value_feature_map = {}
     #first check for existing feature maps
-    print("create_np_map.py:get_feature_value_maps cwd {}".format(os.getcwd()))
+    #print("create_np_map.py:get_feature_value_maps cwd {}".format(os.getcwd()))
     feature_to_value = Path(path+'features/features_to_values.dict')
     value_to_feature = Path(path+'features/values_to_features.dict')
 
@@ -81,8 +83,8 @@ def get_feature_value_maps(x,y,map):
 #     #todo fix value_feature_map and feature_maps -> they should be the same (except inside out)
 #
 #     return_dict['vol'] = vol
-#     return_dict['flat'] = flat
-#     return_dict['img'] = img
+#     return_dict['tile_typeid_array'] = flat
+#     return_dict['rgb_image_with_actors'] = img
 #
 #     #add the hiker and the drone
 #     feature_value_map['hiker'] = {}
@@ -120,7 +122,7 @@ def convert_map_to_volume_dict(x,y,map,width,height):
                  'drone':{0:[102,0,51],1:[153,0,153],2:[255,51,255],3:[255,153,255],4:[255,0,0]},
                  'hiker':[255,0,0]}
 
-    feature_value_map,value_feature_map = get_feature_value_maps(x,y,map)
+    feature_value_map,value_feature_map = get_feature_value_maps()
     if list(value_feature_map.keys()):
         value = max(list(value_feature_map.keys())) + 1
     else:
@@ -154,8 +156,8 @@ def convert_map_to_volume_dict(x,y,map,width,height):
     #todo fix value_feature_map and feature_maps -> they should be the same (except inside out)
 
     return_dict['vol'] = vol
-    return_dict['flat'] = flat
-    return_dict['img'] = img
+    return_dict['tile_typeid_array'] = flat
+    return_dict['rgb_image_with_actors'] = img
 
     #add the hiker and the drone
     feature_value_map['hiker'] = {}
@@ -215,27 +217,38 @@ def map_to_volume_dict(path_str, x=0,y=0,width=5,height=5):
     return convert_map_to_volume_dict(x,y,map,width,height)
 
 
-def create_custom_map(map,offset=(-1,-1)):
-    features_to_values, values_to_features = get_feature_value_maps(0, 0, 0)
+
+def create_custom_map( tile_typeid_array : np.ndarray,
+                       offset : tuple = (-1, -1)       ):
+
+    """Takes a numpy array of tile_type_ids and turns it into a CMU style map dictionary """
+
+    features_to_values, values_to_features = get_feature_value_maps()
+
     if not features_to_values:
         return None
+
     color_map = {'pine tree': [0, 100, 14], 'pine trees': [0, 172, 23], 'grass': [121, 151, 0],
                  'bush': [95, 98, 57], 'bushes': [164, 203, 8], 'trail': [145, 116, 0],
                  'water': [0, 34, 255],
                  'drone': {0: [102, 0, 51], 1: [153, 0, 153], 2: [255, 51, 255], 3: [255, 153, 255], 4: [255, 0, 0]},
                  'hiker': [255, 0, 0]}
-    vol = np.zeros((5,map.shape[0],map.shape[1]))
+
+    vol = np.zeros( ( MAX_ALTITUDE,                  # Altitudes
+                      tile_typeid_array.shape[0],    # Rows
+                      tile_typeid_array.shape[1]) )  # Columns
+
     # create the img
-    img = np.zeros((map.shape[0], map.shape[1], 3), dtype=np.uint8)
+    rgb_image = np.zeros((tile_typeid_array.shape[0], tile_typeid_array.shape[1], 3), dtype=np.uint8)
     for layer_num in range(vol.shape[0]):
         if layer_num == 0:
-            vol[layer_num] = map
+            vol[layer_num] = tile_typeid_array
         else:
             #combinations = list(itertools.product(range(0, canvas.shape[0]), range(0, canvas.shape[0])))
             for x,y in list(itertools.product(range(0,vol.shape[1]), range(0,vol.shape[2]))):
-                img[x,y,:] = values_to_features[map[x,y]]['color']
-                if layer_num <= values_to_features[map[x,y]]['alt']:
-                    vol[layer_num,x,y] = map[x,y]
+                rgb_image[x,y,:] = values_to_features[tile_typeid_array[x, y]]['color']
+                if layer_num <= values_to_features[tile_typeid_array[x, y]]['alt']:
+                    vol[layer_num,x,y] = tile_typeid_array[x, y]
     layer_num += 1
 
 
@@ -245,8 +258,9 @@ def create_custom_map(map,offset=(-1,-1)):
     features_to_values['drone'] = {}
     # drone
     # value += 20
+
     value = max(list(values_to_features.keys())) + 1
-    for i in range(5):
+    for i in range(5): # Copy those values that do not change to all altitudes?
         features_to_values['drone'][i] = {'val': value, 'color': color_map['drone'][i]}
         values_to_features[value] = {'feature': 'drone', 'alt': i, 'color': color_map['drone'][i]}
         value += 1
@@ -260,12 +274,14 @@ def create_custom_map(map,offset=(-1,-1)):
     values_to_features[value] = {'feature': 'hiker', 'alt': 0, 'color': color_map['hiker']}
 
     return_dict = {}
+
     return_dict['feature_value_map'] = features_to_values
     return_dict['value_feature_map'] = values_to_features
-    return_dict['vol'] = vol
-    return_dict['flat'] = map
-    return_dict['img'] = img
-    return_dict['offset'] = offset
+
+    return_dict['vol']    = vol
+    return_dict['tile_typeid_array']   = tile_typeid_array
+    return_dict['rgb_image_with_actors']  = rgb_image
+    return_dict['submap_offset'] = offset
 
     return return_dict
 

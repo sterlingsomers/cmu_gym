@@ -12,6 +12,12 @@ from util import deep_update
 import pandas as pd
 #from functools import partial
 
+import pygame
+import time
+import random
+
+
+
 from absl import flags
 from actorcritic.agent import ActorCriticAgent, ACMode
 from actorcritic.runner import Runner, PPORunParams
@@ -125,7 +131,8 @@ default_params = {
         'verbose': False,
         'sleep_time': 0,
         'n_envs':10,
-        'if_output_exists':'fail'   # 'continue', 'overwrite'
+        'if_output_exists':'fail',   # 'continue', 'overwrite'
+        'use_keyboard_control':False
     },
 
     'env': {
@@ -156,10 +163,12 @@ default_params = {
             'scenario':"['COGLE_0:stubland_1:512_2:512_3:256_4:7_5:24|-0.1426885426044464/Terrain_0:0_1:100_2:0.05_3:0.5_4:0.05_5:0.5_6:0.05_7:0.5_8:0.5_9:0.5_10:0.7_11:0.3_12:0.5_13:0.5_14:True/', '0.36023542284965515/Ocean_0:60/', '-0.43587446212768555/River_0:0.01_1:100/', '-0.3501245081424713/Tree_0:500_1:20.0_2:4.0_3:0.01_4:2.0_5:0.1_6:1.9_7:3.0_8:2.2_9:3.5/', '0.6151155829429626/Airport_0:15.0_1:25_2:35_3:1000_4:[]/', '0.34627288579940796/Building_0:150_1:10.0_2:[]_3:1/', '0.31582069396972656/Road_0:3_1:500/', '-0.061891376972198486/DropPackageMission_0:1_3:Find the hiker last located at (88, 186, 41)_4:Provision the hiker with Food_5:Return and report to Southeast International Airport (SEI) airport_6:Southeast Regional Airport_7:Southeast International Airport_8:0_9:20.0_10:20.0_11:40.0/', '-0.25830233097076416/Stub_0:0.8_1:1.0_2:1.0_3:1.0_4:1.0_5:1.0/']",
             'verbose': False,
             'halt_on_error': True,
+            'server_ip':None, # 0.0.0.0  should be used for local host
             'nodb':True,  # you also need to set database_url to None for it to stop using the database!!!
             'database_url': None, # 'postgresql://postgres:docker@localhost:5432/apm_missions'
                # If you need a database, you can download a docker and run:
                #   docker run --rm --name pg-docker -e POSTGRES_PASSWORD=docker -d -p 5432:5432 -v $HOME/docker/volumes/postgres:/var/lib/postgresql/data postgres
+            'show_global_map':False
         },
         'use_mavsim_simulator':False,
         'verbose':False
@@ -170,6 +179,17 @@ default_params = {
     }
 
 }
+
+
+# Pygame Color Definitions
+
+BLUE = (128, 128, 255)
+DARK_BLUE = (1, 50, 130)
+RED = (255, 192, 192)
+BLACK = (0, 0, 0)
+WHITE = (255, 255, 255)
+
+
 
 class Simulation:
 
@@ -282,7 +302,68 @@ class Simulation:
         print("# batch %d" % i)
         sys.stdout.flush()
 
+    def wait_for_key_event(self):
 
+        help = "\n" + \
+               "Use the number pad keys to fly in given directions\n" + \
+               "( or numbers of keyboard and 'Escape' or 'q' to exit \n" + \
+               "\n" + \
+               "            Left   Forward  Right \n" + \
+               "   Up         7       8       9   \n" + \
+               "   Level      4       5       6   \n" + \
+               "   Down       1       2       3   \n" + \
+               "\n" +\
+               "   SPACE -- take action recommended by policy\n"+\
+               "\n"
+
+        print(help)
+
+        action = 'Unset'
+
+        while action=='Unset':
+
+            event = pygame.event.wait()
+
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+
+            elif event.type == pygame.KEYDOWN:
+
+                if (event.key == pygame.K_ESCAPE or event.key == pygame.K_q ):
+                    pygame.quit()
+                    sys.exit()
+
+                if (event.key == pygame.K_KP1 or event.key == pygame.K_1):
+                    action = 0
+                elif (event.key == pygame.K_KP2 or event.key == pygame.K_2):
+                    action = 1
+                elif (event.key == pygame.K_KP3 or event.key == pygame.K_3):
+                    action = 2
+
+
+                elif (event.key == pygame.K_KP4 or event.key == pygame.K_4):
+                    action = 3
+                elif (event.key == pygame.K_KP5 or event.key == pygame.K_5):
+                    action = 4
+                elif (event.key == pygame.K_KP6 or event.key == pygame.K_6):
+                    action = 5
+
+                elif (event.key == pygame.K_KP7 or event.key == pygame.K_7):
+                    action = 6
+                elif (event.key == pygame.K_KP8 or event.key == pygame.K_8):
+                    action = 7
+                elif (event.key == pygame.K_KP9 or event.key == pygame.K_9):
+                    action = 8
+
+                elif (event.key == pygame.K_KP0 or event.key == pygame.K_0):
+                    action = None
+
+
+            # action stays till renewed no matter what key you press!!! So whichever key will do the last action
+            pygame.event.clear()
+
+        return action
 
 
     def make_custom_env(self,env_id, num_env, seed, wrapper_kwargs=None, start_index=0):
@@ -400,38 +481,21 @@ class Simulation:
             print("Testing mode")
             try:
 
-                import pygame
-                import time
-                import random
                 # pygame.font.get_fonts() # Run it to get a list of all system fonts
                 display_w = 1200
                 display_h = 720
 
-                BLUE = (128, 128, 255)
-                DARK_BLUE = (1, 50, 130)
-                RED = (255, 192, 192)
-                BLACK = (0, 0, 0)
-                WHITE = (255, 255, 255)
 
                 if self.run_params['show_pygame_display']:
                     pygame.init()
-                    gameDisplay = pygame.display.set_mode((display_w, display_h))
-                    gameDisplay.fill(DARK_BLUE)
-                    pygame.display.set_caption('Neural Introspection')
+                    self.game_display = pygame.display.set_mode((display_w, display_h))
+                    pygame.display.set_caption('Gridworld Display')
                     clock = pygame.time.Clock()
 
-                def screen_mssg_variable(text, variable, area):
-                    font = pygame.font.SysFont('arial', 16)
-                    txt = font.render(text + str(variable), True, WHITE)
-                    gameDisplay.blit(txt, area)
+
+                    self.game_display.fill(DARK_BLUE)
 
 
-                def process_img(img, x,y):
-                    # swap the axes else the image will come not the same as the matplotlib one
-                    img = img.transpose(1,0,2)
-                    surf = pygame.surfarray.make_surface(img)
-                    surf = pygame.transform.scale(surf, (300, 300))
-                    gameDisplay.blit(surf, (x, y))
 
                 #all_data = [{'nav':[],'drop':[]}] * FLAGS.episodes #each entry is an episode, sorted into nav or drop steps
                 step_data = {}
@@ -457,16 +521,22 @@ class Simulation:
                     mb_ego = []
 
                     if 'env' in param_updates:
-                        self.runner.reset_demo(param_updates=param_updates['env'])  # Cauz of differences in the arrangement of the dictionaries
+                        self.runner.reset_demo(param_updates=param_updates['env'])  # Override parameters during this run
                     else:
                         self.runner.reset_demo()
 
                     if self.run_params['show_pygame_display']:
-                        map_name = str(self.runner.envs.submap_offset)
+
+                        self.game_display.fill(DARK_BLUE)
+
                         map_xy = self.runner.envs.map_image
+                        self.pygame_render_image(map_xy, 20, 20)
+
                         map_alt = self.runner.envs.alt_view
-                        process_img(map_xy, 20, 20)
-                        process_img(map_alt, 20, 400)
+                        self.pygame_render_image(map_alt, 20, 400)
+
+                        self.pygame_display_state(0)
+
                         pygame.display.update()
 
                     dictionary[self.runner.episode_counter]['hiker_pos'] = self.runner.envs.hiker_position
@@ -481,7 +551,7 @@ class Simulation:
                         for event in pygame.event.get():
                             if event.type == pygame.QUIT:
                                 running = False
-                        sleep(self.run_params['sleep_time'])
+
                     # Timestep counter
                     t=0
 
@@ -495,15 +565,16 @@ class Simulation:
                         # mb_flag.append(drop_flag)
                         mb_heading.append(self.runner.envs.drone_heading)
 
-                        drone_pos = np.where(self.runner.envs.map_volume['vol'] == self.runner.envs.map_volume['feature_value_map']['drone'][self.runner.envs.drone_altitude]['val'])
+                        drone_pos = self.runner.envs.get_drone_position()
+                        #drone_pos = np.where(self.runner.envs.map_volume['vol'] == self.runner.envs.map_volume['feature_value_map']['drone'][self.runner.envs.drone_altitude]['val'])
                         mb_drone_pos.append(drone_pos)
-                        mb_map_volume.append(self.runner.envs.map_volume) # what is contained here?
+                        mb_map_volume.append(self.runner.envs.map_dictionary) # what is contained here?
                         mb_ego.append(self.runner.envs.ego)
 
                         step_data = {'stuck':False}
                         #I need the egocentric view + hiker's position
                         #then drone steps, need action
-                        step_data['volume'] = np.array(self.runner.envs.map_volume['vol'],copy=True)
+                        step_data['volume'] = np.array(self.runner.envs.map_dictionary['vol'],copy=True)
                         step_data['heading'] = self.runner.envs.drone_heading
                         step_data['hiker'] = self.runner.envs.hiker_position
                         step_data['altitude'] = self.runner.envs.drone_altitude
@@ -514,8 +585,24 @@ class Simulation:
                         # dictionary[nav_runner.episode_counter]['flag'].append(drop_flag)
                         if self.run_params['verbose']:
                             print("   Agent taking step {}".format(t))
-                        # INTERACTION
-                        obs, action, value, reward, done, info, fc, action_probs = self.runner.run_trained_batch()
+
+
+                        # ----------------------------------------------------------------------
+                        # RUNNER EXECUTES ONE CYCLE OF
+                        #    Execute environment to get observation
+                        #    Execute agent to get actoin
+                        # ----------------------------------------------------------------------
+
+
+                        override_action=None
+                        if self.run_params['use_keyboard_control']:
+                            override_action = self.wait_for_key_event()
+                            print("run_agent got override action from keyboard: >{}<".format(override_action))
+
+                        obs, action, value, reward, done, info, fc, action_probs = self.runner.run_trained_batch(override_action)
+
+
+
 
                         if self.run_params['verbose']:
                             print("   Is done?? ",done)
@@ -543,23 +630,14 @@ class Simulation:
                         mb_values.append(value)
                         mb_crash.append(self.runner.envs.crash)
 
-
-
-                        if self.run_params['show_pygame_display']:
-                            screen_mssg_variable("Value    : ", np.round(value,3), (168, 350))
-                            screen_mssg_variable("Reward: ", np.round(reward,3), (168, 372))
-                            pygame.display.update()
-                            pygame.event.get()
-                            sleep(self.run_params['sleep_time'])
-
-                        if action==15:
+                        if action==ACTION.DROP:
 
                             drop_flag = 1
                             # dictionary[runner.episode_counter]['pack-hiker_dist'] = runner.envs.pack_dist
                             # dictionary[runner.episode_counter]['pack condition'] = runner.envs.package_state
                             if self.run_params['show_pygame_display']:
 
-                                screen_mssg_variable("Package state:", self.runner.envs.package_state, (20, 350)) # The update of the text will be at the same time with the update of state
+                                self.pygame_display_variable("Package state:", self.runner.envs.package_state, (20, 350)) # The update of the text will be at the same time with the update of state
                                 pygame.display.update()
                                 pygame.event.get()  # Update the screen
                                 sleep(self.run_params['sleep_time'])
@@ -573,11 +651,16 @@ class Simulation:
                         # First Background covering everyything from previous session
                         if self.run_params['show_pygame_display']:
 
-                            gameDisplay.fill(DARK_BLUE)
-                            map_xy = obs[0]['img']
+                            self.game_display.fill(DARK_BLUE)
+                            map_xy = obs[0]['rgb_image_with_actors']
                             map_alt = obs[0]['nextstepimage']
-                            process_img(map_xy, 20, 20)
-                            process_img(map_alt, 20, 400)
+                            self.pygame_render_image(map_xy, 20, 20)
+                            self.pygame_render_image(map_alt, 20, 400)
+                            self.pygame_display_variable("Value    : ", np.round(value,3), (170, 330))
+                            self.pygame_display_variable("Reward: ", np.round(reward,3), (170, 350))
+
+                            self.pygame_display_state(t)
+
                             # Update finally the screen with all the images you blitted in the run_trained_batch
                             pygame.display.update() # Updates only the blitted parts of the screen, pygame.display.flip() updates the whole screen
                             pygame.event.get() # Show the last state and then reset
@@ -654,6 +737,60 @@ class Simulation:
     def close(self):
 
         self.envs.close()
+
+    def pygame_display_variable(self, text, variable, area):
+        font = pygame.font.SysFont('arial', 16)
+        txt = font.render(text + str(variable), True, WHITE)
+        self.game_display.blit(txt, area)
+
+
+    def pygame_render_image(self, img, x,y):
+        # swap the axes else the image will come not the same as the matplotlib one
+        img = img.transpose(1,0,2)
+        surf = pygame.surfarray.make_surface(img)
+        surf = pygame.transform.scale(surf, (300, 300))
+        self.game_display.blit(surf, (x, y))
+
+
+    def pygame_display_state(self,step):
+
+        offset=20
+
+        self.pygame_display_variable("Map offset (row,col): ", self.runner.envs.submap_offset, (350,offset) ); offset+=20
+
+        self.pygame_display_variable("Episode:", " {} Step: {}".format(self.runner.episode_counter, step), (350,offset) ); offset+=20
+
+        loc_alt_row_col = self.runner.envs.get_drone_position()
+
+        self.pygame_display_variable("Location gym_gridworld local (row,col):", [loc_alt_row_col[2],loc_alt_row_col[1]], (350,offset) ); offset+=20
+
+        self.pygame_display_variable("Altitude:", loc_alt_row_col[0], (350,offset) ); offset+=20
+
+        cs = self.runner.envs.mavsimhandler.crashed
+        self.pygame_display_variable("Crashed:", cs, (350,offset) ); offset+=20
+
+
+
+
+
+        # MAVSIM TERRAIN QUERY
+
+        #obj = self.runner.envs.mavsimhandler._command("('FLIGHT', 'MS_QUERY_TERRAIN', %d, %d)" \
+        #                                              % (loc_alt_row_col[1]+self.runner.envs.submap_offset[0],
+        #                                                 loc_alt_row_col[2]+self.runner.envs.submap_offset[1] ))
+        #self.pygame_display_variable("Mavsim Terrain type:", obj, (350,40) )
+
+        # Gridworld_env TERRAIN QUERY5
+
+        alt,tile_id = self.runner.envs.mavsimhandler.get_global_map()[ loc_alt_row_col[1], loc_alt_row_col[2] ]
+        tile_id = self.runner.envs.get_tile_typeid_at( loc_alt_row_col[1], loc_alt_row_col[2] )
+
+        from gym_gridworld.features.feature_value_conversion_text_dict import value_feature_map
+        tile_name = value_feature_map[tile_id]['feature']
+
+        self.pygame_display_variable("Gridworld_env terrain type: ", [tile_id,tile_name], (350,offset) ); offset+=20
+
+
 
 
 def extract_episode_trajectory_as_dataframe(episode_step_list):

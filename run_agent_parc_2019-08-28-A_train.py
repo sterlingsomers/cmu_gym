@@ -46,7 +46,7 @@ if __name__ == "__main__":
                  {
 
                     'run': {
-                        'model_name':'parc_2019-08-19-B',
+                        'model_name':'parc_2019-08-28-A',
                         'training': True,
                         'verbose': False,
                         'K_batches': 2000, # Was 2000
@@ -56,7 +56,7 @@ if __name__ == "__main__":
                     'env': {
                         'submap_offsets':train_maps,
                         'map_path': map_path,  # Used by cmu gridworld_env to access sampled maps, not used by mavsim
-                        'episode_length':30,
+                        'episode_length':40,
                         'verbose':False,
                         'align_drone_and_hiker_heading':True,
                         'align_drone_and_hiker_altitude':True,

@@ -102,7 +102,7 @@ def main():
     while epis <= EPISODES:
         print('Episode: ', epis)
         obs = envs.reset()  # Cauz of differences in the arrangement of the dictionaries
-        map_xy = obs['img']
+        map_xy = obs['rgb_image_with_actors']
         map_alt = obs['nextstepimage']
         process_img(map_xy, 20, 20)
         process_img(map_alt, 20, 400)
@@ -177,7 +177,7 @@ def main():
             # BLIT!!!
             # First Background covering everyything from previous session
             gameDisplay.fill(DARK_BLUE)
-            map_xy = obs['img']
+            map_xy = obs['rgb_image_with_actors']
             map_alt = obs['nextstepimage']
             process_img(map_xy, 20, 20)
             process_img(map_alt, 20, 400)

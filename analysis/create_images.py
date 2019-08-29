@@ -57,7 +57,7 @@ def create_nextstep_image(map_volume, altitude, heading):
 #     obs = {}
 #     obs['volume'] = map_volume
 #     # image_layers = copy.deepcopy(image_layers)
-#     map = map_volume = CNP.map_to_volume_dict(_map[0],_map[1], mapw, maph)#copy.deepcopy(self.original_map_volume['img'])
+#     map = map_volume = CNP.map_to_volume_dict(_map[0],_map[1], mapw, maph)#copy.deepcopy(self.original_map_volume['rgb_image_with_actors'])
 #
 #     # put the drone in the image layer
 #     drone_position = np.where(
@@ -73,7 +73,7 @@ def create_nextstep_image(map_volume, altitude, heading):
 #     #     image_layers[0][hiker_position[0] + point[0], hiker_position[1] + point[1], :] = \
 #     #         self.map_volume['feature_value_map']['hiker']['color']
 #
-#     # map = self.original_map_volume['img']
+#     # map = self.original_map_volume['rgb_image_with_actors']
 #     map = imresize(map, factor * 100, interp='nearest')  # resize by factor of 5
 #     # add the hiker
 #     hiker_position = (int(hiker_position[1] * 5), int(hiker_position[2]) * 5)
@@ -99,7 +99,7 @@ def create_nextstep_image(map_volume, altitude, heading):
 #
 #     nextstepimage = create_nextstep_image()
 #     obs['nextstepimage'] = nextstepimage
-#     obs['img'] = map
+#     obs['rgb_image_with_actors'] = map
 #     return obs
 
 # def create_image_from_volume(map_volume, altitude):

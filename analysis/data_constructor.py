@@ -179,7 +179,7 @@ if os.path.isfile(path + '.df')==False:
     value_feature = load_feat2value()
     create_dataframe(obs,value_feature)
 
-img = obs[0]['map_volume'][0]['img']
+img = obs[0]['map_volume'][0]['rgb_image_with_actors']
 df = pd.read_pickle(path + '.df')
 ''' DROP LOCATIONS '''
 data = df['drone_position'].loc[(df['agent_type'] == 'drop_agent') & (df['action_label'] == 'drop')]

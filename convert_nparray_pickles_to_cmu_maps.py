@@ -58,7 +58,7 @@ def convert_directory(source_directory,scale):
 
         map_array = pickle.load(open(pathname, 'rb'))
 
-        map = CNP.create_custom_map(map_array,offset=(x,y)) # This creates an 'img' structure in the map dictionary
+        map = CNP.create_custom_map(map_array,offset=(x,y)) # This creates an 'rgb_image_with_actors' structure in the map dictionary
 
         outfile_name = '{}-{}'.format(x,y)
         print("saving map to ", os.path.join( abs_dest_dir, outfile_name + '.mp'))
@@ -68,7 +68,7 @@ def convert_directory(source_directory,scale):
         pickle_out.close()
 
         print("saving map image")
-        image = scale_image(map['img'],scale)
+        image = scale_image(map['rgb_image_with_actors'],scale)
         #plt.imshow(image)
         #plt.show()
         imageio.imwrite( os.path.join(abs_dest_dir, outfile_name + '.png'), image)
