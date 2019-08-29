@@ -7,6 +7,7 @@ from datetime import datetime
 from time import sleep
 import numpy as np
 import pickle
+from scipy.spatial import distance
 #from functools import partial
 
 from absl import flags
@@ -30,6 +31,7 @@ import gym
 #import gym_gridworld
 #from gym_grid.envs import GridEnv
 import gym_gridworld
+from gym_gridworld.envs import create_np_map as CNP
 
 FLAGS = flags.FLAGS
 flags.DEFINE_bool("visualize", True, "Whether to render with pygame.")
@@ -78,10 +80,10 @@ flags.DEFINE_bool("trace", False, "Whether to trace the code execution.")
 flags.DEFINE_bool("save_replay", False, "Whether to save a replay at the end.")
 
 #ACTR FLAGS
-flags.DEFINE_integer('episodes_per_actr_load', 20, 'how many episodes before resetting actr')
+flags.DEFINE_integer('episodes_per_actr_load', 50, 'how many episodes before resetting actr')
 flags.DEFINE_integer('episode_count', 0, 'count')
 flags.DEFINE_bool('reset_actr', False, 'to reset actr on step or not')
-flags.DEFINE_bool('trace_mode', False, 'Change trace mode to T if you want the net to take the action, ACTR to follow')
+# flags.DEFINE_bool('trace_mode', False, 'Change trace mode to True if you want the net to take the action, ACTR to follow')
 # flags.DEFINE_integer('data_per_action_category', 200, 'number of data points to load into declarative for each action type')
 #flags.DEFINE_string("map", None, "Name of a map to use.")
 
@@ -299,11 +301,103 @@ def main():
                     flags.FLAGS.episode_count = 0
 
                 #intialize for the experiments
-                runner.envs.hiker = (11,8)
-                runner.envs.drone = (18,11)
-                runner.envs._map = (146,456)
+                # runner.envs.hiker = (11,8)
+                # runner.envs.drone = (18,11)
+                # runner.envs._map = (146,456)
+                # runner.envs.altitude = 2
+                # runner.envs.heading = 1
+
+                runner.envs._map = random.choice(runner.envs.maps)
                 runner.envs.altitude = 2
                 runner.envs.heading = 1
+
+                if runner.envs._map[0] == 1:
+                    path = './gym_gridworld/'
+                    filename = '{}-{}.mp'.format(runner.envs._map[0], runner.envs._map[1])
+                    # Create custom map needs a numpy array
+                    cust_map = pickle.load(open(path + 'maps/' + filename, 'rb'))
+                    runner.envs.map_volume = cust_map  # CNP.create_custom_map(cust_map)
+                else:
+                    runner.envs.map_volume = CNP.map_to_volume_dict(runner.envs._map[0], runner.envs._map[1], runner.envs.mapw, runner.envs.maph)
+
+                map_ = envs.map_volume['flat']
+
+                # # place the hiker
+                hiker_safe_points = []
+                for val in runner.envs.masks['hiker']:
+                    where_array = np.where(map_ == val)
+                    hiker_safe_points = hiker_safe_points + [(x, y) for x, y in zip(where_array[0], where_array[1]) if
+                                                             x >= 3 and y >= 3 and x <=
+                                                             runner.envs.map_volume['vol'].shape[
+                                                                 1] - 3 and y <= runner.envs.map_volume['vol'].shape[
+                                                                 1] - 3]
+                """ Specify Hiker location"""
+                runner.envs.hiker = random.choice(hiker_safe_points)
+                # self.hiker = (8,7) #(18, 16)
+
+                # int(runner.envs.original_map_volume['vol'][runner.envs.hiker])
+                # place the drone
+                drone_safe_points = []
+                for val in runner.envs.masks[runner.envs.altitude]:
+                    where_array = np.where(map_ == val)
+                    drone_safe_points = drone_safe_points + [(x, y) for x, y in zip(where_array[0], where_array[1]) if
+                                                             x >= 3 and y >= 3 and x <=
+                                                             runner.envs.map_volume['vol'].shape[
+                                                                 1] - 3 and y <= runner.envs.map_volume['vol'].shape[
+                                                                 1] - 3]
+                """ Around the hiker """
+                D = distance.cdist([runner.envs.hiker], drone_safe_points, 'chebyshev').astype(int)  # Distances from hiker to all drone safe points
+
+                # print('Distance:',D[0])
+                # print('Hiker',hiker)
+                # print('safe_drone',drone_safe_points)
+                # print('safe_hiker', hiker_safe_points)
+                #
+                k = 50  # k closest. There might be cases in which you have very few drone safe points (e.g. 3) and only one will be really close
+                if k > np.array(drone_safe_points).shape[0]:
+                    k = np.array(drone_safe_points).shape[
+                            0] - 1  # Cauz we index from 0 but shape starts from 1 to max shape
+                indx = np.argpartition(D[0],
+                                       k)  # Return the indices of the k closest distances to the hiker. The [0] is VITAL!!!
+                # # # Use the index to retrieve the k closest safe coords to the hiker
+                closest_neighs = np.array(drone_safe_points)[
+                    indx[:k]]  # You need to have the safe points as array and not list
+                runner.envs.drone = tuple(random.choice(closest_neighs))
+
+                # NOTES: The first element in the array of safe points might be the hiker position
+                # To move away from hiker increase k and define h=k/2 and discard the h first closest_neighs - 9 suppose to be the max of the closest in an open area. So just use dividends of 9 to discard
+                drone = (runner.envs.hiker[0] - 2, runner.envs.hiker[1] - 3)
+                drone = random.choice([(runner.envs.hiker[0] - 1, runner.envs.hiker[1] - 1),
+                                       (runner.envs.hiker[0] - 1, runner.envs.hiker[1]),
+                                       (runner.envs.hiker[0], runner.envs.hiker[1] - 1)])
+
+                # """Random away location + safe check"""
+                drone = random.choice([(runner.envs.hiker[0] - 5, runner.envs.hiker[1] - 3),
+                                       (runner.envs.hiker[0] - 6, runner.envs.hiker[1]),
+                                       (runner.envs.hiker[0], runner.envs.hiker[1] - 4),
+                                       (runner.envs.hiker[0] - 6, runner.envs.hiker[1] - 7)])
+                runner.envs.drone = random.choice([(runner.envs.hiker[0] - 8, runner.envs.hiker[1] - 3),
+                                                   (runner.envs.hiker[0] - 10, runner.envs.hiker[1]),
+                                                   (runner.envs.hiker[0], runner.envs.hiker[1] - 9),
+                                                   (runner.envs.hiker[0] - 12, runner.envs.hiker[1] - 7)])
+                times = 0
+                while runner.envs.drone not in drone_safe_points:
+                    runner.envs.drone = random.choice([(runner.envs.hiker[0] - 5, runner.envs.hiker[1] - 3),
+                                                       (runner.envs.hiker[0] - 6, runner.envs.hiker[1]),
+                                                       (runner.envs.hiker[0], runner.envs.hiker[1] - 4),
+                                                       (runner.envs.hiker[0] - 6, runner.envs.hiker[1] - 7)])
+                    # print('non safe reset drone pos')
+                    if times == 10:
+                        print('max reps reached so reset hiker')
+                        runner.envs.hiker = random.choice(hiker_safe_points)
+                        # self.altitude = random.randint(1, 3) # NO cauz then you have to recalculate drone safe points
+                        times = 0
+                    times = times + 1
+
+                """ All safe points included for final training """
+                runner.envs.drone = random.choice(drone_safe_points)
+
+
 
                 # Init storage structures
                 dictionary[runner.episode_counter] = {}
@@ -440,6 +534,7 @@ def main():
                 dictionary[runner.episode_counter]['flag'] = mb_flag
                 dictionary[runner.episode_counter]['actions'] = mb_actions
                 dictionary[runner.episode_counter]['action_probs'] = mb_action_probs
+                dictionary[runner.episode_counter]['actr_probs'] = mb_actr_probs
                 dictionary[runner.episode_counter]['rewards'] = mb_rewards
                 dictionary[runner.episode_counter]['fc'] = mb_fc
                 dictionary[runner.episode_counter]['values'] = mb_values
@@ -457,7 +552,7 @@ def main():
 
             print("...saving dictionary.")
             folder = '/Users/paulsomers/COGLE/gym-gridworld/data/test/'
-            ACTR_st = 'eBEHAVE_FC_noise030_MP3_' #BEHAVE_FC_noisexxx_
+            ACTR_st = 'eBEHAVE_FC_MP3_' #BEHAVE_FC_noisexxx_
             map_name = str(runner.envs._map[0]) + '-' + str(runner.envs._map[1])#'custom'#str(runner.envs._map[0]) + '-' + str(runner.envs._map[1])
             drone_init_loc = str(runner.envs.drone[0]) + '-' + str(runner.envs.drone[1])
             drone_head_alt = str(runner.envs.heading) + '-' + str(runner.envs.altitude)
@@ -468,8 +563,8 @@ def main():
             pickle_in = open(path,'wb')
             pickle.dump(dictionary, pickle_in)
 
-            with open('./data/all_data' + 'TEST' +map_name + '_' + drone_init_loc + '_' + drone_head_alt + '_' + hiker_loc + str(FLAGS.episodes) + '.lst', 'wb') as handle:
-                pickle.dump(all_data, handle)
+            # with open('./data/all_data' + 'TEST' +map_name + '_' + drone_init_loc + '_' + drone_head_alt + '_' + hiker_loc + str(FLAGS.episodes) + '.lst', 'wb') as handle:
+            #     pickle.dump(all_data, handle)
             # with open('./data/All_maps_20x20_500.tj', 'wb') as handle:
             #     pickle.dump(dictionary, handle)
 

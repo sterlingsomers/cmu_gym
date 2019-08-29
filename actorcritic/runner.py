@@ -33,6 +33,8 @@ from sklearn import preprocessing
 PPORunParams = namedtuple("PPORunParams", ["lambda_par", "batch_size", "n_epochs"])
 #ADD some global stuff for ACT-R
 
+random.seed(42)
+
 #stats
 stats = {'crashes':0,'successes':0}
 
@@ -412,6 +414,12 @@ def reset_actr():
         # the interpt dict will be pre-loaded to transform values to 0-1, based on their key
         to_transform = ['ego_left', 'ego_diagonal_left', 'ego_center', 'ego_diagonal_right', 'ego_right',
                         'distance_to_hiker', 'altitude']
+
+        ignore_list = ['left_down', 'diagonal_left_down', 'center_down', 'diagonal_right_down', 'right_down',
+                       'left_level', 'diagonal_left_level', 'center_level', 'diagonal_right_level', 'right_level',
+                       'left_up', 'diagonal_left_up', 'center_up', 'diagonal_right_up', 'right_up', 'drop', 'type',
+                       'fc']
+
         for trans in to_transform:
             if min_max[trans]:
                 interp_dict[trans] = None
@@ -426,27 +434,35 @@ def reset_actr():
         for action_category in allchunks:
             action_chunks = allchunks[action_category]
             random.shuffle(action_chunks)
-            action_chunks = action_chunks[:3] #select the first 100 (after randomized)
+            action_chunks = action_chunks[:1000] #select the first 100 (after randomized)
 
             #before addding, fc needs to be transformed, and floats have to be fixed to be json-able
             for chunk in action_chunks:
+                #remove entropy
+                pos = chunk.index('entropy')
+                temp = chunk[:pos] + chunk[pos + 2:]
+                chunk = temp[:]
+                #fc needs to be transformed
+                fc_index = chunk.index('fc') + 1
+                fc = [chunk[fc_index][1]]
+                # fc = np.array(chunk[fc_index][1])
+                # fc.reshape(1,-1)
+                fc_transform = interp_dict['fc'].transform(fc)#step['fc'] = interp_dict['fc'].transform([step['fc']]).astype(float).tolist()[0]#normalizer.transform(fc)
+                chunk[fc_index] = ['fc',fc_transform.astype(float).tolist()[0]]
 
-            #fc needs to be transformed
-            fc_index = chunk.index('fc') + 1
-            fc = [chunk[fc_index][1]]
-            # fc = np.array(chunk[fc_index][1])
-            # fc.reshape(1,-1)
-            fc_transform = normalizer.transform(fc)
-            chunk[fc_index] = ['fc',fc_transform.astype(float).tolist()[0]]
+                chunk = [float(x) if type(x) == np.float64 else x for x in chunk]
+                chunk = [int(x) if type(x) == np.int64 else x for x in chunk]
 
-            chunk = [float(x) if type(x) == np.float64 else x for x in chunk]
-            chunk = [int(x) if type(x) == np.int64 else x for x in chunk]
-            actr.add_dm(chunk)
+                #add the action
+                actions = ignore_list[:-2]
+                for action in actions:
+                    chunk.extend([action,[action,int(action==action_category)]])
+
+
+                actr.add_dm(chunk)
 
         # ignore_list = ['left', 'diagonal_left', 'center', 'diagonal_right', 'right', 'type', 'drop', 'up', 'down', 'level']
-        ignore_list = ['left_down','diagonal_left_down','center_down','diagonal_right_down','right_down',
-                       'left_level','diagonal_left_level','center_level','diagonal_right_level','right_level',
-                       'left_up','diagonal_left_up','center_up','diagonal_right_up','right_up', 'drop', 'type', 'fc']
+
 
 
 
@@ -982,6 +998,7 @@ class Runner(object):
         network_action_ids = np.array(action_ids, copy=True)
         actr_observation = create_actr_observation(step_data)
         actr_distribution = handle_observation(actr_observation)
+
 
         # action_ids = np.array([actr_action])
         # nav_runner.envs.step(action)
