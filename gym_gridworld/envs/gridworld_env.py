@@ -915,7 +915,7 @@ class GridworldEnv(gym.Env):
                 if self.params['verbose']:
                     print('gridworld_env.step reached position over hiker')
 
-                reward = 1
+                reward = 5 #1
                 done = True
                 info['ex']='arrived'
                 info['Rhike']=1
@@ -955,7 +955,7 @@ class GridworldEnv(gym.Env):
                         print("gridworld_env.step reward for altitude alignment is {}".format(R))
 
                     if self.drone_altitude == self.hiker_altitude:
-                        info['OKAlt']=True
+                        info['OKalt']=True
 
                 return (self.generate_observation(), reward, done, info)
 

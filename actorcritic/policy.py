@@ -12,14 +12,17 @@ class FullyConvPolicy:
     def __init__(self,
             agent,
             trainable: bool = True,
-            classic = True
-    ):
+            classic = True         ):
+
         # type agent: ActorCriticAgent
         self.placeholders = agent.placeholders
         self.trainable = trainable
         self.unittype_emb_dim = agent.unit_type_emb_dim
         self.num_actions = agent.num_actions
         self.classic=classic
+        self.use_batchnorm = tf.placeholder_with_default(False, (), "use_batchnorm")  #BOB for batch normalization
+        print("policy.py FullyConvPolicy self.istrain tensor {}".format(self.use_batchnorm))
+
 
     def _build_convs(self, inputs, name):
 
@@ -201,21 +204,26 @@ class FullyConvPolicy:
        # self.spatial_action_log_probs = spatial_action_log_probs
         return self
 
+
 class DeepFullyConvPolicy(FullyConvPolicy):
 
     def _build_convs(self, inputs, name):
 
+        # 100x100 input image ( 20x5 x 20x5 )
+
         conv1 = layers.conv2d(
             inputs=inputs,
             data_format="NHWC",
-            num_outputs=64, #BOB 32,
-            kernel_size=5, #BOB 8, #8
-            stride=5, #BOB 4,#4
+            num_outputs=64, #BOB was 32,
+            kernel_size=5, #BOB was 8, #8
+            stride=5, #BOB was 4,#4
             padding='SAME',
             activation_fn=tf.nn.relu,
             scope="%s/conv1" % name,
             trainable=self.trainable
         )
+
+        # Stride 5 above should reduce this to 20x20 image
 
         conv2 = layers.conv2d(
             inputs=conv1,
@@ -242,6 +250,8 @@ class DeepFullyConvPolicy(FullyConvPolicy):
         )
 
         pool1 = tf.layers.max_pooling2d(conv3, 2, 2)
+
+        # Pooling should half this - now 10x10
 
         conv4 = layers.conv2d(
             inputs=pool1,
@@ -281,6 +291,8 @@ class DeepFullyConvPolicy(FullyConvPolicy):
 
         pool2 = tf.layers.max_pooling2d(conv6, 2, 2)
 
+        # Now pooling will give us roughly ~ 5x5
+
         conv7 = layers.conv2d(
             inputs=conv2,
             data_format="NHWC",
@@ -294,6 +306,250 @@ class DeepFullyConvPolicy(FullyConvPolicy):
         )
 
         return conv7
+
+
+class DeepDensePolicy(FullyConvPolicy):
+
+    """This model has 10 conv layers (instead of DeepFullyConvPolicy's 7).
+       An architecture inspired by simplenet v2 https://arxiv.org/pdf/1608.06037.pdf
+       however we do not implement dropout and currently batch_norm is turned off until
+       we move it to the other side of the Relu - see
+
+        https://towardsdatascience.com/how-to-use-batch-normalization-with-tensorflow-and-tf-keras-to-train-deep-neural-networks-faster-60ba4d054b73
+
+       and incorporate 'dense' style connections so that the last layer can see multiple scales.
+       These are implemented by concatenating layers 2c,7 and 10.
+
+
+                       input            100x100x3  RGB Channels
+                         |
+                       conv1             20x20x64  (stride 5 does collapse)
+                         |
+                       conv2a
+                       conv2b
+                       conv2c--------+  20x20x128 = 51,200
+                         |           |
+                       pool1         |
+                         |           |
+                       conv5a        |
+                       conv5b        |
+                       conv7----+    |  10x10x128 = 12,800
+                         |      |    |
+                       pool2    |    |
+                         |      |    |
+                       conv8a   |    |
+                       conv8b   |    |
+                       conv10   |    |  5x5x128 = 3,200
+                         |      |    |
+                       multi_scale_concat   1x67,200 = 67,200
+
+       """
+
+    def _build_convs(self, inputs, name):
+
+        # 100x100x3 RGB input image ( 20x5 x 20x5 )
+
+        print("---------------------------------------------------------------------")
+        print("DeepDensePolicy builder")
+        print("---------------------------------------------------------------------")
+        print("policy.py DeepDensePolicy.init use_batchnorm flag ".format(self.use_batchnorm))
+        print("policy.py DeepDensePolicy.init input shape {}".format(inputs.shape))
+
+        inputs_norm = tf.layers.batch_normalization(inputs, training=self.use_batchnorm, renorm=True)
+
+        conv1 = layers.conv2d(
+            inputs=inputs_norm,
+            data_format="NHWC",
+            num_outputs=64, #BOB was 32,
+            kernel_size=5, #BOB was 8, #8
+            stride=5, #BOB was 4,#4
+            padding='SAME',
+            activation_fn=tf.nn.relu,
+            scope="%s/conv1" % name,
+            trainable=self.trainable
+        )
+
+        conv1_norm = tf.layers.batch_normalization(conv1, training=self.use_batchnorm, renorm=True)
+
+        # Stride 5 reduces to 20x20x64 image
+        print("policy.py DeepDensePolicy.init after conv1 stride 5 shape {}".format(conv1.shape))
+
+
+        conv2a = layers.conv2d(
+            inputs=conv1_norm,
+            data_format="NHWC",
+            num_outputs=128,
+            kernel_size=3, #4
+            stride=1,#2,#
+            padding='SAME',
+            activation_fn=tf.nn.relu,
+            scope="%s/conv2a" % name,
+            trainable=self.trainable
+        )
+
+        conv2a_norm = tf.layers.batch_normalization(conv2a, training=self.use_batchnorm, renorm=True)
+
+
+        conv2b = layers.conv2d(
+            inputs=conv2a_norm,
+            data_format="NHWC",
+            num_outputs=128,
+            kernel_size=3,
+            stride=1,
+            padding='SAME',
+            activation_fn=tf.nn.relu,
+            scope="%s/conv2b" % name,
+            trainable=self.trainable
+        )
+
+
+        conv2b_norm = tf.layers.batch_normalization(conv2b, training=self.use_batchnorm, renorm=True)
+
+
+        conv2c = layers.conv2d(
+            inputs=conv2b_norm,
+            data_format="NHWC",
+            num_outputs=128,
+            kernel_size=3,
+            stride=1,
+            padding='SAME',
+            activation_fn=tf.nn.relu,
+            scope="%s/conv2c" % name,
+            trainable=self.trainable
+        )
+
+
+        conv2c_norm = tf.layers.batch_normalization(conv2c, training=self.use_batchnorm, renorm=True)
+
+
+        #pool1 = tf.layers.max_pooling2d(conv2c_norm, 2, 2, scope="%s/pool1" % name)
+        pool1 = tf.contrib.layers.max_pool2d(conv2c_norm, 2, 2, scope="%s/pool1" % name)
+
+        print("policy.py DeepDensePolicy.init after pool1 shape {}".format(pool1.shape))
+
+
+        pool1_norm = tf.layers.batch_normalization(pool1, training=self.use_batchnorm, renorm=True)
+
+
+        # Pooling spatial dimension is now 10x10
+
+        conv5a = layers.conv2d(
+            inputs=pool1_norm,
+            data_format="NHWC",
+            num_outputs=128,
+            kernel_size=3,
+            stride=1,
+            padding='SAME',
+            activation_fn=tf.nn.relu,
+            scope="%s/conv5a" % name,
+            trainable=self.trainable
+        )
+
+        conv5a_norm = tf.layers.batch_normalization(conv5a, training=self.use_batchnorm, renorm=True)
+
+        conv5b = layers.conv2d(
+            inputs=conv5a_norm,
+            data_format="NHWC",
+            num_outputs=128,
+            kernel_size=3,
+            stride=1,
+            padding='SAME',
+            activation_fn=tf.nn.relu,
+            scope="%s/conv5b" % name,
+            trainable=self.trainable
+        )
+
+        conv5b_norm = tf.layers.batch_normalization(conv5b, training=self.use_batchnorm, renorm=True)
+
+        conv7 = layers.conv2d(
+            inputs=conv5b_norm,
+            data_format="NHWC",
+            num_outputs=128,
+            kernel_size=3,
+            stride=1,
+            padding='SAME',
+            activation_fn=tf.nn.relu,
+            scope="%s/conv7" % name,
+            trainable=self.trainable
+        )
+
+        conv7_norm = tf.layers.batch_normalization(conv7, training=self.use_batchnorm, renorm=True)
+
+        #pool2 = tf.layers.max_pooling2d(conv5b, 2, 2, scope="%s/pool2" % name)
+        pool2 = tf.contrib.layers.max_pool2d(conv7_norm, 2, 2, scope="%s/pool2" % name)
+        print("policy.py DeepDensePolicy.init after pool2 shape {}".format(pool2.shape))
+
+        pool2_norm = tf.layers.batch_normalization(pool2, training=self.use_batchnorm, renorm=True)
+
+        # Now pooling will give us roughly ~ 5x5
+
+        conv8a = layers.conv2d(
+            inputs=pool2_norm,
+            data_format="NHWC",
+            num_outputs=128,
+            kernel_size=3,
+            stride=1,
+            padding='SAME',
+            activation_fn=tf.nn.relu,
+            scope="%s/conv8a" % name,
+            trainable=self.trainable
+        )
+
+        conv8a_norm = tf.layers.batch_normalization(conv8a, training=self.use_batchnorm, renorm=True)
+
+        conv8b = layers.conv2d(
+            inputs=conv8a_norm,
+            data_format="NHWC",
+            num_outputs=128,
+            kernel_size=3,
+            stride=1,
+            padding='SAME',
+            activation_fn=tf.nn.relu,
+            scope="%s/conv8b" % name,
+            trainable=self.trainable
+        )
+
+        conv8b_norm = tf.layers.batch_normalization(conv8b, training=self.use_batchnorm, renorm=True)
+
+        conv10 = layers.conv2d(
+            inputs=conv8b_norm,
+            data_format="NHWC",
+            num_outputs=128,
+            kernel_size=3,
+            stride=1,
+            padding='SAME',
+            activation_fn=tf.nn.relu,
+            scope="%s/conv10" % name,
+            trainable=self.trainable
+        )
+
+        conv10_norm = tf.layers.batch_normalization(conv10, training=self.use_batchnorm, renorm=True)
+
+
+        print("policy.py DeepDensePolicy.init after conv10 shape {}".format(conv10.shape))
+
+        conv2c_flat = layers.flatten( conv2c_norm, scope="%s/conv2c_flat" % name )
+        print("policy.py DeepDensePolicy.init conv2c_flat shape {}".format(conv2c_flat.shape))
+
+        conv7_flat = layers.flatten( conv7_norm,scope="%s/conv7_flat" % name )
+        print("policy.py DeepDensePolicy.init conv7_flat shape {}".format(conv7_flat.shape))
+
+        conv10_flat = layers.flatten( conv10_norm,scope="%s/conv10_flat" % name )
+        print("policy.py DeepDensePolicy.init conv10_flat shape {}".format(conv10_flat.shape))
+
+
+        multi_scale = tf.concat([ conv2c_flat, conv7_flat, conv10_flat ], axis=1)
+
+        print("policy.py DeepDensePolicy.init after multi_scale shape {}".format(multi_scale.shape))
+
+        # Downstream code expects a 3D tensor of shape batch x X x Y so we just arbitrarily add a dimension here
+
+        multi_scale_3d = tf.reshape(multi_scale, [-1, 1, multi_scale.shape[1]])
+
+        print("policy.py DeepDensePolicy.init after multi_scale_3d shape {}".format(multi_scale_3d.shape))
+
+        return multi_scale_3d
+
 
 
 class MetaPolicy:

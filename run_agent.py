@@ -96,7 +96,7 @@ flags.DEFINE_float("entropy_weight_action", 0.001, "entropy of action-id distrib
 flags.DEFINE_float("ppo_lambda", 0.95, "lambda parameter for ppo")
 flags.DEFINE_integer("ppo_batch_size", None, "batch size for ppo, if None use n_steps_per_batch")
 flags.DEFINE_integer("ppo_epochs", 3, "epochs per update")
-flags.DEFINE_enum("policy_type", "FullyConv", ["MetaPolicy", "FullyConv", "Relational", "DeepFullyConv"], "Which type of Policy to use")
+flags.DEFINE_enum("policy_type", "FullyConv", ["MetaPolicy", "FullyConv", "Relational", "DeepFullyConv", "DeepDensePolicy"], "Which type of Policy to use")
 flags.DEFINE_enum("agent_mode", ACMode.A2C, [ACMode.A2C, ACMode.PPO], "if should use A2C or PPO")
 
 ### NEW FLAGS ####
@@ -132,7 +132,8 @@ default_params = {
         'sleep_time': 0,
         'n_envs':10,
         'if_output_exists':'fail',   # 'continue', 'overwrite'
-        'use_keyboard_control':False
+        'use_keyboard_control':False,
+        'use_batchnorm':False
     },
 
     'env': {
@@ -234,6 +235,7 @@ class Simulation:
         self.sess = tf.Session(config=self.config)
         #sess = tf.Session()
 
+        print("run_agent policy_type: {}".format(self.run_params['policy_type']))
         self.agent = ActorCriticAgent(
             mode=FLAGS.agent_mode,
             sess=self.sess,
@@ -247,7 +249,8 @@ class Simulation:
             summary_path=self.full_summary_path,
             max_gradient_norm=FLAGS.max_gradient_norm,
             num_actions=self.envs.action_space.n,
-            policy=self.run_params['policy_type']
+            policy=self.run_params['policy_type'],
+            use_batchnorm=self.run_params['use_batchnorm']
         )
         # Build Agent
         self.agent.build_model()
@@ -313,7 +316,7 @@ class Simulation:
                "   Level      4       5       6   \n" + \
                "   Down       1       2       3   \n" + \
                "\n" +\
-               "   SPACE -- take action recommended by policy\n"+\
+               "   0 -- take action recommended by policy\n"+\
                "\n"
 
         print(help)
@@ -373,6 +376,11 @@ class Simulation:
         if wrapper_kwargs is None: wrapper_kwargs = {}
         def make_env(rank): # pylint: disable=C0111
             def _thunk():
+                delay = rank #random.random()
+                print("Creating environment {} waiting {} sec and then calling gym.make".format(rank,delay))
+                ## Added this because MAVSIM environments have a resource conflict if you start them all at once
+                time.sleep(delay)
+
                 env = gym.make(env_id, **wrapper_kwargs)
                 env.seed(seed + rank)
                 # Monitor should take care of reset!

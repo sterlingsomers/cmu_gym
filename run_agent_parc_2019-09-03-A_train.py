@@ -46,11 +46,16 @@ if __name__ == "__main__":
                  {
 
                     'run': {
-                        'model_name':'parc_2019-08-28-F',
+                        'model_name':'parc_2019-09-03-C',  # HERE WE CONTINUE ON COPY OF MODEL F TO CREATE MODEL G! And then G to H!
                         'training': True,
                         'verbose': False,
                         'K_batches': 2000, # Was 2000
-                        'n_envs':10 # was 10
+                        'n_envs':10, # was 10
+
+
+                        'policy_type':'DeepDensePolicy',
+
+                        #'if_output_exists':'continue'
                     },
 
                     'env': {
@@ -84,6 +89,9 @@ if __name__ == "__main__":
         print("run_agent_parc_* starting new outer loop with curriculm_radius {}".format(i))
         print("---------------------------------------------------------------------------------")
         result = sim.run( param_updates={ 'env':{'curriculum_radius':i+1,'episode_length':i+20} } )
+
+    for i in range(10):
+        result = sim.run(  )
 
     sim.close()
 

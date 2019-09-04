@@ -5,7 +5,7 @@ import tensorflow as tf
 from pysc2.lib import actions
 from tensorflow.contrib import layers
 from tensorflow.contrib.layers.python.layers.optimizers import OPTIMIZER_SUMMARIES
-from actorcritic.policy import FullyConvPolicy, MetaPolicy, RelationalPolicy, DeepFullyConvPolicy
+from actorcritic.policy import FullyConvPolicy, MetaPolicy, RelationalPolicy, DeepFullyConvPolicy, DeepDensePolicy
 from common.preprocess import ObsProcesser, FEATURE_KEYS, AgentInputTuple
 from common.util import weighted_random_sample, select_from_each_row, ravel_index_pairs
 import tensorboard.plugins.beholder as beholder_lib
@@ -58,23 +58,24 @@ class ActorCriticAgent:
     _scalar_summary_key = "scalar_summaries"
 
     def __init__(self,
-            sess: tf.Session,
-            summary_path: str,
-            all_summary_freq: int,
-            scalar_summary_freq: int,
-            spatial_dim: int,
-            mode: str,
-            clip_epsilon=0.2,
-            unit_type_emb_dim=4,
-            loss_value_weight=1.0,
-            entropy_weight_spatial=1e-6,
-            entropy_weight_action_id=1e-5,
-            max_gradient_norm=None,
-            optimiser="adam",
-            optimiser_pars: dict = None,
-            policy=None,
-            num_actions=4
-    ):
+                 sess: tf.Session,
+                 summary_path: str,
+                 all_summary_freq: int,
+                 scalar_summary_freq: int,
+                 spatial_dim: int,
+                 mode: str,
+                 clip_epsilon=0.2,
+                 unit_type_emb_dim=4,
+                 loss_value_weight=1.0,
+                 entropy_weight_spatial=1e-6,
+                 entropy_weight_action_id=1e-5,
+                 max_gradient_norm=None,
+                 optimiser="adam",
+                 optimiser_pars: dict = None,
+                 policy=None,
+                 num_actions=4,
+                 use_batchnorm=False  # Set this to true if you want the agent to train
+                 ):
         """
         Actor-Critic Agent for learning pysc2-minigames
         https://arxiv.org/pdf/1708.04782.pdf
@@ -102,6 +103,7 @@ class ActorCriticAgent:
 
         assert optimiser in ["adam", "rmsprop"]
         assert mode in [ACMode.A2C, ACMode.PPO]
+        self.use_batchnorm = use_batchnorm
         self.mode = mode
         self.sess = sess
         self.spatial_dim = spatial_dim
@@ -128,8 +130,12 @@ class ActorCriticAgent:
             self.policy = RelationalPolicy
         elif policy == 'DeepFullyConv':
             self.policy = DeepFullyConvPolicy
+        elif policy == 'DeepDensePolicy':
+            self.policy = DeepDensePolicy
         else:
             self.policy = MetaPolicy
+
+        print("agent.py selected policy {} ".format(self.policy))
 
 
         opt_class = tf.train.AdamOptimizer if optimiser == "adam" else tf.train.RMSPropOptimizer
@@ -166,7 +172,9 @@ class ActorCriticAgent:
             collections=[tf.GraphKeys.SUMMARIES, self._scalar_summary_key])
 
     def build_model(self):
+
         self.placeholders = _get_placeholders(self.spatial_dim)
+
         with tf.variable_scope("theta"):
             self.theta = self.policy(self, trainable=True).build() # (MINE) from policy.py you build the net. Theta is
 
@@ -220,15 +228,19 @@ class ActorCriticAgent:
             + neg_entropy_action_id * self.entropy_weight_action_id
         )
 
-        self.train_op = layers.optimize_loss(
-            loss=loss,
-            global_step=tf.train.get_global_step(),
-            optimizer=self.optimiser,
-            clip_gradients=self.max_gradient_norm, # Caps the gradients at the value self.max_gradient_norm
-            summaries=OPTIMIZER_SUMMARIES,
-            learning_rate=None,
-            name="train_op"
-        )
+
+        update_ops=tf.get_collection(tf.GraphKeys.UPDATE_OPS)  # BOB Used for batch normalization
+
+        with tf.control_dependencies(update_ops):
+            self.train_op = layers.optimize_loss(
+                loss=loss,
+                global_step=tf.train.get_global_step(),
+                optimizer=self.optimiser,
+                clip_gradients=self.max_gradient_norm, # Caps the gradients at the value self.max_gradient_norm
+                summaries=OPTIMIZER_SUMMARIES,
+                learning_rate=None,
+                name="train_op"
+            )
 
         self._scalar_summary("value/estimate", tf.reduce_mean(self.value_estimate))
         self._scalar_summary("value/target", tf.reduce_mean(self.placeholders.value_target))
@@ -262,6 +274,7 @@ class ActorCriticAgent:
     def step(self, obs):
         # (MINE) Pass the observations through the net
         feed_dict = self._input_to_feed_dict(obs)
+        feed_dict['theta/use_batchnorm:0']=self.use_batchnorm
 
         action_id, value_estimate = self.sess.run(
             [self.sampled_action_id, self.value_estimate],

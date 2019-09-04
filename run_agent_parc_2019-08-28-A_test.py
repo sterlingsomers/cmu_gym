@@ -46,13 +46,13 @@ if __name__ == "__main__":
                  {
 
                     'run': {
-                        'model_name':'parc_2019-08-28-A',
+                        'model_name':'parc_2019-08-28-F',
                         'training': False,
                         'verbose': False,
-                        'K_batches': 1, # Was 2000
+                        'K_batches': 500, # Was 2000
                         'n_envs':1, # was 10
                         'sleep_time': 0, #.25, #.25,
-                        'use_keyboard_control':True, #True
+                        'use_keyboard_control':False, #True
 
                     },
 
@@ -98,7 +98,7 @@ if __name__ == "__main__":
             }
 
 
-    result = sim.run( param   )
+    result = sim.run(    )
 
     actions,rewards,n,statistics = analyze_result(result)
 

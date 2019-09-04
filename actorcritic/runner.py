@@ -301,7 +301,7 @@ class Runner(object):
         # action = agent(state)
         action_ids, value_estimate, fc, action_probs = self.agent.step_eval(latest_obs) # (MINE) AGENT STEP = INPUT TO NN THE CURRENT STATE AND OUTPUT ACTION
 
-        print("original action_ids {}".format(action_ids))
+        #print("original action_ids {}".format(action_ids))
 
         if override_action!=None:
             print("Runner.run_trained_batch applying override_action: {}".format(override_action))
