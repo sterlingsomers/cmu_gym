@@ -27,7 +27,7 @@
     (sgp :sim-hook "similarity_function"
          :cache-sim-hook-results t
          ;:blending-request-hook "new_blend_request"
-         :tmp 1.0  ;temperature      ;:seed (1 1) :bll nil :blc 5 :mp 1 :v t :blt t :esc t :ans .25 :rt -5)
+         :tmp 0.15  ;temperature      ;:seed (1 1) :bll nil :blc 5 :mp 1 :v t :blt t :esc t :ans .25 :rt -5)
          :seed (1 1) ;random  seed
          :ans nil ;activation noise
          :rt -5000 ;retrieval threshold

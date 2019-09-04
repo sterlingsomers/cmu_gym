@@ -40,7 +40,7 @@ flags.DEFINE_integer("resolution", 32, "Resolution for screen and minimap featur
 flags.DEFINE_integer("step_mul", 2, "Game steps per agent step.")
 flags.DEFINE_integer("step2save", 1000, "Game step to save the model.") #A2C every 1000, PPO 250
 flags.DEFINE_integer("n_envs", 80, "Number of environments to run in parallel")
-flags.DEFINE_integer("episodes", 100, "Number of complete episodes")
+flags.DEFINE_integer("episodes", 1, "Number of complete episodes")
 flags.DEFINE_integer("n_steps_per_batch", 32,
     "Number of steps per batch, if None use 8 for a2c and 128 for ppo")  # (MINE) TIMESTEPS HERE!!! You need them cauz you dont want to run till it finds the beacon especially at first episodes - will take forever
 flags.DEFINE_integer("all_summary_freq", 50, "Record all summaries every n batch")
@@ -83,6 +83,7 @@ flags.DEFINE_bool("save_replay", False, "Whether to save a replay at the end.")
 flags.DEFINE_integer('episodes_per_actr_load', 50, 'how many episodes before resetting actr')
 flags.DEFINE_integer('episode_count', 0, 'count')
 flags.DEFINE_bool('reset_actr', False, 'to reset actr on step or not')
+flags.DEFINE_string('experiment_folder', 'behavior-only/', 'what folder in the experiment subdirectory to store data')
 # flags.DEFINE_bool('trace_mode', False, 'Change trace mode to True if you want the net to take the action, ACTR to follow')
 # flags.DEFINE_integer('data_per_action_category', 200, 'number of data points to load into declarative for each action type')
 #flags.DEFINE_string("map", None, "Name of a map to use.")
@@ -551,7 +552,7 @@ def main():
                 clock.tick(15)
 
             print("...saving dictionary.")
-            folder = '/Users/paulsomers/COGLE/gym-gridworld/data/test/'
+            folder = '/Users/paulsomers/COGLE/gym-gridworld/data/' + flags.FLAGS.experiment_folder
             ACTR_st = 'eBEHAVE_FC_MP3_' #BEHAVE_FC_noisexxx_
             map_name = str(runner.envs._map[0]) + '-' + str(runner.envs._map[1])#'custom'#str(runner.envs._map[0]) + '-' + str(runner.envs._map[1])
             drone_init_loc = str(runner.envs.drone[0]) + '-' + str(runner.envs.drone[1])
@@ -559,7 +560,7 @@ def main():
             hiker_loc = str(runner.envs.hiker[0]) + '-' + str(runner.envs.hiker[1])
             type = '.tj'
             # path = folder + map_name + '_' + drone_init_loc + '_' + drone_head_alt + '_' + hiker_loc + '_' + str(FLAGS.episodes) + type
-            path = folder + ACTR_st + 'TEST' + 'MAP' + map_name + '_' + 'D' + drone_init_loc + '_' + 'HeadAlt' + drone_head_alt + '_' + 'H' + hiker_loc + '_' + str(FLAGS.episodes) + type
+            path = folder + ACTR_st + 'MAP' + map_name + '_' + 'D' + drone_init_loc + '_' + 'HeadAlt' + drone_head_alt + '_' + 'H' + hiker_loc + '_' + str(FLAGS.episodes) + type
             pickle_in = open(path,'wb')
             pickle.dump(dictionary, pickle_in)
 

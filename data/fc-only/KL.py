@@ -3,12 +3,14 @@ import pickle
 import fnmatch
 import os
 
+import operator
+
 import numpy as np
 from scipy.stats import entropy
 from scipy.spatial import distance
 datas = []
 #the following loop searches the whole directory and adds each file to datas
-os.chdir('/Users/paulsomers/COGLE/gym-gridworld/data/test')
+os.chdir('/Users/paulsomers/COGLE/gym-gridworld/data/fc-only')
 
 for file in os.listdir('.'):
     if fnmatch.fnmatch(file, '*.tj'):
@@ -37,14 +39,21 @@ JSs = []
 #
 #                 kls.append(single_kl)
 #                 JSs.append(single_js)
-
-#single run version
+combos_to_actions = {'left_down':0,'diagonal_left_down':1,'center_down':2,
+                     'diagonal_right_down':3,'right_down':4,
+                     'left_level':5,'diagonal_left_level':6,'center_level':7,
+                     'diagonal_right_level':8,'right_level':9,
+                     'left_up':10,'diagonal_left_up':11,'center_up':12,
+                     'diagonal_right_up':13,'right_up':14,'drop':15}
+all_correct = []
 for data in datas:
     for mission in data:
         actr = []
+        actr_actions =  []#max(action_choice.items(), key=operator.itemgetter(1))[0]
         all_actr = data[mission]['actr_probs'] #a list of dictionaries
         for distribution in all_actr:
             actr.append(list(distribution.values()))
+            actr_actions.append(combos_to_actions[max(distribution.items(), key=operator.itemgetter(1))[0]])
 
         net = data[mission]['action_probs']
         for ACT,NET in zip(actr,net):
@@ -55,7 +64,15 @@ for data in datas:
             JSs.append(single_js)
             print('ok')
 
+        correct = []
+        for one,two in zip(actr_actions,data[mission]['actions']):
+            correct.append(int(one == two))
+        all_correct.extend(correct)
+
+
+
         print('test')
+
 
 
 k = len(kls)
@@ -64,5 +81,5 @@ avg_divergence = (1/(k*(k-1))) * sum(kls)
 avg_kl = sum(kls)/len(kls)
 avg_JSs = sum(JSs)/len(JSs)
 
-
+score = sum(all_correct)/len(all_correct)
 print("done")

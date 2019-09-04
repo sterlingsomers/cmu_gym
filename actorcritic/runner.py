@@ -277,13 +277,13 @@ def similarity(val1, val2):
     #     return 0
 
     if val1[0] == 'FC':
-        # return 0
+        return 0
         r1 = spatial.distance.minkowski(val1[1], val2[1],1) * - 1
         r2 = spatial.distance.euclidean(val1[1], val2[1]) * - 1
         r3 = spatial.distance.cosine(val1[1], val2[1]) * -1
         return r2
 
-    # return 0
+    # return 0 #all other similarties, except FC will be 0
     return_value = abs(val1[1] - val2[1]) * -1
     return return_value
 
@@ -434,7 +434,7 @@ def reset_actr():
         for action_category in allchunks:
             action_chunks = allchunks[action_category]
             random.shuffle(action_chunks)
-            action_chunks = action_chunks[:1000] #select the first 100 (after randomized)
+            action_chunks = action_chunks[:int(len(action_chunks)/3)] #select the first 100 (after randomized)
 
             #before addding, fc needs to be transformed, and floats have to be fixed to be json-able
             for chunk in action_chunks:
