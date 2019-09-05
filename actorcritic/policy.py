@@ -327,21 +327,23 @@ class DeepDensePolicy(FullyConvPolicy):
                          |
                        conv2a
                        conv2b
-                       conv2c--------+  20x20x128 = 51,200
-                         |           |
-                       pool1         |
-                         |           |
-                       conv5a        |
-                       conv5b        |
-                       conv7----+    |  10x10x128 = 12,800
-                         |      |    |
-                       pool2    |    |
-                         |      |    |
-                       conv8a   |    |
-                       conv8b   |    |
-                       conv10   |    |  5x5x128 = 3,200
-                         |      |    |
-                       multi_scale_concat   1x67,200 = 67,200
+                       conv2c----------+  20x20x128 = 51,200
+                         |             |
+                       pool1           |
+                         |             |
+                       conv5a          |
+                       conv5b          |
+                       conv7-----+     |  10x10x128 = 12,800
+                         |       |     |
+                       pool2     |     |
+                         |       |     |
+                       conv8a    |     |
+                       conv8b    |     |
+                       conv10    |     |  5x5x128 = 3,200
+                         |       |     |
+                       pool    pool   pool   1x1x128 = 128   (complete pooling of spatial dimensions)
+                         |       |     |
+                       multi_scale_concat   3*128 = 384
 
        """
 
@@ -525,16 +527,28 @@ class DeepDensePolicy(FullyConvPolicy):
 
         conv10_norm = tf.layers.batch_normalization(conv10, training=self.use_batchnorm, renorm=True)
 
-
         print("policy.py DeepDensePolicy.init after conv10 shape {}".format(conv10.shape))
 
-        conv2c_flat = layers.flatten( conv2c_norm, scope="%s/conv2c_flat" % name )
+
+        # CONCATENATE LAYERS AT DIFFERENT RESOLUTIONS
+
+
+
+        conv2c_all_pooled = tf.contrib.layers.max_pool2d(conv2c_norm, 20, 20, scope="%s/conv2c_all_pooled" % name)
+
+        conv2c_flat = layers.flatten( conv2c_all_pooled, scope="%s/conv2c_flat" % name )
         print("policy.py DeepDensePolicy.init conv2c_flat shape {}".format(conv2c_flat.shape))
 
-        conv7_flat = layers.flatten( conv7_norm,scope="%s/conv7_flat" % name )
+
+        conv7_all_pooled = tf.contrib.layers.max_pool2d(conv7_norm, 10, 10, scope="%s/conv7_all_pooled" % name)
+
+        conv7_flat = layers.flatten( conv7_all_pooled,scope="%s/conv7_flat" % name )
         print("policy.py DeepDensePolicy.init conv7_flat shape {}".format(conv7_flat.shape))
 
-        conv10_flat = layers.flatten( conv10_norm,scope="%s/conv10_flat" % name )
+
+        conv10_all_pooled = tf.contrib.layers.max_pool2d(conv10_norm, 5, 5, scope="%s/conv10_all_pooled" % name)
+
+        conv10_flat = layers.flatten( conv10_all_pooled,scope="%s/conv10_flat" % name )
         print("policy.py DeepDensePolicy.init conv10_flat shape {}".format(conv10_flat.shape))
 
 
