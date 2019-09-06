@@ -50,7 +50,7 @@ if __name__ == "__main__":
                         'training': True,
                         'verbose': False,
                         'K_batches': 2000, # Was 2000
-                        'n_envs':10, # was 10
+                        'n_envs':50, # was 10
                         'policy_type':'DeepDensePolicy',
 
                         #'if_output_exists':'continue'
@@ -84,7 +84,7 @@ if __name__ == "__main__":
 
     print("Training")
 
-    for i in range(2,23):
+    for i in range(3,23):
         print("---------------------------------------------------------------------------------")
         print("run_agent_parc_* starting new outer loop with curriculm_radius {}".format(i))
         print("---------------------------------------------------------------------------------")
