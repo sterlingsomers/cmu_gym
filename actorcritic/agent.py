@@ -5,7 +5,7 @@ import tensorflow as tf
 from pysc2.lib import actions
 from tensorflow.contrib import layers
 from tensorflow.contrib.layers.python.layers.optimizers import OPTIMIZER_SUMMARIES
-from actorcritic.policy import FullyConvPolicy, MetaPolicy, RelationalPolicy, DeepFullyConvPolicy, DeepDensePolicy
+from actorcritic.policy import FullyConvPolicy, MetaPolicy, RelationalPolicy, DeepFullyConvPolicy, DeepDensePolicy, DeepDensePolicy2
 from common.preprocess import ObsProcesser, FEATURE_KEYS, AgentInputTuple
 from common.util import weighted_random_sample, select_from_each_row, ravel_index_pairs
 import tensorboard.plugins.beholder as beholder_lib
@@ -74,7 +74,7 @@ class ActorCriticAgent:
                  optimiser_pars: dict = None,
                  policy=None,
                  num_actions=4,
-                 use_batchnorm=False  # Set this to true if you want the agent to train
+                 params={}
                  ):
         """
         Actor-Critic Agent for learning pysc2-minigames
@@ -101,9 +101,9 @@ class ActorCriticAgent:
         :param policy: Policy class
         """
 
+        self.params=params
         assert optimiser in ["adam", "rmsprop"]
         assert mode in [ACMode.A2C, ACMode.PPO]
-        self.use_batchnorm = use_batchnorm
         self.mode = mode
         self.sess = sess
         self.spatial_dim = spatial_dim
@@ -132,6 +132,8 @@ class ActorCriticAgent:
             self.policy = DeepFullyConvPolicy
         elif policy == 'DeepDensePolicy':
             self.policy = DeepDensePolicy
+        elif policy == 'DeepDensePolicy2':
+            self.policy = DeepDensePolicy2
         else:
             self.policy = MetaPolicy
 
@@ -176,7 +178,7 @@ class ActorCriticAgent:
         self.placeholders = _get_placeholders(self.spatial_dim)
 
         with tf.variable_scope("theta"):
-            self.theta = self.policy(self, trainable=True).build() # (MINE) from policy.py you build the net. Theta is
+            self.theta = self.policy(self, trainable=True, params=self.params).build() # (MINE) from policy.py you build the net. Theta is
 
         selected_log_probs = self._get_select_action_probs(self.theta)
 
@@ -185,7 +187,7 @@ class ActorCriticAgent:
         if self.mode == ACMode.PPO:
             # could also use stop_gradient and forget about the trainable
             with tf.variable_scope("theta_old"):
-                theta_old = self.policy(self, trainable=False).build() # theta old is used as a constant here
+                theta_old = self.policy(self, trainable=False, params=self.params).build() # theta old is used as a constant here
 
             new_theta_var = tf.global_variables("theta/")
             old_theta_var = tf.global_variables("theta_old/")
@@ -274,7 +276,7 @@ class ActorCriticAgent:
     def step(self, obs):
         # (MINE) Pass the observations through the net
         feed_dict = self._input_to_feed_dict(obs)
-        feed_dict['theta/use_batchnorm:0']=self.use_batchnorm
+        feed_dict['theta/use_batchnorm:0']=self.params['use_batchnorm']
 
         action_id, value_estimate = self.sess.run(
             [self.sampled_action_id, self.value_estimate],

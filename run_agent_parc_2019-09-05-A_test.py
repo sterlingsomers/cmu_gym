@@ -2,7 +2,7 @@
 
 
 from run_agent import Simulation
-from run_agent import extract_episode_trajectory_as_dataframe
+from run_agent import analyze_result
 
 from gym_gridworld.envs.gridworld_env import HEADING
 from gym_gridworld.envs.gridworld_env import ACTION
@@ -46,53 +46,69 @@ if __name__ == "__main__":
                  {
 
                     'run': {
-                        'model_name':'parc_2019-09-04-A',
-                        'training': True,
+                        'model_name':'parc_2019-09-05-A',
+                        'training': False,
                         'verbose': False,
-                        'K_batches': 2000, # Was 2000
-                        'n_envs':10, # was 10
-
-
-                        'policy_type':'DeepDensePolicy',
-
-                        #'if_output_exists':'continue'
+                        'K_batches': 500,
+                        'n_envs':1,
+                        'policy_type':'DeepDensePolicy2',
+                        'sleep_time': 0.25,
+                        'use_keyboard_control':False,
                     },
 
                     'env': {
-                        'submap_offsets':train_maps,
+
+                        'submap_offsets':test_maps,
                         'map_path': map_path,  # Used by cmu gridworld_env to access sampled maps, not used by mavsim
                         'episode_length':40,
-                        'verbose':False,
+                        'verbose':True,
                         'align_drone_and_hiker_heading':True,
                         'align_drone_and_hiker_altitude':True,
                         'render_hiker_altitude':True,
                         'use_mavsim_simulator':True,
                         'mavsim':{
+                            # https://gitlab.com/COGLEProject/mavsim/tree/develop
+                            # git rev-parse origin/develop -> 7bc21639c19d6561906d7a65882406092f179b89
                             'verbose': False,
+                            'show_global_map':False,
                             'halt_on_error': True
                         },
                     },
 
                     'agent' : {
-                        'action_neg_entropy_weight': 0.01
+                        'action_neg_entropy_weight': 0.01,
+                        'use_egocentric':False,
+                        'use_additional_fully_connected':False
                     }
 
                 } )
 
 
-    sim = Simulation(default_params)
 
-    print("Training")
+    sim = Simulation( params = default_params )
 
-    for i in range(2,23):
-        print("---------------------------------------------------------------------------------")
-        print("run_agent_parc_* starting new outer loop with curriculm_radius {}".format(i))
-        print("---------------------------------------------------------------------------------")
-        result = sim.run( param_updates={ 'env':{'curriculum_radius':i+1,'episode_length':i+20} } )
+    param = { 'env': {
+                      'submap_offsets': [ (160,180) ], # Row/Y, Col
 
-    for i in range(10):
-        result = sim.run(  )
+                      'drone_initial_position':(4,17),  # Row/Y, column/X in local coordinates
+                      #'drone_initial_heading': HEADING.NORTH_EAST,
+                      'drone_initial_altitude':1,
 
-    sim.close()
+                      'hiker_initial_position':(17,17),  # Row/Y, column/X
+                      'hiker_initial_altitude':1
+                     }
+            }
 
-    print("Training complete")
+
+    result = sim.run(    )
+
+    actions,rewards,n,statistics = analyze_result(result)
+
+    print("Statistics:")
+    print(statistics)
+
+    print("Actions:")
+    print(actions)
+
+    print("Rewards")
+    print(rewards)

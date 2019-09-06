@@ -133,7 +133,6 @@ default_params = {
         'n_envs':10,
         'if_output_exists':'fail',   # 'continue', 'overwrite'
         'use_keyboard_control':False,
-        'use_batchnorm':False
     },
 
     'env': {
@@ -176,7 +175,10 @@ default_params = {
     },
 
     'agent' : {
-        'action_neg_entropy_weight': 0.001
+        'action_neg_entropy_weight': 0.001,
+        'use_batchnorm':False,
+        'use_egocentric':True,
+        'use_additional_fully_connected':True
     }
 
 }
@@ -250,7 +252,7 @@ class Simulation:
             max_gradient_norm=FLAGS.max_gradient_norm,
             num_actions=self.envs.action_space.n,
             policy=self.run_params['policy_type'],
-            use_batchnorm=self.run_params['use_batchnorm']
+            params=params['agent']
         )
         # Build Agent
         self.agent.build_model()

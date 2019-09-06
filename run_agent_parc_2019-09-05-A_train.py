@@ -46,13 +46,11 @@ if __name__ == "__main__":
                  {
 
                     'run': {
-                        'model_name':'parc_2019-09-04-A',
+                        'model_name':'parc_2019-09-05-A',
                         'training': True,
                         'verbose': False,
                         'K_batches': 2000, # Was 2000
                         'n_envs':10, # was 10
-
-
                         'policy_type':'DeepDensePolicy',
 
                         #'if_output_exists':'continue'
@@ -74,7 +72,9 @@ if __name__ == "__main__":
                     },
 
                     'agent' : {
-                        'action_neg_entropy_weight': 0.01
+                        'action_neg_entropy_weight': 0.01,
+                        'use_egocentric':False,
+                        'use_additional_fully_connected':False
                     }
 
                 } )
