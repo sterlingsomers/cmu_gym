@@ -1,0 +1,2 @@
+export PYTHONPATH=$PYTHONPATH:../mavsim
+python $1
