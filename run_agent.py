@@ -519,6 +519,8 @@ class Simulation:
                 #all_data = [{'nav':[],'drop':[]}] * FLAGS.episodes #each entry is an episode, sorted into nav or drop steps
                 step_data = {}
                 dictionary = {}
+                self.runner.episode_counter=0
+
                 running = True
                 while self.runner.episode_counter < self.run_params['K_batches'] and running==True:
 
@@ -717,6 +719,7 @@ class Simulation:
                     if self.run_params['show_pygame_display']:
 
                         clock.tick(15)
+
 
                 print("...saving dictionary.")
 
@@ -1084,6 +1087,7 @@ def analyze_and_display_result(result):
     print("Actions:")
     print("Rewards:")
     print("Statistics:")
+
 
 if __name__ == "__main__":
 

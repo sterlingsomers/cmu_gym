@@ -44,7 +44,7 @@ class MavsimLibHandler:
         #    del self.mavsim
         self._create_mavsim()
 
-        self._load_scenario( self.params['scenario'] )
+
         self._extract_or_load_global_scenario_map()
 
 
@@ -184,18 +184,26 @@ class MavsimLibHandler:
         print()
 
 
-        self.mavsim = mavsim.MAVSim(
-            verbose = self.params['verbose'],
-            quiet   = True,
-            nodb    = self.params['nodb'],
-            server_ip = self.params['server_ip'],
-            server_port = 14555,
-            instance_name = 'MAVSim',
-            session_name = 'Training Mission 1',
-            pilot_name   = 'Sally',
-            database_url =  self.params['database_url'], #'postgresql://postgres:docker@localhost:5432/apm_missions', # -- need to set this to none otherwise it connects anyway
-            telemetry_cb = lambda msg: self._callback(msg),
-            sim_op_state = 1 )
+        if 'use_mavsim_instance' in self.params:
+            print("mavsim_lib_server.py received a mavsim instance to use")
+            self.mavsim= self.params['use_mavsim_instance']
+            self.scenario_name='nixel_test'
+        else:
+            print("mavsim_lib_server.py creating a new mavsim instance")
+            self.mavsim = mavsim.MAVSim(
+                verbose = self.params['verbose'],
+                quiet   = True,
+                nodb    = self.params['nodb'],
+                server_ip = self.params['server_ip'],
+                server_port = 14555,
+                instance_name = 'MAVSim',
+                session_name = 'Training Mission 1',
+                pilot_name   = 'Sally',
+                database_url =  self.params['database_url'], #'postgresql://postgres:docker@localhost:5432/apm_missions', # -- need to set this to none otherwise it connects anyway
+                telemetry_cb = lambda msg: self._callback(msg),
+                sim_op_state = 1 )
+
+            self._load_scenario( self.params['scenario'] )
 
 
     def _load_scenario(self,scenario_name):

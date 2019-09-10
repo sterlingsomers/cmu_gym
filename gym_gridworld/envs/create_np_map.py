@@ -33,11 +33,13 @@ def get_feature_value_maps():
     print("create_np_map.py get_feature_value_maps featyre_to_value path: {}".format(feature_to_value))
 
     if feature_to_value.is_file():
-        feature_value_map = pickle.load(open(feature_to_value,'rb'))
+        with open(feature_to_value,'rb') as file_handle:
+            feature_value_map = pickle.load(file_handle)
     else:
         raise Exception("Could not find the feature_to_value dictionary")
     if value_to_feature.is_file():
-        value_feature_map = pickle.load(open(value_to_feature, 'rb'))
+        with open(value_to_feature,'rb') as file_handle:
+            value_feature_map = pickle.load(file_handle)
     else:
         raise Exception("Could not find the value_to_feature dictionary")
 
