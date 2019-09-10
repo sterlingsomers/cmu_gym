@@ -4,7 +4,14 @@ import numpy as np
 from gym_gridworld.envs.mapquery import terrain_request
 from pathlib import Path
 import itertools
-path='./gym_gridworld/'
+
+import os
+
+script_path = os.path.dirname(os.path.abspath(__file__))
+
+path = os.path.split(script_path)[0]
+
+#path='./gym_gridworld/'
 
 MAX_ALTITUDE = 5
 
@@ -17,8 +24,13 @@ def get_feature_value_maps():
     value_feature_map = {}
     #first check for existing feature maps
     #print("create_np_map.py:get_feature_value_maps cwd {}".format(os.getcwd()))
-    feature_to_value = Path(path+'features/features_to_values.dict')
-    value_to_feature = Path(path+'features/values_to_features.dict')
+
+    print("create_np_map.py get_feature_value_maps basepath: {}".format(path))
+
+    feature_to_value = Path(path+'/features/features_to_values.dict')
+    value_to_feature = Path(path+'/features/values_to_features.dict')
+
+    print("create_np_map.py get_feature_value_maps featyre_to_value path: {}".format(feature_to_value))
 
     if feature_to_value.is_file():
         feature_value_map = pickle.load(open(feature_to_value,'rb'))

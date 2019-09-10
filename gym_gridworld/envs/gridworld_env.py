@@ -1479,7 +1479,8 @@ class GridworldEnv(gym.Env):
     def get_drone_position(self):
 
 
-        """returns the position of the drone as a tuple with altitude first and then x and y positions (Z,X,Y)"""
+        """returns the position of the drone as a tuple
+           with altitude, row, col or (Z,Y,X)"""
 
         # The appearance (tile type) of the drone is altitude dependent so we need to look this up every time
 

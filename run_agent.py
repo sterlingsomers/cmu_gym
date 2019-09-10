@@ -17,6 +17,9 @@ import time
 import random
 
 
+base_path = os.path.dirname(os.path.abspath(__file__))
+#base_path = os.path.split(script_path)[0]
+
 
 from absl import flags
 from actorcritic.agent import ActorCriticAgent, ACMode
@@ -74,7 +77,7 @@ flags.DEFINE_integer("step2save", 1000, "Game step to save the model.") #A2C eve
 
 flags.DEFINE_integer("all_summary_freq", 50, "Record all summaries every n batch")
 flags.DEFINE_integer("scalar_summary_freq", 5, "Record scalar summaries every n batch")
-flags.DEFINE_string("checkpoint_path", "_files/models", "Path for agent checkpoints")
+flags.DEFINE_string("checkpoint_path", base_path+"/_files/models", "Path for agent checkpoints")
 flags.DEFINE_string("summary_path", "_files/summaries", "Path for tensorboard summaries")
 flags.DEFINE_string("model_name", "A2C_multiple_packs", "Name for checkpoints and tensorboard summaries") # DONT touch TESTING is the best (take out normalization layer in order to work! -- check which parts exist in the restore session if needed)
 flags.DEFINE_enum("if_output_exists", "fail", ["fail", "overwrite", "continue"],
@@ -163,7 +166,7 @@ default_params = {
             'scenario':"['COGLE_0:stubland_1:512_2:512_3:256_4:7_5:24|-0.1426885426044464/Terrain_0:0_1:100_2:0.05_3:0.5_4:0.05_5:0.5_6:0.05_7:0.5_8:0.5_9:0.5_10:0.7_11:0.3_12:0.5_13:0.5_14:True/', '0.36023542284965515/Ocean_0:60/', '-0.43587446212768555/River_0:0.01_1:100/', '-0.3501245081424713/Tree_0:500_1:20.0_2:4.0_3:0.01_4:2.0_5:0.1_6:1.9_7:3.0_8:2.2_9:3.5/', '0.6151155829429626/Airport_0:15.0_1:25_2:35_3:1000_4:[]/', '0.34627288579940796/Building_0:150_1:10.0_2:[]_3:1/', '0.31582069396972656/Road_0:3_1:500/', '-0.061891376972198486/DropPackageMission_0:1_3:Find the hiker last located at (88, 186, 41)_4:Provision the hiker with Food_5:Return and report to Southeast International Airport (SEI) airport_6:Southeast Regional Airport_7:Southeast International Airport_8:0_9:20.0_10:20.0_11:40.0/', '-0.25830233097076416/Stub_0:0.8_1:1.0_2:1.0_3:1.0_4:1.0_5:1.0/']",
             'verbose': False,
             'halt_on_error': True,
-            'server_ip':None, # 0.0.0.0  should be used for local host
+            'server_ip':None,#'0.0.0.0', # 0.0.0.0  should be used for local host
             'nodb':True,  # you also need to set database_url to None for it to stop using the database!!!
             'database_url': None, # 'postgresql://postgres:docker@localhost:5432/apm_missions'
                # If you need a database, you can download a docker and run:
@@ -196,7 +199,12 @@ WHITE = (255, 255, 255)
 
 class Simulation:
 
-    def __init__(self,  params = {} ):
+    def __init__(self,  new_params = {} ):
+
+
+        deep_update( default_params, new_params )
+
+        params = default_params
 
         self.run_params = params['run']
 
@@ -256,6 +264,7 @@ class Simulation:
         )
         # Build Agent
         self.agent.build_model()
+        print("Looking for model checkpoint:{}".format(self.full_checkpoint_path))
         if os.path.exists(self.full_checkpoint_path):
             print("Found existing model, loading weights")
             self.agent.load(self.full_checkpoint_path) #(MINE) LOAD!!!
@@ -726,7 +735,7 @@ class Simulation:
                 pickle_in = open(path,'wb')
                 pickle.dump(dictionary, pickle_in)
 
-                with open('./data/all_data' + map_name + '_' + drone_init_loc + '_' + hiker_loc + str(FLAGS.episodes) + '.lst', 'wb') as handle:
+                with open(base_path+'/data/all_data' + map_name + '_' + drone_init_loc + '_' + hiker_loc + str(FLAGS.episodes) + '.lst', 'wb') as handle:
                     pickle.dump(all_data, handle)
                 # with open('./data/All_maps_20x20_500.tj', 'wb') as handle:
                 #     pickle.dump(dictionary, handle)
@@ -762,6 +771,14 @@ class Simulation:
         self.game_display.blit(surf, (x, y))
 
 
+    def get_drone_position(self):
+
+        return self.runner.envs.get_drone_position()
+
+    def get_drone_heading(self):
+
+        return self.runner.envs.get_drone_heading()
+
     def pygame_display_state(self,step):
 
         offset=20
@@ -772,7 +789,7 @@ class Simulation:
 
         loc_alt_row_col = self.runner.envs.get_drone_position()
 
-        self.pygame_display_variable("Location gym_gridworld local (row,col):", [loc_alt_row_col[2],loc_alt_row_col[1]], (350,offset) ); offset+=20
+        self.pygame_display_variable("Location gym_gridworld local (row,col):", [loc_alt_row_col[1],loc_alt_row_col[2]], (350,offset) ); offset+=20
 
         self.pygame_display_variable("Altitude:", loc_alt_row_col[0], (350,offset) ); offset+=20
 

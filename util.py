@@ -1,10 +1,29 @@
 
 
 import collections
+import copy
 
-def deep_update(d, u):
+def deep_update(d, u, make_copy=False):
 
     """
+
+    Given a dictionary 'd' with some nested structure and
+    a sub-dictionary 'u' with some nested structure,
+    update the overlapping parts of 'd' with the values from 'u'.
+    This is particularly useful for updating parameter lists.
+
+    By default, this is a destructive operation of the source dictionary 'd'.
+    If you set make_copy=True, deep_update will first make a copy.
+
+    d = { 'a':1,
+          'b':{'x':4, 'y':5 } }
+
+    u = { 'b': {'x':2 } }
+
+    deep_update(d,u)
+
+    d = { 'a':1,
+          'b':{'x':2, 'y':5 } }
 
     stack overflow answer by bscan
 
@@ -14,6 +33,10 @@ def deep_update(d, u):
     :param u:
     :return:
     """
+
+    if make_copy:
+        d = copy.deepcopy(d)
+
     for k, v in u.items():
         if isinstance(d, collections.Mapping):
             if isinstance(v, collections.Mapping):

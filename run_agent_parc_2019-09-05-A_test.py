@@ -42,8 +42,7 @@ if __name__ == "__main__":
     print("Number of training maps: {} ".format(num_train))
     print("Number of testing maps: {} ".format(num_test))
 
-    deep_update( default_params,
-                 {
+    params =     {
 
                     'run': {
                         'model_name':'parc_2019-09-05-A',
@@ -51,9 +50,9 @@ if __name__ == "__main__":
                         'verbose': False,
                         'K_batches': 500,
                         'n_envs':1,
-                        'policy_type':'DeepDensePolicy2',
-                        'sleep_time': 0.25,
-                        'use_keyboard_control':False,
+                        'policy_type':'DeepDensePolicy',
+                        'sleep_time': 0.0,#5,
+                        'use_keyboard_control':True,
                     },
 
                     'env': {
@@ -69,7 +68,7 @@ if __name__ == "__main__":
                         'mavsim':{
                             # https://gitlab.com/COGLEProject/mavsim/tree/develop
                             # git rev-parse origin/develop -> 7bc21639c19d6561906d7a65882406092f179b89
-                            'verbose': False,
+                            'verbose': True,
                             'show_global_map':False,
                             'halt_on_error': True
                         },
@@ -81,26 +80,26 @@ if __name__ == "__main__":
                         'use_additional_fully_connected':False
                     }
 
-                } )
+                }
 
 
 
-    sim = Simulation( params = default_params )
+    sim = Simulation( params )
 
-    param = { 'env': {
+    params = { 'env': {
                       'submap_offsets': [ (160,180) ], # Row/Y, Col
 
-                      'drone_initial_position':(4,17),  # Row/Y, column/X in local coordinates
+                      'drone_initial_position': (7,3),  # Row/Y, column/X in local coordinates
                       #'drone_initial_heading': HEADING.NORTH_EAST,
-                      'drone_initial_altitude':1,
+                      'drone_initial_altitude': 3,
 
-                      'hiker_initial_position':(17,17),  # Row/Y, column/X
-                      'hiker_initial_altitude':1
+                      'hiker_initial_position': (7,7),  # Row/Y, column/X
+                      'hiker_initial_altitude': 3
                      }
             }
 
 
-    result = sim.run(    )
+    result = sim.run( params   )
 
     actions,rewards,n,statistics = analyze_result(result)
 

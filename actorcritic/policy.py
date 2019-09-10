@@ -599,7 +599,7 @@ class DeepDensePolicy(FullyConvPolicy):
 
 class DeepDensePolicy2(FullyConvPolicy):
 
-    """This model has 10 conv layers (instead of DeepFullyConvPolicy's 7).
+    """This model has 13 conv layers (instead of DeepFullyConvPolicy's 7).
        An architecture inspired by simplenet v2 https://arxiv.org/pdf/1608.06037.pdf
        however we do not implement dropout and currently batch_norm is turned off until
        we move it to the other side of the Relu - see
@@ -616,29 +616,29 @@ class DeepDensePolicy2(FullyConvPolicy):
                          |
                        conv2a
                        conv2b
-       20x20x128       conv2c----------+
-                         |             |
-                       pool1           |       pool 2x2 halfs size
-                         |             |
-                       conv5a          |
-                       conv5b          |
-       10x10x128       conv7-----+     |
+       20x20x128       conv2c----------------+
+                         |                   |
+                       pool1                 |       pool 2x2 halfs size
+                         |                   |
+                       conv5a                |
+                       conv5b                |
+       10x10x128       conv7-----------+     |
+                         |             |     |
+                       pool2           |     |       pool 2x2 halfs size
+                         |             |     |
+                       conv8a          |     |
+                       conv8b          |     |
+       5x5x128         conv10          |     |
+                         |             |     |
+                       pool3----+      |     |       pool 2x2 halfs size
+                         |      |      |     |
+                       conv11   |      |     |
+                       conv12   |      |     |
+       5x5x128         conv13   |      |     |
+                         |      |      |     |
+       4x1x128         pool    pool   pool  pool   complete pooling over spatial dimensions
                          |       |     |
-                       pool2     |     |       pool 2x2 halfs size
-                         |       |     |
-                       conv8a    |     |
-                       conv8b    |     |
-       5x5x128         conv10    |     |
-                         |       |     |
-                       pool3     |     |       pool 2x2 halfs size
-                         |       |     |
-                       conv11    |     |
-                       conv12    |     |
-       5x5x128         conv13    |     |
-                         |       |     |
-       3x1x128         pool    pool   pool     complete pooling over spatial dimensions
-                         |       |     |
-       1x384           multi_scale_concat
+       1x512           <==multi_scale_concat===>
 
        """
 
