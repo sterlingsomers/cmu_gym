@@ -782,6 +782,10 @@ class Simulation:
 
         return self.runner.envs.get_drone_heading()
 
+    def callback(self,message):
+
+        return self.runner.envs.mavsimhandler._callback(message)
+
     def pygame_display_state(self,step):
 
         offset=20
