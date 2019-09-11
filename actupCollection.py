@@ -9,6 +9,12 @@ from functools import partial
 
 import numpy as np
 from sklearn.model_selection import train_test_split
+from sklearn import preprocessing
+
+from scipy.stats import entropy
+from scipy.spatial import distance
+
+import itertools
 
 #set a random seed for pseudo-random
 random.seed(42)
@@ -59,6 +65,9 @@ possible_actions_map = {
         8: [[1, -1], [0, -1], [-1, -1], [-1, 0], [-1, 1]]
 
     }
+
+FC_distances = []
+
 
 
 def convert_dict_chunk_to_vector(chunk,keys):
@@ -206,8 +215,8 @@ def convert_data_to_chunks(all_data,include_fc=False):
 
             #last part of the observation side will be the vector
             if include_fc:
-                fc_list = step['fc'].tolist()[0]
-                chunk.extend(['fc', ['fc', fc_list]])
+                fc_list = tuple(step['fc'].tolist()[0])
+                chunk['fc'] = fc_list#.extend(['fc', ['fc', fc_list]])
 
             # if step['action'] == 15:
             #     print('15')
@@ -242,21 +251,26 @@ def convert_data_to_chunks(all_data,include_fc=False):
 def multi_blends(chunk, memory, slots ):
     return [memory.blend(slot,**chunk) for slot in slots]
 
+def vector_similarity(x,y):
+    return distance.euclidean(x,y) / max(FC_distances)
+    # return distance.cosine(x,y)
+
+
 def custom_similarity(x,y):
-    # import pdb; pdb.set_trace()
-    # print(x,y)
-    if abs(x -y) > 1.0:
-        print('hmm')
+    return 0
     return abs(x - y)
 
 #set the similarity function
 set_similarity_function(custom_similarity, *observation_slots)
+set_similarity_function(vector_similarity, 'fc')
 
 if __name__ == "__main__":
     results = []
+    all_chunks = []
+    FC_distances = []
 
 
-    normalized_data_file = 'normalized_all_chunks.lst'
+    normalized_data_file = 'normalized_all_chunks_with_fc.lst'
     chunks_path = '/Users/paulsomers/COGLE/gym-gridworld/'#data_tools/'
 
     if not os.path.isfile(chunks_path + normalized_data_file):
@@ -268,7 +282,30 @@ if __name__ == "__main__":
         all_data = pickle.load(open(os.path.join(data_path, data_file_name), 'rb'))
 
         ###convert the data to chunks
-        all_chunks = convert_data_to_chunks(all_data)
+        all_chunks = convert_data_to_chunks(all_data,include_fc=True)
+
+        #find all the euclidean distances between all fc to normalize the euclidean
+        FCs = []
+
+        for chunk in all_chunks:
+            FCs.append(chunk['fc'])
+
+        #normalize the fc
+        normalizer = preprocessing.Normalizer(norm='max').fit(FCs)
+        FCs = normalizer.transform(FCs)#[normalizer.transform(x) for x in FCs]
+        for chunk,fc in zip(all_chunks,FCs):
+            chunk['fc'] = tuple(fc.tolist())
+
+        split_FCs = [FCs[i::100] for i in range(100)]  #[test_chunks[i::10] for i in range(10)]
+        for FC_list in split_FCs:
+            FC_combination = list(itertools.combinations(FC_list,2))
+            sub_distances = [distance.euclidean(x[0],x[1]) for x in FC_combination]
+            FC_distances.append(max(sub_distances))
+
+
+
+        with open(chunks_path + 'FC_distances.pkl', 'wb') as handle:
+            pickle.dump(FC_distances, handle)
 
         #the chunks values should be normalized
         #make a dictionary of all values, use max(values) to normalize
@@ -283,45 +320,56 @@ if __name__ == "__main__":
                 chunk[slot] = chunk[slot] / max(data_by_slot[slot])
             acount += 1
 
-        with open('normalized_all_chunks.lst', 'wb') as handle:
+        with open(chunks_path + normalized_data_file, 'wb') as handle:
             pickle.dump(all_chunks, handle)
 
     else:
         all_chunks = pickle.load(open(chunks_path + normalized_data_file, 'rb'))
+        FC_distances = pickle.load(open(chunks_path + 'FC_distances.pkl', 'rb'))
 
 
 
 
     #vectorize the data, ensuring the order
     #include the action probs
-    vectorized_data = [convert_dict_chunk_to_vector(chunk,observation_slots) for chunk in all_chunks]
+    vectorized_data = [convert_dict_chunk_to_vector(chunk,observation_slots+['fc']) for chunk in all_chunks]
     vectorized_targets = [convert_dict_chunk_to_vector(chunk,action_slots + ['action_probs']) for chunk in all_chunks]
 
-    X_train, X_test, Y_train, Y_test = train_test_split(vectorized_data,vectorized_targets, test_size=0.33, random_state=42)
+    X_train, X_test, Y_train, Y_test = train_test_split(vectorized_data,vectorized_targets, test_size=0.20, random_state=42)
 
     #now there is a vectorized training set and test set - turn them back to dictionaries (chunks that can be read by pyactup)
     #cannot store the numpy array (action_probs) so, perserve the order from this point on - you can go back to X_train, Y_train to match the action_probs
     training_chunks = []
     for obs,act in zip(X_train,Y_train):
-        chunk = convert_vector_to_dict_chunk(obs+act, observation_slots+action_slots)
+        chunk = convert_vector_to_dict_chunk(obs+act, observation_slots+['fc']+action_slots)
         training_chunks.append(chunk)
 
-    test_chunks = [convert_vector_to_dict_chunk(test,observation_slots) for test in X_test]
+    test_chunks = [convert_vector_to_dict_chunk(test,observation_slots+['fc']) for test in X_test]
 
 
     ###now run the model
-    m = Memory(noise=0.0, decay=0.0, temperature=0.2, threshold=-100.0, mismatch=1.0, optimized_learning=True)
+    m = Memory(noise=0.0, decay=0.0, temperature=0.2, threshold=-100.0, mismatch=1.25, optimized_learning=False)
+    m._maximum_similarity = 5
     #put the training chunks in memory
     for chunk in training_chunks:
         m.learn(**chunk)
 
     m.advance()
-    p = Pool(processes=10)
-    split_chunks = [test_chunks[i::10] for i in range(10)]
+    p = Pool(processes=8)
+    # split_chunks = [test_chunks[i::10] for i in range(10)]
     multi_p = partial(multi_blends, memory=m,slots=action_slots)
-    data = p.map(multi_p, test_chunks)
-    for test_chunk in test_chunks:
-        results.append([m.blend(x,**test_chunk) for x in action_slots])
+    data = p.map(multi_p, test_chunks[0:100])
+    # for test_chunk in test_chunks:
+        # results.append([m.blend(x,**test_chunk) for x in action_slots])
+
+    JS = []
+    matches = []
+    for result,datum in zip(data,Y_test):
+        JS.append(distance.jensenshannon(result,datum[-1][0]))
+        matches.append(int(np.argmax(result)==np.argmax(datum[:-1])))
+    avgJS = sum(JS)/len(JS)
+    avgMatch = sum(matches)/len(matches)
+
 
 
     print('stop')
