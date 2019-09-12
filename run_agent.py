@@ -999,7 +999,7 @@ def to_mavsim_actions(df_all,episode_num=0):
     mavsim_headings.pop(0)
     #mavsim_headings.append(next_heading)
 
-    mavsim_actions = [ "(FLIGHT HEAD_TO {} 1 {})".format(h,a) for (h,a) in zip( mavsim_headings, mavsim_altitudes)  ]
+    mavsim_actions = [ "( 'FLIGHT', 'HEAD_TO', {}, 1, {},)".format(h,a) for (h,a) in zip( mavsim_headings, mavsim_altitudes)  ]
 
     return mavsim_actions
 

@@ -350,7 +350,12 @@ class MavsimLibHandler:
             command_str, _, arg_string = msg.partition(" ")
             #attributes = literal_eval(arg_string)
             # THIS IS NOT SAFE, BUT DICTIONARIES ARE NOT LITERAL COMPLIANT
-            attributes = yaml.load(arg_string)
+
+            print("mavsim_lib_server.parse_message command_str:{} isspace {} len {}".format(arg_string,arg_string.isspace(), len(arg_string)))
+            if not arg_string.isspace() and len(arg_string)>0 :
+                attributes = yaml.load(arg_string)
+            else:
+                attributes={}
             #attributes = ast.literal_eval(arg_string)
 
         except Exception as e:
@@ -395,6 +400,7 @@ class MavsimLibHandler:
                # print("mavsim_lib_server drone inside 20x20 grid {}")
 
                 self.drone_location_alt_row_col = cmu_loc_alt_row_col
+
             else:
                 print("mavsim_lib_server drone location global row: {} col: {} alt:{} outside 20x20 grid {} CRASHED ".format(
                     location_x_y_z[1],
