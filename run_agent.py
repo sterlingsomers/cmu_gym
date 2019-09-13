@@ -782,6 +782,12 @@ class Simulation:
 
         return self.runner.envs.get_drone_heading()
 
+
+    def set_submap(self,submap_offset_row_col, submap_shape):
+
+        self.runner.envs.mavsimhandler.reset(submap_offset_row_col, submap_shape)
+
+
     def callback(self,message):
 
         return self.runner.envs.mavsimhandler._callback(message)

@@ -1191,6 +1191,8 @@ class GridworldEnv(gym.Env):
         self.reference_coordinates = [self.submap_offset[0], self.submap_offset[1]]
 
 
+        print("gridworld_env.reset print drone location {},{} ".format(drone[0],drone[1]))
+
         # put the drone in
         self.map_dictionary['vol'][self.drone_altitude][drone[0], drone[1]] = \
                    self.map_dictionary['feature_value_map']['drone'][self.drone_altitude]['val']

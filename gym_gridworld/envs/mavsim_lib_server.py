@@ -51,11 +51,12 @@ class MavsimLibHandler:
 
     def reset(self, submap_offset_row_col, submap_shape):
 
-        """Sets up a new scenario. Calls mavsim to reload map. Setsup a new submap for cmu drone to use.
+        """Sets up a new scenario. Calls mavsim to reload map. Sets up a new submap for cmu drone to use.
 
            submap_offset assumes CMU style coordinates row,col global coordinates because these reference
            our copy of the MAVSIM map which is stored MAVSIM reality"""
 
+        print("mavsim_lib_server reset submap_offset {} submap_shape {}".format(submap_offset_row_col, submap_shape))
 
         self.submap_offset_row_col = np.array(submap_offset_row_col)
         self.submap_shape =  np.array(submap_shape)
@@ -351,7 +352,7 @@ class MavsimLibHandler:
             #attributes = literal_eval(arg_string)
             # THIS IS NOT SAFE, BUT DICTIONARIES ARE NOT LITERAL COMPLIANT
 
-            print("mavsim_lib_server.parse_message command_str:{} isspace {} len {}".format(arg_string,arg_string.isspace(), len(arg_string)))
+            print("mavsim_lib_server.parse_message command:{} args:{}".format(command_str, arg_string))
             if not arg_string.isspace() and len(arg_string)>0 :
                 attributes = yaml.load(arg_string)
             else:
@@ -410,6 +411,38 @@ class MavsimLibHandler:
 
                 self.crashed = True
 
+        if False and command_str=="INITIAL_STATE":
+
+            location_x_y_z = np.array([attributes['x'],attributes['y'],attributes['z']] )
+            self.drone_heading = attributes['h']
+
+            cmu_loc_alt_row_col = [ location_x_y_z[2],
+                                    location_x_y_z[1] - self.submap_offset_row_col[0],
+                                    location_x_y_z[0] - self.submap_offset_row_col[1]   ]
+
+            if self.params['verbose']:
+                print("mavsim_lib_server drone location mavsim global x y z {} heading {}".format(location_x_y_z,self.drone_heading))
+                print("mavsim_lib_server drone location cmu    local  a r c {} ".format(cmu_loc_alt_row_col))
+
+
+            # Need to compare MAVSIM X against CMU column
+            # But MAVSim offset and CMU offsets are both row,col
+
+            if      0 <= cmu_loc_alt_row_col[1]  and  cmu_loc_alt_row_col[1] < self.submap_shape[0] \
+                    and  0 <= cmu_loc_alt_row_col[2]  and  cmu_loc_alt_row_col[2] < self.submap_shape[1]   :
+
+                # print("mavsim_lib_server drone inside 20x20 grid {}")
+
+                self.drone_location_alt_row_col = cmu_loc_alt_row_col
+
+            else:
+                print("mavsim_lib_server INITIAL_STATE drone location global row: {} col: {} alt:{} outside 20x20 grid {} CRASHED ".format(
+                    location_x_y_z[1],
+                    location_x_y_z[0],
+                    location_x_y_z[2],
+                    self.submap_offset_row_col))
+
+                self.crashed = True
 
         if command_str == "MS_CRAFT_CRASH":
 
