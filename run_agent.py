@@ -146,15 +146,8 @@ def main():
         print('Wrong choices in FLAGS training and visualization')
         return
 
-        #envs = SingleEnv(make_sc2env(**env_args))
-    #envs = gym.make('gridworld-v0')
-    # envs = SubprocVecEnv([make_env(i) for i in range(FLAGS.n_envs)])
-    # envs = VecNormalize(env)
-    # use for debugging 'Breakout-v0', Grid-v0, gridworld-v0
-    #envs = VecFrameStack(make_custom_env('gridworld-v0', FLAGS.n_envs, 1), 1) # One is number of frames to stack within each env
-    #envs = make_custom_env('gridworld-v0', FLAGS.n_envs, 1)
     print("Requested environments created successfully")
-    #env = gym.make('gridworld-v0')
+
     tf.reset_default_graph()
     # The following lines fix the problem with using more than 2 envs!!!
     # config = tf.ConfigProto(allow_soft_placement=True,
