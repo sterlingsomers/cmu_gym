@@ -115,8 +115,8 @@ class ObsProcesser:
         however tf on CPU works only with NHWC so returning those here
         """
         # TODO: vectorize this function and class
-        pp_obs = [self.process_one_input(obs) for obs in obs_list]
-        pp_obs = stack_list_of_dicts(pp_obs)
+        pp_obs = [self.process_one_input(obs) for obs in obs_list] # obs will contain n_envs obs. Each obs will contain whatever the env outs but you want to group same outs together.
+        pp_obs = stack_list_of_dicts(pp_obs) # group tgther same stuff
 
         # for k in ["screen_numeric", "minimap_numeric"]:
         #     pp_obs[k] = np.transpose(pp_obs[k], [0, 2, 3, 1])

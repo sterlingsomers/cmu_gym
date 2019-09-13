@@ -167,8 +167,9 @@ class Runner(object):
             #         self._handle_episode_end(t)
 
         #print(">> Avg. Reward:",np.round(np.mean(mb_rewards),3))
-        mb_values[:, -1] = self.agent.get_value(latest_obs) # We bootstrap from last step if not terminal! although he doesnt use any check here
-
+        mb_values[:, -1] = self.agent.get_value(latest_obs) # We bootstrap from last step. If not terminal! although he doesnt use any check here
+        # He replaces the last value with a bootstrap value. E.g. s_t-->V(s_t),s_{lastnstep}-->V(s_{lastnstep}), s_{lastnstep+1}
+        # and we replace the V(s_{lastnstep}) with V(s_{lastnstep+1})
         n_step_advantage = general_n_step_advantage(
             mb_rewards,
             mb_values,
@@ -179,14 +180,15 @@ class Runner(object):
 
         full_input = {
             # these are transposed because action/obs
-            # processers return [time, env, ...] shaped arrays
+            # processers return [time, env, ...] shaped arrays CHECK THIS OUT!!!YOU HAVE ALREADY THE TIMESTEP DIM!!!
             FEATURE_KEYS.advantage: n_step_advantage.transpose(),
-            FEATURE_KEYS.value_target: (n_step_advantage + mb_values[:, :-1]).transpose() # if you add to the advantage the value you get the target for your value function training. Check onenote in APL-virtual
+            FEATURE_KEYS.value_target: (n_step_advantage + mb_values[:, :-1]).transpose() # (we left out the last element) if you add to the advantage the value you get the target for your value function training. Check onenote in cmu_gym/Next Steps
         }
         #(MINE) Probably we combine all experiences from every worker below
         full_input.update(self.action_processer.combine_batch(mb_actions))
         full_input.update(self.obs_processer.combine_batch(mb_obs))
-        full_input = {k: combine_first_dimensions(v) for k, v in full_input.items()}
+        # Below comment it out for LSTM
+        full_input = {k: combine_first_dimensions(v) for k, v in full_input.items()} # The function takes in nsteps x nenvs x [dims] and combines nsteps*nenvs x [dims].
 
         if not self.do_training:
             pass
