@@ -157,6 +157,7 @@ def main():
     sess = tf.Session(config=config)
     #sess = tf.Session()
 
+
     agent = ActorCriticAgent(
         mode=FLAGS.agent_mode,
         sess=sess,
