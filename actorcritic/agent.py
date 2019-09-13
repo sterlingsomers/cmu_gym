@@ -33,8 +33,8 @@ def _get_placeholders(spatial_dim):
         (FEATURE_KEYS.selected_spatial_action, tf.int32, [None, 2]),
         (FEATURE_KEYS.selected_action_id, tf.int32, [None]),
         (FEATURE_KEYS.value_target, tf.float32, [None]),
-        (FEATURE_KEYS.rgb_screen, tf.float32, [None, 32, 100, 100, 3]),
-        (FEATURE_KEYS.alt_view, tf.float32, [None, 32, 100, 100, 3]),
+        (FEATURE_KEYS.rgb_screen, tf.float32, [None, 32, 100, 100, 3]), #[None, 32, 100, 100, 3] for LSTM
+        (FEATURE_KEYS.alt_view, tf.float32, [None, 32, 100, 100, 3]), #[None, 32, 100, 100, 3] for LSTM
         (FEATURE_KEYS.player_relative_screen, tf.int32, [None, sd, sd]),
         (FEATURE_KEYS.player_relative_minimap, tf.int32, [None, sd, sd]),
         (FEATURE_KEYS.advantage, tf.float32, [None]),
@@ -121,6 +121,7 @@ class ActorCriticAgent:
         self.max_gradient_norm = max_gradient_norm
         self.clip_epsilon = clip_epsilon
         self.num_actions= num_actions
+        self.policy_type = policy
         # self.policy = FullyConvPolicy if ( (policy == 'FullyConv') or (policy == 'Relational')) else MetaPolicy
         if policy == 'FullyConv':
             self.policy = FullyConvPolicy
@@ -136,6 +137,7 @@ class ActorCriticAgent:
             self.policy = LSTM
         else: print('Unknown Policy')
 
+        assert (self.policy_type == 'MetaPolicy') and not (self.mode == ACMode.PPO) # For now the policy in PPO is not calculated taken into account recurrencies
 
         opt_class = tf.train.AdamOptimizer if optimiser == "adam" else tf.train.RMSPropOptimizer
         if optimiser_pars is None:
@@ -177,8 +179,6 @@ class ActorCriticAgent:
 
         selected_log_probs = self._get_select_action_probs(self.theta)
 
-        neg_entropy_action_id = tf.reduce_mean(tf.reduce_sum(self.theta.action_id_probs * self.theta.action_id_log_probs, axis=1))
-
         if self.mode == ACMode.PPO:
             # could also use stop_gradient and forget about the trainable
             with tf.variable_scope("theta_old"):
@@ -210,19 +210,53 @@ class ActorCriticAgent:
             self._scalar_summary("action/ratio", tf.reduce_mean(clipped_ratio))
             self._scalar_summary("action/ratio_is_clipped",
                 tf.reduce_mean(tf.to_float(tf.equal(ratio, clipped_ratio))))
-            policy_loss = -tf.reduce_mean(l_clip)
+            self.policy_loss = -tf.reduce_mean(l_clip)
         else:
             self.sampled_action_id = weighted_random_sample(self.theta.action_id_probs)
             self.value_estimate = self.theta.value_estimate
-            policy_loss = -tf.reduce_mean(selected_log_probs.total * self.placeholders.advantage)
 
-        value_loss = tf.losses.mean_squared_error(self.placeholders.value_target, self.theta.value_estimate) # Target comes from runner/run_batch when you specify the full input
-        # value_loss = tf.reduce_sum(tf.square(tf.reshape(self.placeholders.value_target,[-1]) - tf.reshape(self.value_estimate, [-1])))
+        if self.policy_type == 'MetaPolicy':
+            # RESHAPE ACTIONS, ADVANTAGES, VALUES. USE MASK TO COMPUTE CORRECT MEANS!!!
+            batch_size = tf.shape(self.placeholders.rgb_screen)[0] # or maybe use -1
+            max_steps = tf.shape(self.placeholders.rgb_screen)[1]
+            self.action_id_probs = tf.reshape(self.theta.action_id_probs, [batch_size, max_steps, self.num_actions])
+            self.action_id_log_probs = tf.reshape(self.theta.action_id_log_probs, [batch_size,max_steps,self.num_actions])
+
+            entropy_i = tf.multiply(self.action_id_probs, self.action_id_log_probs) # [batch,max_steps,num_actions]
+            cross_entropy = -tf.reduce_sum(entropy_i, 2) # result: [batch,max_steps], axis=2 means sum wrt actions
+            mask = tf.sign(tf.reduce_max(tf.abs(entropy_i), 2)) # # [batch,max_steps] with zeros and ones
+            cross_entropy *= mask
+            # Average over actual sequence lengths.
+            cross_entropy = tf.reduce_sum(cross_entropy, 1) # sum all policy values per timestep for each sequence. result: batch x 1
+            cross_entropy /= tf.reduce_sum(mask, 1) # You sum the 1s of the [batch x maxsteps] over axis=1 (maxsteps) to get the actual length of each sequence in your batch
+            self.neg_entropy_action_id = tf.reduce_mean(cross_entropy)
+
+            # Start with policy per timestep i per sequence. Result will be [batch * maxsteps]
+            policy_i = selected_log_probs.total * self.placeholders.advantage # The selected log probs for masked actions should already be zero. The mask also (inside the policy.py) masks specific lengths so even if there are actions 0 (which are valid as a number) if not included in episode, they will be masked
+            # Reshape now to calculate correct means
+            policy = tf.reshape(policy_i, [batch_size, max_steps]) # result: [batch x maxsteps]
+            policy = tf.reduce_sum(policy, 1) # sum all policy values per timestep for each sequence. result: batch x 1
+            policy /= tf.reduce_sum(mask, 1)
+            self.policy_loss = -tf.reduce_mean(policy)
+            # self.policy_loss_check = -tf.reduce_sum(selected_log_probs.total * self.placeholders.advantage)
+
+            vloss_i = tf.squared_difference(self.placeholders.value_target, self.theta.value_estimate)
+            mse = tf.reshape(vloss_i, [batch_size, max_steps]) # result: [batch x maxsteps]
+            mse = tf.reduce_sum(mse, 1) # sum all policy values per timestep for each sequence. result: batch x 1
+            mse /= tf.reduce_sum(mask, 1)
+            self.value_loss = tf.reduce_mean(mse)
+
+        else:
+            self.neg_entropy_action_id = tf.reduce_mean(tf.reduce_sum(self.theta.action_id_probs * self.theta.action_id_log_probs, axis=1))
+            self.value_loss = tf.losses.mean_squared_error(self.placeholders.value_target, self.theta.value_estimate) # value_target comes from runner/run_batch when you specify the full input
+            self.policy_loss = -tf.reduce_mean(selected_log_probs.total * self.placeholders.advantage)
+            # self.policy_loss_check = -tf.reduce_sum(selected_log_probs.total * self.placeholders.advantage)
+
 
         loss = (
-            policy_loss
-            + value_loss * self.loss_value_weight
-            + neg_entropy_action_id * self.entropy_weight_action_id
+            self.policy_loss
+            + self.value_loss * self.loss_value_weight
+            + self.neg_entropy_action_id * self.entropy_weight_action_id
         )
 
         self.train_op = layers.optimize_loss(
@@ -241,10 +275,10 @@ class ActorCriticAgent:
         #     tf.reduce_mean(self.placeholders.is_spatial_action_available))
         self._scalar_summary("action/selected_id_log_prob",
             tf.reduce_mean(selected_log_probs.action_id))
-        self._scalar_summary("loss/policy", policy_loss)
-        self._scalar_summary("loss/value", value_loss)
+        self._scalar_summary("loss/policy", self.policy_loss)
+        self._scalar_summary("loss/value", self.value_loss)
         #self._scalar_summary("loss/neg_entropy_spatial", neg_entropy_spatial)
-        self._scalar_summary("loss/neg_entropy_action_id", neg_entropy_action_id)
+        self._scalar_summary("loss/neg_entropy_action_id", self.neg_entropy_action_id)
         self._scalar_summary("loss/total", loss)
         self._scalar_summary("value/advantage", tf.reduce_mean(self.placeholders.advantage))
         self._scalar_summary("action/selected_total_log_prob",
@@ -297,6 +331,9 @@ class ActorCriticAgent:
     def step_recurrent(self, obs, rnn_state, prev_reward, prev_action):
         # (MINE) Pass the observations through the net
         feed_dict = self._input_to_feed_dict(obs)
+        # Net receives a placeholder [batch x maxsteps x dims] so we stack 31 zero-images. THIS MIGHT NEED FIXING: I think it can be fixed only if maxsteps
+        # is None and you fix the batch_size. In A3C batch_size is the lengt of the sequence. So no matter the number of steps it will work.
+        #TODO: Batch_size is fixed from the flags. Maybe vary (using None) the timestep? NO cauz still you will need batch_size images for one step
         feed_dict['rgb_screen:0'] = np.expand_dims(feed_dict['rgb_screen:0'],axis=1)
         feed_dict['rgb_screen:0'] = np.tile(feed_dict['rgb_screen:0'], (1, 32, 1, 1, 1)) # ones declare no change in dimension of the original array
         feed_dict['alt_view:0'] = np.expand_dims(feed_dict['alt_view:0'],axis=1)
@@ -358,7 +395,7 @@ class ActorCriticAgent:
 
         self.train_step += 1
 
-    def train_recurrent(self, input_dict, prev_reward, prev_action, mb_l): # The input dictionary is designed in the runner with advantage function and other stuff in order to be used in the training.
+    def train_recurrent(self, input_dict, mb_l, prev_reward, prev_action): # The input dictionary is designed in the runner with advantage function and other stuff in order to be used in the training.
         feed_dict = self._input_to_feed_dict(input_dict)
         feed_dict['rgb_screen:0'] = np.expand_dims(feed_dict['rgb_screen:0'],axis=1)
         feed_dict['rgb_screen:0'] = np.reshape(feed_dict['rgb_screen:0'], [2, 32, 100, 100, 3]) #TODO: BETTER TO BRING THEM IN READY AS WE DONT KNOW IF ORDER IS PRESERVED WHEN HE COMBINES DIMS in runner

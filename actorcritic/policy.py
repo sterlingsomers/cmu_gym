@@ -400,6 +400,7 @@ class MetaPolicy:
         self.mb_dones = tf.placeholder(shape=[None], dtype=tf.int32) # size of this is batch_size
         # Maybe you need to bring in the inputs as batch x max_steps and not as batch * max_steps. The reshape should have only ONE None dimension so timestep should vary BUT when you test then the env vary
         # or maybe you need even the 1-step prediction to create a batch x self.nsteps x 100 x 100 tensor with 0s
+        batch_size = tf.shape(self.placeholders.rgb_screen)[0]
         rgb_screen = tf.reshape(self.placeholders.rgb_screen, [-1, 100, 100, 3])
         alt_view = tf.reshape(self.placeholders.alt_view, [-1, 100, 100, 3])
         screen_px = tf.cast(rgb_screen,
@@ -436,8 +437,7 @@ class MetaPolicy:
         # self.state = tf.contrib.rnn.LSTMStateTuple(state_c, state_h)
         # self.state = (state_c, state_h)
 
-
-        c_init = np.zeros((2, lstm_cell.state_size.c), np.float32)
+        c_init = np.zeros((2, lstm_cell.state_size.c), np.float32) # [BATCH SIZE x cell_size]. You need to bring the n_envs here. The batch_size above is a TENSOR and not computed till the time that you throw in the data. But this is numpy and u need a value
         h_init = np.zeros((2, lstm_cell.state_size.h), np.float32)
         # # (or bring the batch_size from out) The following should be defined in the runner and you need a self before the lstm_cell. Because you get a numpy array below you need the batch size
         self.state_init = [c_init, h_init]#lstm_cell.zero_state(2, dtype=tf.float32)# Its already a tensor with a numpy array full of zeros
@@ -453,8 +453,7 @@ class MetaPolicy:
         state_in = tf.contrib.rnn.LSTMStateTuple(self.c_in, self.h_in)
         lstm_outputs, lstm_state = tf.nn.dynamic_rnn(
             lstm_cell, rnn_in, initial_state=state_in, sequence_length=self.seq_length, time_major=False) #sequence_length=step_size,
-        # # lstm_outputs, lstm_state = tf.nn.dynamic_rnn(
-        # #     lstm_cell, rnn_in, initial_state=self.state_init,time_major=False)
+
         lstm_c, lstm_h = lstm_state
         self.state_out = (lstm_c, lstm_h)#(lstm_c[:1, :], lstm_h[:1, :])
         # self.state_out = lstm_state

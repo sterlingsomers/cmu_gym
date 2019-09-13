@@ -30,22 +30,23 @@ import gym
 #import gym_gridworld
 #from gym_grid.envs import GridEnv
 import gym_gridworld
+from gridworld import gameEnv
 
 FLAGS = flags.FLAGS
 flags.DEFINE_bool("visualize", False, "Whether to render with pygame.")
-flags.DEFINE_float("sleep_time", 0.5, "Time-delay in the demo")
+flags.DEFINE_float("sleep_time", 0.0, "Time-delay in the demo")
 flags.DEFINE_integer("resolution", 32, "Resolution for screen and minimap feature layers.")
 flags.DEFINE_integer("step_mul", 100, "Game steps per agent step.")
 flags.DEFINE_integer("step2save", 500, "Game step to save the model.") #A2C every 1000, PPO 250
 flags.DEFINE_integer("n_envs", 2, "Number of environments to run in parallel")
-flags.DEFINE_integer("episodes", 100, "Number of complete episodes")
+flags.DEFINE_integer("episodes", 500, "Number of complete episodes")
 flags.DEFINE_integer("n_steps_per_batch", 32,
     "Number of steps per batch, if None use 8 for a2c and 128 for ppo")  # (MINE) TIMESTEPS HERE!!! You need them cauz you dont want to run till it finds the beacon especially at first episodes - will take forever
 flags.DEFINE_integer("all_summary_freq", 50, "Record all summaries every n batch")
 flags.DEFINE_integer("scalar_summary_freq", 5, "Record scalar summaries every n batch")
 flags.DEFINE_string("checkpoint_path", "_files/models", "Path for agent checkpoints")
-flags.DEFINE_string("summary_path", "_files/summaries", "Path for tensorboard summaries") #A2C_custom_maps#A2C-science-allmaps
-flags.DEFINE_string("model_name", "Dokimi", "Name for checkpoints and tensorboard summaries") # DONT touch TESTING is the best (take out normalization layer in order to work! -- check which parts exist in the restore session if needed)
+flags.DEFINE_string("summary_path", "_files/summaries", "Path for tensorboard summaries") #A2C_custom_maps#A2C-science-allmaps - BEST here for one policy
+flags.DEFINE_string("model_name", "dokimi", "Name for checkpoints and tensorboard summaries") # DONT touch TESTING is the best (take out normalization layer in order to work! -- check which parts exist in the restore session if needed)
 flags.DEFINE_integer("K_batches", 15000, # Batch is like a training epoch!
     "Number of training batches to run in thousands, use -1 to run forever") #(MINE) not for now
 flags.DEFINE_string("map_name", "DefeatRoaches", "Name of a map to use.")
@@ -118,8 +119,9 @@ def make_custom_env(env_id, num_env, seed, wrapper_kwargs=None, start_index=0):
     if wrapper_kwargs is None: wrapper_kwargs = {}
     def make_env(rank): # pylint: disable=C0111
         def _thunk():
-            env = gym.make(env_id)
-            env.seed(seed + rank)
+            # env = gym.make(env_id)
+            # env.seed(seed + rank)
+            env = gameEnv(partial=False,size=9)#,goal_color=[np.random.uniform(), np.random.uniform(), np.random.uniform()])
             # Monitor should take care of reset!
             env = Monitor(env, logger.get_dir() and os.path.join(logger.get_dir(), str(rank)), allow_early_resets=True) # SUBPROC NEEDS 4 OUTPUS FROM STEP FUNCTION
             return env
@@ -313,6 +315,7 @@ def main():
                 pygame.display.update()
 
                 dictionary[runner.episode_counter]['hiker_pos'] = runner.envs.hiker_position
+                dictionary[runner.episode_counter]['map_name'] = str(runner.envs._map[0]) + '-' + str(runner.envs._map[1])
                 # dictionary[nav_runner.episode_counter]['map_volume'] = map_xy
 
                 # Quit pygame if the (X) button is pressed on the top left of the window
@@ -446,10 +449,10 @@ def main():
             type = '.tj'
             path = folder + 'MAP' + map_name + '_' + 'D' + drone_init_loc + '_' + 'HeadAlt' + drone_head_alt + '_' + 'H' + hiker_loc + '_' + str(FLAGS.episodes) + type
             pickle_in = open(path,'wb')
-            pickle.dump(dictionary, pickle_in)
+            pickle.dump(dictionary, pickle_in)# Saves a dictionary (seems smaller file)
 
             with open('./data/all_data' + map_name + '_' + drone_init_loc + '_' + drone_head_alt + '_' + hiker_loc + str(FLAGS.episodes) + '.lst', 'wb') as handle:
-                pickle.dump(all_data, handle)
+                pickle.dump(all_data, handle)# Saves a list (seems larger file)
             # with open('./data/All_maps_20x20_500.tj', 'wb') as handle:
             #     pickle.dump(dictionary, handle)
 

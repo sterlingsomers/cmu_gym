@@ -252,15 +252,19 @@ class Runner(object):
                     a_[indx] = 0
 
                 indx = indx + 1 # finished envs count
-
+        # Below: if all are zeros then you get nsteps
         mb_l = self.first_nonzero(mb_done,axis=1) # the last obs s-->sdone are not getting in the training!!!This is because sdone--> ? and R=0
         # Substitute 0s with 1 declaring 1 step
         # mb_l[mb_l==0] = 1
         mb_l = mb_l + 1 # You start stepping from step 0 to 1
+        mask = ~(np.ones(mb_rewards.shape).cumsum(axis=1).T > mb_l).T
+        mb_rewards = mb_rewards*mask
         # Below: r + gammaV(s')(1-done) - V(s)// V(s')=mb_values[:,-1] but if its done we dont care if we put the last nstep V or the actual V(s_done+1) as the whole term is gonna be zero
         # From V(nstep) estimate the expected reward - what if though we finished the sequence earlier???
         # This is for the last obs which you do not store. All other values that will be used as targets are available
-        mb_values[:, -1] = self.agent.get_recurrent_value(latest_obs, rnn_state, r_, a_) # Put at last slot the estimated future expected reward for bootstrap the Vt+1
+        mb_values[:, -1] = self.agent.get_recurrent_value(latest_obs, rnn_state, r_, a_) # Put at last slot the estimated future expected reward for bootstrap the V after the nsteps
+        mask_v = ~(np.ones(mb_values.shape).cumsum(axis=1).T > mb_l).T
+        mb_values = mb_values*mask_v
         # Mask below the values that enter the nstep advantage
         n_step_advantage = general_n_step_advantage(
             mb_rewards,
@@ -271,17 +275,19 @@ class Runner(object):
         )
         # prev_rewards = [0] + mb_rewards[:, :-1]#.tolist() # from the rewards you take out the last element and replace it with 0
         prev_rewards = np.c_[np.zeros((self.envs.num_envs, 1), dtype=np.float32), mb_rewards[:, :-1]]
-        # Below we add one zero action element and we take out the at so we get at=0:t-1
+        # Below we add one zero action element and we take out the a_t so we get at=0:t-1
         prev_actions = [np.zeros((self.envs.num_envs), dtype=np.int32)] + mb_actions[:-1] # You have to pad this probably to have equal lengths with your data in terms of nsteps
         full_input = {
             FEATURE_KEYS.advantage: n_step_advantage.transpose(),
-            FEATURE_KEYS.value_target: (n_step_advantage + mb_values[:, :-1]).transpose()
+            FEATURE_KEYS.value_target: (n_step_advantage + mb_values[:, :-1]).transpose() # NETWORK TARGET (A+V=R)
         }
 
         full_input.update(self.action_processer.combine_batch(mb_actions))
         full_input.update(self.obs_processer.combine_batch(mb_obs))
         # full_input.update(self.action_processer.combine_batch(prev_actions)) # THIS FEEDS AGAIN THE SELECTED_ID_ACTION PLACEHOLDER!!!!
         # full_input.update(self.action_processer.combine_batch(prev_rewards)) # THIS FEEDS AGAIN THE SELECTED_ID_ACTION PLACEHOLDER!!!!
+        # Below: [maxsteps x batch] --> [batch x maxsteps]
+        full_input = {k: np.swapaxes(v, 0, 1) for k, v in full_input.items()} # obs should be first trasnposed and then combine else you loose the time order
         full_input = {k: combine_first_dimensions(v) for k, v in full_input.items()} # YOU CAN COMMENT THIS AND UNCOMMENT BELOW
         # full_input = {k: np.swapaxes(v,0,1) for k, v in full_input.items()}
 
@@ -289,7 +295,7 @@ class Runner(object):
             pass
         elif self.agent.mode == ACMode.A2C:
             if self.policy_type == MetaPolicy:
-                self.agent.train_recurrent(full_input,prev_rewards,prev_actions, mb_l)
+                self.agent.train_recurrent(full_input,mb_l,prev_rewards,prev_actions)
             else:
                 self.agent.train(full_input)
         elif self.agent.mode == ACMode.PPO:

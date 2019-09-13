@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from sklearn import manifold
 from scipy.stats import entropy
 
+use_sterling = False
 mapw = maph = 20
 ''' Dropping/Crash locations heatmap '''
 def event_heatmap(obs, img):
@@ -118,7 +119,8 @@ def load_data():
     obs = pickle.load(pickle_in)
     return obs
 
-def create_dataframe(obs, value_feature_map):
+# For Sterling's data
+def create_dataframe_trials(obs, value_feature_map):
     data = []
     for trial in range(len(obs)):
         print('TRIAL:', trial)
@@ -205,21 +207,110 @@ def create_dataframe(obs, value_feature_map):
     # To load
     # df = pd.read_pickle('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/df_dataframe.df')
 
+def create_dataframe(obs, value_feature_map):
+    data = []
+    for epis in range(len(obs)): # -1 because we include the map
+        print('EPISODE:',epis)
+        # Get position of the flag
+        # indx = np.nonzero(obs[epis]['flag'])[0][0] # find the timestep where you switch to DRPPING AGENT !!!
+        # print('Switch to drop_agent happened at timestep=',indx)
+        epis_length = obs[epis]['flag'].__len__()
+        # flag2 = 0 # Indicate that drop agent is in charge (the flag=1 happens only once and then everything else is 0)
+        for timestep in range(epis_length):
+            print(' ---> timestep:', timestep)
+            hiker=0
+            ''' MAP NAME '''
+            map_name = obs[epis]['map_name']
+            ''' EPISODES '''
+            episode = epis
+            ''' TIMESTEPS '''
+            tstep = timestep
+            ''' FLAG (BOOLEAN) '''
+            flag = obs[epis]['flag'][timestep]
+            ''' AGENT TYPE (STRING) '''
+            agent_type = 'one_policy'
+            ''' ACTIONS (NUMERIC) '''
+            actions = obs[epis]['actions'][timestep]
+            ''' ACTIONS NAME (STRING) '''
+            action_label = act_label(actions)
+            ''' ACTIONS PROB DISTR (NUMPY VEC) '''
+            action_dstr = obs[epis]['action_probs'][timestep]
+            ''' reward '''
+            reward = round(obs[epis]['rewards'][timestep],2)
+            ''' VALUES '''
+            values = round(obs[epis]['values'][timestep],2)
+            ''' DRONE X,Y POSITION (NUMPY) '''
+            drone_pos = np.array(obs[epis]['drone_pos'][timestep]).transpose()[0][-2:]
+            ''' DRONE Z ALTITUDE (INT) '''
+            drone_alt = np.array(obs[epis]['drone_pos'][timestep]).transpose()[0][0]
+            ''' DRONE HEADING (INT) '''
+            headings = obs[epis]['headings'][timestep]
+            ''' DRONE CRASH (BOOLEAN) '''
+            crash = obs[epis]['crash'][timestep]
+            # ''' DRONE CRASH EPIS FLAG (BOOLEAN) ''' NO CAUZ WE CARE ABOUT LOCATIONS OF CRASH -- MAYBE DOESNT MATTER WE CARE ONLY IF THE DRONE CRASHED IN A LOCATION, HOWEVER YOU WONT KNOW WHERE IF YOU DONT KMOW THE TIMESTEP HTAT IT CRASHED
+            # crash = obs[epis]['crash']
+            ''' HIKER X,Y POSITION (NUMPY) '''
+            hiker_pos = np.array(obs[epis]['hiker_pos']).transpose()[0][-2:]
+            ''' PACK X,Y POSITION (NUMPY) '''
+            pack_pos = np.array(obs[epis]['pack position'])
+            ''' PACK-HIKER DISTANCE (INT) '''
+            packhiker_dist = obs[epis]['pack-hiker_dist']
+            ''' PACK CONDITION (STRING) '''
+            pack_condition = obs[epis]['pack condition']
+            ''' STUCK EPIS (BOOLEAN) '''
+            stuck = obs[epis]['stuck_epis']
+            ''' FC (VECTOR) '''
+            fc_rep = obs[epis]['fc'][timestep]
+            ''' ALTS IN COLUMNS (VECTOR) '''
+            # For slice we want only the bottom of the 5x5 slice as that indicates the alt of the objects. Alt is projected upwards.
+            slice_rep = obs[epis]['ego'][timestep]
+            slice_rep = slice_rep.astype(int)
+            slice_rep_bottom = slice_rep[-1:][0]
+            alts = [int(value_feature_map[j]['alt']) for j in slice_rep_bottom]
+
+            # If hiker (feature value = 50) exists in the slice
+            if 50 in slice_rep_bottom:
+                hiker=1 # Is hiker in the current egocentric input?
+
+            data.append([map_name, episode, tstep, flag, agent_type, actions, action_label, action_dstr, round(reward,3),
+                         round(values,3), drone_pos, drone_alt, headings, crash, hiker_pos, pack_pos, packhiker_dist,
+                         pack_condition, stuck, fc_rep, alts, hiker])
+
+    # Construct dataframe
+    data = np.array(data, dtype=object)  # object helps to keep arbitary type of data
+    """ KEEP THE SAME ORDER BETWEEN COLUMNS AND DATA (data.append and columns=[] lines)!!!"""
+    columns = ['map_name', 'episode', 'timestep', 'epis_ends', 'agent_type', 'actions', 'action_label', 'action_dstr','rewards', 'values',
+               'drone_position', 'drone_alt', 'heading', 'crash', 'hiker', 'pack_position', 'packhiker_dist',
+               'pack_condition', 'stuck', 'fc', 'altitudes_in_slice', 'hiker_in_ego']
+
+    # datab = np.reshape(data, [data.shape[0], data.shape[1]])
+    df = pd.DataFrame(data, columns=columns)
+    df.to_pickle(path + '.df')
+    print('...dataframe saved')
+    # To load
+    # df = pd.read_pickle('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/df_dataframe.df')
 
 folder = '/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/'
 map_name = 'BoxCanyon'
 drone_init_loc = 'D1118'
 hiker_loc = 'H1010'
 # path = folder + map_name + '_' + drone_init_loc + '_' + hiker_loc + '_' + '200'
-path ='/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/MODEL_TRACE_eBEHAVE_FC_noise030_MP3_1'
+path ='/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/all_data'
 
 obs = load_data()
+''' Create Pandas Dataframe if it doesn't exist'''
 if os.path.isfile(path + '.df')==False:
     value_feature = load_feat2value()
-    create_dataframe(obs,value_feature)
-
-img = obs[0][0]['map_volume'][0]['img']
+    if use_sterling:
+        create_dataframe_trials(obs,value_feature)
+    else:
+        create_dataframe(obs, value_feature)
+if use_sterling:
+    img = obs[0][0]['map_volume'][0]['img'] # somehow it doesnt work. Youhave the name of the map though but you need drone and hiker
+else:
+    img = obs[0]['map_volume'][0]['img']
 df = pd.read_pickle(path + '.df')
+# Everything below works for one map multiple runs!!!
 agent_typ = 'one_policy'
 ''' DROP LOCATIONS '''
 print("DROPS")

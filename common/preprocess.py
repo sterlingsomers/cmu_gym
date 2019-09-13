@@ -198,6 +198,13 @@ class ActionProcesser:
         #d[FEATURE_KEYS.is_spatial_action_available] = self.is_spatial[ d[FEATURE_KEYS.selected_action_id] ]
         return d
 
+    # def combine_recurrent_batch(self, mb_actions):
+    #     d = {}
+    #     d[FEATURE_KEYS.selected_action_id] = np.stack(k for k in mb_actions).transpose()
+    #     #d[FEATURE_KEYS.selected_spatial_action] = np.stack(k[1] for k in mb_actions)
+    #     #d[FEATURE_KEYS.is_spatial_action_available] = self.is_spatial[ d[FEATURE_KEYS.selected_action_id] ]
+    #     return d
+
 
 FEATURE_LIST = (
     "alt0_grass",

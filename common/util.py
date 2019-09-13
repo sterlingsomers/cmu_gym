@@ -62,9 +62,9 @@ def general_n_step_advantage(
     if lambda_par == 0:
         return delta
 
-    delta_rev = delta[:, ::-1]
-    adjustment = (discount * lambda_par) ** np.arange(timesteps, 0, -1)
-    advantage = (np.cumsum(delta_rev * adjustment, axis=1) / adjustment)[:, ::-1] # Why he devides with the adjustment? this will decrease the power of the adjustmennt with the sum by one
+    delta_rev = delta[:, ::-1] # reverse the vector so the last value of the vec is now first
+    adjustment = (discount * lambda_par) ** np.arange(timesteps, 0, -1) # np.arrange creates an array with integer values: nstep, nstep-1,..,1. E.g. timesteps=32: [32,31,30,...,1]
+    advantage = (np.cumsum(delta_rev * adjustment, axis=1) / adjustment)[:, ::-1] # From the paper of Schulman for GAE: eq. 16
     return advantage
 
 

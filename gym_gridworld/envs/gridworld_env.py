@@ -44,11 +44,11 @@ class GridworldEnv(gym.Env):
         self.drop = False
         self.countdrop = 0
         self.no_action_flag = False
-        self.maps =[(1,4)]#[(321, 337)]#[(1,1), (1,2), (1,3), (1,4), (1,5), (1,6), (1,7)]
-            # [(265,308),(20,94),(146,456),(149,341),(164,90),(167,174),
-            #             (224,153),(241,163),(260,241),(265,311),(291,231),
-            #             (308,110),(334,203),(360,112),(385,291),(330,352),(321,337)]#[(400,35), (350,90), (430,110),(390,50), (230,70)] #[(86, 266)] (70,50) # For testing, 70,50 there is no where to drop in the whole map
-        #[(149, 341)]#[(149, 341),(241,163), (260,241),(291,231),(308,110),(330,352)]
+        self.maps =\
+             [(265,308),(20,94),(146,456),(149,341),(164,90),(167,174),
+                         (224,153),(241,163),(260,241),(265,311),(291,231),
+                         (308,110),(334,203),(360,112),(385,291),(330,352),(321,337)]#[(400,35), (350,90), (430,110),(390,50), (230,70)] #[(86, 266)] (70,50) # For testing, 70,50 there is no where to drop in the whole map
+        #[(149, 341)]#[(149, 341),(241,163), (260,241),(291,231),(308,110),(330,352)]#[(1,1), (1,2), (1,3), (1,4), (1,5), (1,6), (1,7)]
         self.mapw = 20
         self.maph = 20
         self.dist_old = 1000
@@ -787,8 +787,8 @@ class GridworldEnv(gym.Env):
                                                      x >= 3 and y >= 3 and x <= self.map_volume['vol'].shape[
                                                          1] - 3 and y <= self.map_volume['vol'].shape[1] - 3]
         """ Specify Hiker location"""
-        # self.hiker = random.choice(hiker_safe_points)
-        self.hiker = (12,12)#(11,8) #(18, 16)
+        self.hiker = random.choice(hiker_safe_points)
+        # self.hiker = (12,12)#(11,8) #(18, 16)
 
         # int(self.original_map_volume['vol'][hiker])
         # place the drone
@@ -847,9 +847,9 @@ class GridworldEnv(gym.Env):
         #     times = times + 1
 
         """ All safe points included for final training """
-        # self.drone = random.choice(drone_safe_points)
+        self.drone = random.choice(drone_safe_points)
         """ Custom location """
-        self.drone = (6,6)#(18,11)
+        # self.drone = (6,6)#(18,11)
 
         self.original_map_volume = copy.deepcopy(self.map_volume)
         self.hiker_drone_dist = max(abs(np.array(self.hiker) - np.array(self.drone)))
