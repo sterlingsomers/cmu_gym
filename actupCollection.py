@@ -358,7 +358,7 @@ if __name__ == "__main__":
     p = Pool(processes=8)
     # split_chunks = [test_chunks[i::10] for i in range(10)]
     multi_p = partial(multi_blends, memory=m,slots=action_slots)
-    data = p.map(multi_p, test_chunks[0:100])
+    data = p.map(multi_p, test_chunks[0:10])
     # for test_chunk in test_chunks:
         # results.append([m.blend(x,**test_chunk) for x in action_slots])
 
