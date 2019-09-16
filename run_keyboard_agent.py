@@ -5,12 +5,11 @@ import sys
 from datetime import datetime
 from time import sleep
 import pickle
-import pygame, time, random
+import pygame, time
 
 from absl import flags
 
 import gym_gridworld.envs.gridworld_env as GridWorld
-
 
 FLAGS = flags.FLAGS
 # flags.DEFINE_bool("visualize", False, "Whether to render with pygame.")
@@ -40,7 +39,8 @@ flags.DEFINE_integer("episodes", 1, "Number of complete episodes")
 
 #human subject flags
 flags.DEFINE_string("participant", 'Test', "The participants name")
-flags.DEFINE_integer("Map", 0, "Map index 0-10")
+flags.DEFINE_string("map", 'canyon', "river, canyon")
+flags.DEFINE_integer("configuration", 1, "1,2,3")
 
 
 
@@ -74,7 +74,8 @@ def _print(i):
 def main():
 
         environment = GridWorld.GridworldEnv()
-        environment.reset()
+        environment.reset(map=flags.FLAGS.map)
+
         episode_counter = 0
 
         # pygame.font.get_fonts() # Run it to get a list of all system fonts
@@ -92,7 +93,7 @@ def main():
         pygame.init()
         gameDisplay = pygame.display.set_mode((display_w, display_h))
         gameDisplay.fill(DARK_BLUE)
-        pygame.display.set_caption('Neural Introspection')
+        pygame.display.set_caption('Package Drop')
         clock = pygame.time.Clock()
 
         def screen_mssg_variable(text, variable, area):
@@ -133,20 +134,7 @@ def main():
             human_data['actions'] = []
             human_data['headings'] = []
             human_data['altitudes'] = []
-            # Init storage structures
-            # dictionary[nav_runner.episode_counter] = {}
-            # mb_obs = []
-            # mb_actions = []
-            # mb_flag = []
-            # mb_representation = []
-            # mb_fc = []
-            # mb_rewards = []
-            # mb_values = []
-            # mb_drone_pos = []
-            # mb_heading = []
-            # mb_crash = []
-            # mb_map_volume = [] # obs[0]['volume']==envs.map_volume
-            # mb_ego = []
+
 
 
             new_image = environment.generate_observation()
@@ -156,8 +144,6 @@ def main():
             process_img(map_alt, 20, 400)
             pygame.display.update()
 
-            # dictionary[nav_runner.episode_counter]['hiker_pos'] = nav_runner.envs.hiker_position
-            # dictionary[nav_runner.episode_counter]['map_volume'] = map_xy
 
             # Quit pygame if the (X) button is pressed on the top left of the window
             # Seems that without this for event quit doesnt show anything!!!
@@ -178,14 +164,10 @@ def main():
             # done = 0
             while 1:#done==0:
 
-                # mb_obs.append(nav_runner.latest_obs)
-                # mb_flag.append(drop_flag)
-                # mb_heading.append(nav_runner.envs.heading)
+
                 #
                 # drone_pos = np.where(nav_runner.envs.map_volume['vol'] == nav_runner.envs.map_volume['feature_value_map']['drone'][nav_runner.envs.altitude]['val'])
-                # mb_drone_pos.append(drone_pos)
-                # mb_map_volume.append(nav_runner.envs.map_volume)
-                # mb_ego.append(nav_runner.envs.ego)
+
                 action= -1
                 #ignore mouse actions!!!
                 pygame.event.set_blocked([pygame.MOUSEMOTION, pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP])
@@ -250,11 +232,11 @@ def main():
 
 
                 print("DONE:", done)
+                print("REWARD:", reward)
 
                 pygame.event.set_blocked([pygame.MOUSEMOTION, pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP])
                 event = pygame.event.wait() # PREVENTS FOR CONSIDERING MORE THAN A KEY PRESS AT ONCE. CAREFUL
-                # screen_mssg_variable("Value    : ", np.round(value,3), (168, 350))
-                # screen_mssg_variable("Reward: ", np.round(reward,3), (168, 372))
+
                 pygame.display.update()
                 pygame.event.get()
                 sleep(sleep_time)
