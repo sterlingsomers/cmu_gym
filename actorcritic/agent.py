@@ -12,9 +12,10 @@ import tensorboard.plugins.beholder as beholder_lib
 
 #LOG_DIRECTORY = '/tmp/beholder-demo/SCII'
 LOG_DIRECTORY = '_files/summaries/Test'
-def _get_placeholders(spatial_dim):
+def _get_placeholders(spatial_dim, nsteps, nenvs, policy_type):
     sd = spatial_dim
-    feature_list = [
+    if policy_type == 'MetaPolicy':
+        feature_list = [
         (FEATURE_KEYS.alt0_grass, tf.float32, [None, 20, 20]),
         (FEATURE_KEYS.alt0_bush, tf.float32, [None, 20, 20]),
     # FEATURE_KEYS.available_action_ids: get_available_actions_flags(obs),
@@ -33,8 +34,8 @@ def _get_placeholders(spatial_dim):
         (FEATURE_KEYS.selected_spatial_action, tf.int32, [None, 2]),
         (FEATURE_KEYS.selected_action_id, tf.int32, [None]),
         (FEATURE_KEYS.value_target, tf.float32, [None]),
-        (FEATURE_KEYS.rgb_screen, tf.float32, [None, 32, 100, 100, 3]), #[None, 32, 100, 100, 3] for LSTM
-        (FEATURE_KEYS.alt_view, tf.float32, [None, 32, 100, 100, 3]), #[None, 32, 100, 100, 3] for LSTM
+        (FEATURE_KEYS.rgb_screen, tf.float32, [nenvs, None, 100, 100, 3]), #[None, 32, 100, 100, 3] for LSTM
+        (FEATURE_KEYS.alt_view, tf.float32, [nenvs, None, 100, 100, 3]), #[None, 32, 100, 100, 3] for LSTM
         (FEATURE_KEYS.player_relative_screen, tf.int32, [None, sd, sd]),
         (FEATURE_KEYS.player_relative_minimap, tf.int32, [None, sd, sd]),
         (FEATURE_KEYS.advantage, tf.float32, [None]),
@@ -44,6 +45,37 @@ def _get_placeholders(spatial_dim):
         (FEATURE_KEYS.image_vol, tf.float32, [None, 5, 100, 100, 3]),
         (FEATURE_KEYS.joined, tf.float32, [None, 100, 200, 3]),
     ]
+    else:
+        feature_list = [
+            (FEATURE_KEYS.alt0_grass, tf.float32, [None, 20, 20]),
+            (FEATURE_KEYS.alt0_bush, tf.float32, [None, 20, 20]),
+            # FEATURE_KEYS.available_action_ids: get_available_actions_flags(obs),
+            (FEATURE_KEYS.alt0_drone, tf.float32, [None, 20, 20]),
+            (FEATURE_KEYS.alt0_hiker, tf.float32, [None, 20, 20]),
+            (FEATURE_KEYS.alt1_pine, tf.float32, [None, 20, 20]),  # numpy.array is redundant
+            (FEATURE_KEYS.alt1_pines, tf.float32, [None, 20, 20]),
+            (FEATURE_KEYS.alt1_drone, tf.float32, [None, 20, 20]),
+            (FEATURE_KEYS.alt2_drone, tf.float32, [None, 20, 20]),
+            (FEATURE_KEYS.alt3_drone, tf.float32, [None, 20, 20]),
+            (FEATURE_KEYS.minimap_numeric, tf.float32, [None, sd, sd, ObsProcesser.N_MINIMAP_CHANNELS]),
+            (FEATURE_KEYS.screen_numeric, tf.float32, [None, sd, sd, ObsProcesser.N_SCREEN_CHANNELS]),
+            (FEATURE_KEYS.screen_unit_type, tf.int32, [None, sd, sd]),
+            (FEATURE_KEYS.is_spatial_action_available, tf.float32, [None]),
+            (FEATURE_KEYS.available_action_ids, tf.float32, [None, len(actions.FUNCTIONS)]),
+            (FEATURE_KEYS.selected_spatial_action, tf.int32, [None, 2]),
+            (FEATURE_KEYS.selected_action_id, tf.int32, [None]),
+            (FEATURE_KEYS.value_target, tf.float32, [None]),
+            (FEATURE_KEYS.rgb_screen, tf.float32, [None, 100, 100, 3]),  # [None, 32, 100, 100, 3] for LSTM
+            (FEATURE_KEYS.alt_view, tf.float32, [None, 100, 100, 3]),  # [None, 32, 100, 100, 3] for LSTM
+            (FEATURE_KEYS.player_relative_screen, tf.int32, [None, sd, sd]),
+            (FEATURE_KEYS.player_relative_minimap, tf.int32, [None, sd, sd]),
+            (FEATURE_KEYS.advantage, tf.float32, [None]),
+            (FEATURE_KEYS.prev_actions, tf.int32, [None, None]),
+            (FEATURE_KEYS.prev_rewards, tf.float32, [None, None]),
+            (FEATURE_KEYS.altitudes, tf.int32, [None]),
+            (FEATURE_KEYS.image_vol, tf.float32, [None, 5, 100, 100, 3]),
+            (FEATURE_KEYS.joined, tf.float32, [None, 100, 200, 3]),
+        ]
     return AgentInputTuple(
         **{name: tf.placeholder(dtype, shape, name) for name, dtype, shape in feature_list}
     )
@@ -76,7 +108,9 @@ class ActorCriticAgent:
             optimiser="adam",
             optimiser_pars: dict = None,
             policy=None,
-            num_actions=4
+            num_actions=4,
+            num_envs=1,
+            nsteps=1,
     ):
         """
         Actor-Critic Agent for learning pysc2-minigames
@@ -121,6 +155,8 @@ class ActorCriticAgent:
         self.max_gradient_norm = max_gradient_norm
         self.clip_epsilon = clip_epsilon
         self.num_actions= num_actions
+        self.num_envs = num_envs
+        self.nsteps = nsteps
         self.policy_type = policy
         # self.policy = FullyConvPolicy if ( (policy == 'FullyConv') or (policy == 'Relational')) else MetaPolicy
         if policy == 'FullyConv':
@@ -137,7 +173,7 @@ class ActorCriticAgent:
             self.policy = LSTM
         else: print('Unknown Policy')
 
-        assert (self.policy_type == 'MetaPolicy') and not (self.mode == ACMode.PPO) # For now the policy in PPO is not calculated taken into account recurrencies
+        # assert (self.policy_type == 'MetaPolicy') and not (self.mode == ACMode.PPO) # For now the policy in PPO is not calculated taken into account recurrencies
 
         opt_class = tf.train.AdamOptimizer if optimiser == "adam" else tf.train.RMSPropOptimizer
         if optimiser_pars is None:
@@ -173,7 +209,7 @@ class ActorCriticAgent:
             collections=[tf.GraphKeys.SUMMARIES, self._scalar_summary_key])
 
     def build_model(self):
-        self.placeholders = _get_placeholders(self.spatial_dim)
+        self.placeholders = _get_placeholders(self.spatial_dim, self.nsteps, self.num_envs, self.policy_type)
         with tf.variable_scope("theta"):
             self.theta = self.policy(self, trainable=True).build() # (MINE) from policy.py you build the net. Theta is
 
@@ -238,7 +274,6 @@ class ActorCriticAgent:
             policy = tf.reduce_sum(policy, 1) # sum all policy values per timestep for each sequence. result: batch x 1
             policy /= tf.reduce_sum(mask, 1)
             self.policy_loss = -tf.reduce_mean(policy)
-            # self.policy_loss_check = -tf.reduce_sum(selected_log_probs.total * self.placeholders.advantage)
 
             vloss_i = tf.squared_difference(self.placeholders.value_target, self.theta.value_estimate)
             mse = tf.reshape(vloss_i, [batch_size, max_steps]) # result: [batch x maxsteps]
@@ -250,7 +285,6 @@ class ActorCriticAgent:
             self.neg_entropy_action_id = tf.reduce_mean(tf.reduce_sum(self.theta.action_id_probs * self.theta.action_id_log_probs, axis=1))
             self.value_loss = tf.losses.mean_squared_error(self.placeholders.value_target, self.theta.value_estimate) # value_target comes from runner/run_batch when you specify the full input
             self.policy_loss = -tf.reduce_mean(selected_log_probs.total * self.placeholders.advantage)
-            # self.policy_loss_check = -tf.reduce_sum(selected_log_probs.total * self.placeholders.advantage)
 
 
         loss = (
@@ -273,18 +307,16 @@ class ActorCriticAgent:
         self._scalar_summary("value/target", tf.reduce_mean(self.placeholders.value_target))
         # self._scalar_summary("action/is_spatial_action_available",
         #     tf.reduce_mean(self.placeholders.is_spatial_action_available))
-        self._scalar_summary("action/selected_id_log_prob",
-            tf.reduce_mean(selected_log_probs.action_id))
+        # self._scalar_summary("action/selected_id_log_prob",
+        #     tf.reduce_mean(selected_log_probs.action_id)) # You need the corrected one
         self._scalar_summary("loss/policy", self.policy_loss)
         self._scalar_summary("loss/value", self.value_loss)
-        #self._scalar_summary("loss/neg_entropy_spatial", neg_entropy_spatial)
+
         self._scalar_summary("loss/neg_entropy_action_id", self.neg_entropy_action_id)
         self._scalar_summary("loss/total", loss)
-        self._scalar_summary("value/advantage", tf.reduce_mean(self.placeholders.advantage))
-        self._scalar_summary("action/selected_total_log_prob",
-            tf.reduce_mean(selected_log_probs.total))
-        # self._scalar_summary("action/selected_spatial_log_prob",
-        #     tf.reduce_sum(selected_log_probs.spatial) / sum_spatial_action_available)
+        # self._scalar_summary("value/advantage", tf.reduce_mean(self.placeholders.advantage)) # You need the corrected one (masked)
+        # self._scalar_summary("action/selected_total_log_prob", # You need the corrected one (masked)
+        #     tf.reduce_mean(selected_log_probs.total))
 
         #tf.summary.image('convs output', tf.reshape(self.theta.map_output,[-1,25,25,64]))
 
@@ -331,37 +363,39 @@ class ActorCriticAgent:
     def step_recurrent(self, obs, rnn_state, prev_reward, prev_action):
         # (MINE) Pass the observations through the net
         feed_dict = self._input_to_feed_dict(obs)
-        # Net receives a placeholder [batch x maxsteps x dims] so we stack 31 zero-images. THIS MIGHT NEED FIXING: I think it can be fixed only if maxsteps
-        # is None and you fix the batch_size. In A3C batch_size is the lengt of the sequence. So no matter the number of steps it will work.
+        # Net receives a placeholder [batch x maxsteps x dims] so we stack 31 same images with the first. THIS MIGHT NEED FIXING: I think it can be fixed only if maxsteps
+        # is None and you fix the batch_size (STILL though in training batch_size > step batch_size=1. In A3C batch_size is the length of the sequence. So no matter the number of steps it will work.
         #TODO: Batch_size is fixed from the flags. Maybe vary (using None) the timestep? NO cauz still you will need batch_size images for one step
         feed_dict['rgb_screen:0'] = np.expand_dims(feed_dict['rgb_screen:0'],axis=1)
-        feed_dict['rgb_screen:0'] = np.tile(feed_dict['rgb_screen:0'], (1, 32, 1, 1, 1)) # ones declare no change in dimension of the original array
-        feed_dict['alt_view:0'] = np.expand_dims(feed_dict['alt_view:0'],axis=1)
-        feed_dict['alt_view:0'] = np.tile(feed_dict['alt_view:0'], (1, 32, 1, 1, 1))
+        # feed_dict['rgb_screen:0'] = np.tile(feed_dict['rgb_screen:0'], (1, self.nsteps, 1, 1, 1)) # ones declare no change in dimension of the original array
+        # # feed_dict['alt_view:0'] = np.expand_dims(feed_dict['alt_view:0'],axis=1)
+        # # feed_dict['alt_view:0'] = np.tile(feed_dict['alt_view:0'], (1, 32, 1, 1, 1))
+        # #Even if we mask in the policy we try to see if we put blank images
+        # feed_dict['rgb_screen:0'][:, 1:,:,:,:]=0
 
         action_id, value_estimate, state_out = self.sess.run(
             [self.sampled_action_id, self.value_estimate, self.theta.state_out],
             feed_dict={
                 self.placeholders.rgb_screen: feed_dict['rgb_screen:0'],
-                self.placeholders.alt_view: feed_dict['alt_view:0'],
+                # self.placeholders.alt_view: feed_dict['alt_view:0'],
                 # self.theta.prev_rewards: prev_reward,#np.vstack(prev_rewards),
                 # self.theta.prev_actions: prev_action,
                 # self.theta.state : rnn_state
-                self.theta.mb_dones: [1,1],
+                self.theta.mb_dones: [1]*self.num_envs, # list of ones [1,1,...,1]
                 self.theta.state_in[0]: rnn_state[0], # when you feed it has to be numpy and not a tensor
                 self.theta.state_in[1]: rnn_state[1]
             }
         )
 
-        action_id = np.reshape(action_id, [2, 32])[:,0]
-        value_estimate = np.reshape(value_estimate, [2, 32])[:, 0]
+        # action_id = np.reshape(action_id, [self.num_envs, self.nsteps])[:,0]
+        # value_estimate = np.reshape(value_estimate, [self.num_envs, self.nsteps])[:, 0]
         return action_id, value_estimate, state_out
 
     def step_eval(self, obs):
         # (MINE) Pass the observations through the net
 
-        feed_dict = {'rgb_screen:0' : obs['rgb_screen'],
-                     'alt_view:0': obs['alt_view']}
+        feed_dict = {'rgb_screen:0' : obs['rgb_screen']},
+                     # 'alt_view:0': obs['alt_view']}
 
         action_id, value_estimate, fc, action_probs = self.sess.run(
             [self.sampled_action_id, self.value_estimate, self.theta.fc1, self.theta.action_id_probs],
@@ -398,9 +432,9 @@ class ActorCriticAgent:
     def train_recurrent(self, input_dict, mb_l, prev_reward, prev_action): # The input dictionary is designed in the runner with advantage function and other stuff in order to be used in the training.
         feed_dict = self._input_to_feed_dict(input_dict)
         feed_dict['rgb_screen:0'] = np.expand_dims(feed_dict['rgb_screen:0'],axis=1)
-        feed_dict['rgb_screen:0'] = np.reshape(feed_dict['rgb_screen:0'], [2, 32, 100, 100, 3]) #TODO: BETTER TO BRING THEM IN READY AS WE DONT KNOW IF ORDER IS PRESERVED WHEN HE COMBINES DIMS in runner
-        feed_dict['alt_view:0'] = np.expand_dims(feed_dict['alt_view:0'], axis=1)
-        feed_dict['alt_view:0'] = np.reshape(feed_dict['alt_view:0'], [2, 32, 100, 100, 3])
+        feed_dict['rgb_screen:0'] = np.reshape(feed_dict['rgb_screen:0'], [self.num_envs, self.nsteps, 100, 100, 3]) #TODO: BETTER TO BRING THEM IN READY AS WE DONT KNOW IF ORDER IS PRESERVED WHEN HE COMBINES DIMS in runner
+        # feed_dict['alt_view:0'] = np.expand_dims(feed_dict['alt_view:0'], axis=1)
+        # feed_dict['alt_view:0'] = np.reshape(feed_dict['alt_view:0'], [2, 32, 100, 100, 3])
 
         ops = [self.train_op] # (MINE) From build model above the train_op contains all the operations for training
 
@@ -424,7 +458,7 @@ class ActorCriticAgent:
             self.placeholders.value_target: feed_dict['value_target:0'],
             self.placeholders.selected_action_id: feed_dict['selected_action_id:0'],
             self.placeholders.rgb_screen: feed_dict['rgb_screen:0'],
-            self.placeholders.alt_view: feed_dict['alt_view:0'],
+            # self.placeholders.alt_view: feed_dict['alt_view:0'],
             # self.theta.prev_rewards: prev_reward,# feed_dict['prev_rewards:0'],  # np.vstack(prev_rewards),
             # self.theta.prev_actions: prev_action,#feed_dict['prev_actions:0'],
             # self.theta.step_size: [32],
@@ -445,21 +479,22 @@ class ActorCriticAgent:
     def get_recurrent_value(self, obs, rnn_state, prev_reward, prev_action):
         feed_dict = self._input_to_feed_dict(obs)
         feed_dict['rgb_screen:0'] = np.expand_dims(feed_dict['rgb_screen:0'],axis=1)
-        feed_dict['rgb_screen:0'] = np.tile(feed_dict['rgb_screen:0'], (1, 32, 1, 1, 1)) # ones declare no change in dimension of the original array
-        feed_dict['alt_view:0'] = np.expand_dims(feed_dict['alt_view:0'],axis=1)
-        feed_dict['alt_view:0'] = np.tile(feed_dict['alt_view:0'], (1, 32, 1, 1, 1))
+        # feed_dict['rgb_screen:0'] = np.tile(feed_dict['rgb_screen:0'], (1, self.nsteps, 1, 1, 1)) # ones declare no change in dimension of the original array
+        # # feed_dict['alt_view:0'] = np.expand_dims(feed_dict['alt_view:0'],axis=1)
+        # # feed_dict['alt_view:0'] = np.tile(feed_dict['alt_view:0'], (1, 32, 1, 1, 1))
+        # feed_dict['rgb_screen:0'][:, 1:, :, :, :] = 0
 
         value_estimate =  self.sess.run(self.value_estimate, feed_dict={
                 self.placeholders.rgb_screen: feed_dict['rgb_screen:0'],
-                self.placeholders.alt_view: feed_dict['alt_view:0'],
+                # self.placeholders.alt_view: feed_dict['alt_view:0'],
                 # self.theta.prev_rewards: prev_reward,#np.vstack(prev_rewards),
                 # self.theta.prev_actions: prev_action,
-                self.theta.mb_dones: [1,1],
+                self.theta.mb_dones: [1]*self.num_envs,
                 self.theta.state_in[0]: rnn_state[0], # when you feed it has to be numpy and not a tensor
                 self.theta.state_in[1]: rnn_state[1]
             }
              )
-        value_estimate = np.reshape(value_estimate, [2, 32])[:, 0]
+        # value_estimate = np.reshape(value_estimate, [self.num_envs, self.nsteps])[:, 0]
         return value_estimate
 
     def flush_summaries(self):

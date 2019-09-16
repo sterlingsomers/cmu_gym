@@ -38,11 +38,11 @@ flags.DEFINE_float("sleep_time", 0.0, "Time-delay in the demo")
 flags.DEFINE_integer("resolution", 32, "Resolution for screen and minimap feature layers.")
 flags.DEFINE_integer("step_mul", 100, "Game steps per agent step.")
 flags.DEFINE_integer("step2save", 500, "Game step to save the model.") #A2C every 1000, PPO 250
-flags.DEFINE_integer("n_envs", 2, "Number of environments to run in parallel")
+flags.DEFINE_integer("n_envs", 80, "Number of environments to run in parallel")
 flags.DEFINE_integer("episodes", 500, "Number of complete episodes")
 flags.DEFINE_integer("n_steps_per_batch", 32,
     "Number of steps per batch, if None use 8 for a2c and 128 for ppo")  # (MINE) TIMESTEPS HERE!!! You need them cauz you dont want to run till it finds the beacon especially at first episodes - will take forever
-flags.DEFINE_integer("all_summary_freq", 50, "Record all summaries every n batch")
+flags.DEFINE_integer("all_summary_freq", 10, "Record all summaries every n batch")
 flags.DEFINE_integer("scalar_summary_freq", 5, "Record scalar summaries every n batch")
 flags.DEFINE_string("checkpoint_path", "_files/models", "Path for agent checkpoints")
 flags.DEFINE_string("summary_path", "_files/summaries", "Path for tensorboard summaries") #A2C_custom_maps#A2C-science-allmaps - BEST here for one policy
@@ -57,7 +57,7 @@ flags.DEFINE_boolean("training", True,
 flags.DEFINE_enum("if_output_exists", "overwrite", ["fail", "overwrite", "continue"],
     "What to do if summary and model output exists, only for training, is ignored if notraining")
 flags.DEFINE_float("max_gradient_norm", 10.0, "good value might depend on the environment") # orig: 1000
-flags.DEFINE_float("loss_value_weight", 0.5, "good value might depend on the environment") # orig:1.0
+flags.DEFINE_float("loss_value_weight", 0.5, "good value might depend on the environment") # orig:1.0, good value: 0.5
 flags.DEFINE_float("entropy_weight_spatial", 0.00000001,
     "entropy of spatial action distribution loss weight") # orig:1e-6
 flags.DEFINE_float("entropy_weight_action", 0.001, "entropy of action-id distribution loss weight") # orig:1e-6
@@ -171,6 +171,8 @@ def main():
         summary_path=full_summary_path,
         max_gradient_norm=FLAGS.max_gradient_norm,
         num_actions=envs.action_space.n,
+        num_envs= FLAGS.n_envs,
+        nsteps= FLAGS.n_steps_per_batch,
         policy=FLAGS.policy_type
     )
     # Build Agent

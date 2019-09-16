@@ -33,12 +33,14 @@ class gameEnv():
         self.objects = []
         self.partial = partial
         self.bg = np.zeros([size, size])
-        self.goal_color = [np.random.uniform(), np.random.uniform(), np.random.uniform()]
-        obs = self.reset()
-        a = obs['small']
-        a_big = obs['img']
-        # a, a_big = self.reset()#(self.goal_color)
-        plt.imshow(a_big, interpolation="nearest")
+        self.goal_color = [0,1,0]#[np.random.uniform(), np.random.uniform(), np.random.uniform()]
+        # self.fig = plt.figure(1)
+        # Below no need
+        # obs = self.reset()
+        # a = obs['small']
+        # a_big = obs['img']
+        # # a, a_big = self.reset()#(self.goal_color)
+        # plt.imshow(a_big, interpolation="nearest")
 
     def getFeatures(self):
         return np.array([self.objects[0].x, self.objects[0].y]) / float(self.sizeX)
@@ -48,14 +50,15 @@ class gameEnv():
         # self.goal_color = goal_color
         self.other_color = [1 - a for a in self.goal_color]
         self.orientation = 0
-        self.hero = gameOb(self.newPosition(0), 1, [0, 0, 1], None, 'hero')
+        # Below every observation/object is a class gameOb with its properties (coords, size, etc)
+        self.hero = gameOb(self.newPosition(0), 1, [0, 0, 1], None, 'hero') # "registering" objects with coords, size, color [R,G,B], reward, name
         self.objects.append(self.hero)
-        for i in range(self.sizeX - 1):
-            bug = gameOb(self.newPosition(0), 1, self.goal_color, 1, 'goal')
-            self.objects.append(bug)
-        for i in range(self.sizeX - 1):
-            hole = gameOb(self.newPosition(0), 1, self.other_color, 0, 'fire')
-            self.objects.append(hole)
+        # for i in range(self.sizeX - 1): # This creates multiple targets (8 if size.X=9) to be collected thats why it doesnt ever terminate.
+        bug = gameOb(self.newPosition(0), 1, self.goal_color, 1, 'goal')
+        self.objects.append(bug)
+        # for i in range(self.sizeX - 1): # For now we remove the fire
+        #     hole = gameOb(self.newPosition(0), 1, self.other_color, 0, 'fire')
+        #     self.objects.append(hole)
         # state, s_big = self.renderEnv()
         obs = self.renderEnv()
         s_big = obs['img']
@@ -65,6 +68,8 @@ class gameEnv():
 
     def moveChar(self, action):
         # 0 - up, 1 - down, 2 - left, 3 - right, 4 - 90 counter-clockwise, 5 - 90 clockwise
+        info = {}
+        info['success'] = True
         hero = self.objects[0]
         blockPositions = [[-1, -1]]
         for ob in self.objects:
@@ -114,34 +119,37 @@ class gameEnv():
                 hero.x += 1
         if hero.x == heroX and hero.y == heroY:
             penalize = 0.0
+            info['success'] = False
         self.objects[0] = hero
-        return penalize
+        return penalize, info
 
     def newPosition(self, sparcity):
-        iterables = [range(self.sizeX), range(self.sizeY)]
+        iterables = [range(self.sizeX), range(self.sizeY)] # list [range(0,9) range(0,9)]
         points = []
-        for t in itertools.product(*iterables):
+        for t in itertools.product(*iterables):# points will have all the coords pairs [(0,0), (0,1),...,(8,8)]
             points.append(t)
-        for objectA in self.objects:
-            if (objectA.x, objectA.y) in points: points.remove((objectA.x, objectA.y))
+        for objectA in self.objects: # objects is a list containing two gameOb objects with their respective attributes
+            if (objectA.x, objectA.y) in points: points.remove((objectA.x, objectA.y)) # Remove from points the coords of the already placed objects (hero and goal)
         location = np.random.choice(range(len(points)), replace=False)
         return points[location]
 
-    def checkGoal(self):
+    def checkGoal(self): # This seems that never returns done=True
         hero = self.objects[0]
         others = self.objects[1:]
+
         ended = False
         for other in others:
-            if hero.x == other.x and hero.y == other.y and hero != other:
+            if hero.x == other.x and hero.y == other.y and hero != other: # if hero overlaps with an object (goal or fire)
                 self.objects.remove(other)
                 if other.reward == 1:
-                    self.objects.append(gameOb(self.newPosition(0), 1, self.goal_color, 1, 'goal'))
-                    return other.reward, False
-                else:
-                    self.objects.append(gameOb(self.newPosition(0), 1, self.other_color, 0, 'fire'))
-                    return other.reward, False
+                    self.objects.append(gameOb(self.newPosition(0), 1, self.goal_color, 1, 'goal')) # Moves the goal somewhere else as it is now reached
+                    return other.reward, True#False
+                # else: # else its a fire
+                #     self.objects.append(gameOb(self.newPosition(0), 1, self.other_color, 0, 'fire'))
+                #     return other.reward, False
         if ended == False:
-            return 0.0, False
+            # return 0.0, False
+            return -0.01, False
 
     def renderEnv(self):
         if self.partial == True:
@@ -165,10 +173,16 @@ class gameEnv():
         obs = {}
         obs['img'] = a_big
         obs['small'] = a
+        # plt.imshow(a_big)
+        # plt.show()
+        # # self.fig.show()
+        # plt.pause(0.1)
+        # plt.close('all')
         return obs#a, a_big # a is probably a non image representation whereas a_big is an image
 
     def step(self, action):
-        penalty = self.moveChar(action)
+        # plt.close('all')
+        penalty, info = self.moveChar(action)
         reward, done = self.checkGoal()
         # state, s_big = self.renderEnv()
         obs = self.renderEnv()
@@ -177,11 +191,11 @@ class gameEnv():
             print('reward=', reward)
             print('penalty=', penalty)
             # return state, (reward + penalty), done
-            return obs, (reward + penalty), done
+            return (obs, (reward + penalty), done, info)
         else:
             goal = None
             for ob in self.objects:
                 if ob.name == 'goal':
                     goal = ob
             # return state, s_big, (reward + penalty), done, [self.objects[0].y, self.objects[0].x], [goal.y, goal.x]
-            return obs, (reward + penalty), done, [self.objects[0].y, self.objects[0].x], [goal.y, goal.x]
+            return (obs, (reward + penalty), done, info)

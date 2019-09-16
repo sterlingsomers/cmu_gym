@@ -93,10 +93,10 @@ class ObsProcesser:
         # }
         pp_obs = {
             FEATURE_KEYS.rgb_screen: timestep['img'],
-            FEATURE_KEYS.alt_view: timestep['nextstepimage'],
-            FEATURE_KEYS.altitudes: timestep['altitude'],
-            FEATURE_KEYS.image_vol: timestep['image_volume'],
-            FEATURE_KEYS.joined: timestep['joined'],
+            # FEATURE_KEYS.alt_view: timestep['nextstepimage'],
+            # FEATURE_KEYS.altitudes: timestep['altitude'],
+            # FEATURE_KEYS.image_vol: timestep['image_volume'],
+            # FEATURE_KEYS.joined: timestep['joined'],
         }
 
         # pp_obs = {

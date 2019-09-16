@@ -119,11 +119,11 @@ class FullyConvPolicy:
         # self.screen_output = self._build_convs(screen_numeric_all, "screen_network")
         # self.minimap_output = self._build_convs(minimap_numeric_all, "minimap_network")
         screen_px = tf.cast(self.placeholders.rgb_screen, tf.float32) / 255. # rgb_screen are integers (0-255) and here we convert to float and normalize
-        alt_px = tf.cast(self.placeholders.alt_view, tf.float32) / 255.
+        # alt_px = tf.cast(self.placeholders.alt_view, tf.float32) / 255.
         self.screen_output = self._build_convs(screen_px, "screen_network")
-        self.alt_output = self._build_convs(alt_px, "alt_network")
+        # self.alt_output = self._build_convs(alt_px, "alt_network")
         
-        self.map_output = tf.concat([self.screen_output, self.alt_output], axis=2)
+        self.map_output = self.screen_output
         map_output_flat = layers.flatten(self.map_output)
 
         # (MINE) This is the last layer (fully connected -fc) for the non-spatial (categorical) actions
@@ -358,6 +358,8 @@ class MetaPolicy:
         self.trainable = trainable
         self.unittype_emb_dim = agent.unit_type_emb_dim
         self.num_actions = agent.num_actions
+        self.nenvs = agent.num_envs
+        # self.maxsteps = agent.nsteps
 
     def get_rnn_length(self,sequence):
         used = tf.sign(tf.reduce_max(tf.abs(sequence), 2))
@@ -401,26 +403,27 @@ class MetaPolicy:
         # Maybe you need to bring in the inputs as batch x max_steps and not as batch * max_steps. The reshape should have only ONE None dimension so timestep should vary BUT when you test then the env vary
         # or maybe you need even the 1-step prediction to create a batch x self.nsteps x 100 x 100 tensor with 0s
         batch_size = tf.shape(self.placeholders.rgb_screen)[0]
+        maxsteps = tf.shape(self.placeholders.rgb_screen)[1]
         rgb_screen = tf.reshape(self.placeholders.rgb_screen, [-1, 100, 100, 3])
-        alt_view = tf.reshape(self.placeholders.alt_view, [-1, 100, 100, 3])
+        # alt_view = tf.reshape(self.placeholders.alt_view, [-1, 100, 100, 3])
         screen_px = tf.cast(rgb_screen,
                             tf.float32) / 255.  # rgb_screen are integers (0-255) and here we convert to float and normalize
-        alt_px = tf.cast(alt_view, tf.float32) / 255.
+        # alt_px = tf.cast(alt_view, tf.float32) / 255.
 
         self.screen_output = self._build_convs(screen_px, "screen_network")
-        self.alt_output = self._build_convs(alt_px, "alt_network")
+        # self.alt_output = self._build_convs(alt_px, "alt_network")
 
-        self.screen_output = tf.reshape(self.screen_output, [-1, tf.shape(self.placeholders.rgb_screen)[1], 25, 25, 64])
-        self.alt_output = tf.reshape(self.alt_output, [-1, tf.shape(self.placeholders.alt_view)[1], 25, 25, 64])
+        self.screen_output = tf.reshape(self.screen_output, [-1, maxsteps, 25, 25, batch_size*maxsteps]) # This can be a tensor!!!
+        # self.alt_output = tf.reshape(self.alt_output, [-1, tf.shape(self.placeholders.alt_view)[1], 25, 25, 64])
 
-        self.map_output = tf.concat([self.screen_output, self.alt_output], axis=3) # should be 4. with 3 you get both allo and ego in a 25x50image
-
+        # self.map_output = tf.concat([self.screen_output, self.alt_output], axis=3) # should be 4. with 3 you get both allo and ego in a 25x50image
+        self.map_output = self.screen_output
         # hidden = layers.flatten(self.map_output)
         # Reshape hidden as batch x timesteps x dim
-        dim = 25*50*64#tf.reduce_prod(tf.shape(self.map_output)[2:])#
-        hidden = tf.reshape(self.map_output, [2, tf.shape(self.map_output)[1], dim])
+        dim = 25*25*64#tf.reduce_prod(tf.shape(self.map_output)[2:])# 64 is the num of outputs of the 2nd CNN # tf cannot infer the channel dim (its ? ) but you need the channel dim known in order for tf to work
+        hidden = tf.reshape(self.map_output, [batch_size, tf.shape(self.map_output)[1], dim])
         # Below, feed the batch_size!
-        self.batch_size = tf.shape(self.placeholders.rgb_screen[0])
+        # self.batch_size = tf.shape(self.placeholders.rgb_screen[0])
         lstm_cell = tf.contrib.rnn.LSTMCell(256, state_is_tuple=True)
         # lstm_cell.trainable = self.trainable
 
@@ -437,12 +440,12 @@ class MetaPolicy:
         # self.state = tf.contrib.rnn.LSTMStateTuple(state_c, state_h)
         # self.state = (state_c, state_h)
 
-        c_init = np.zeros((2, lstm_cell.state_size.c), np.float32) # [BATCH SIZE x cell_size]. You need to bring the n_envs here. The batch_size above is a TENSOR and not computed till the time that you throw in the data. But this is numpy and u need a value
-        h_init = np.zeros((2, lstm_cell.state_size.h), np.float32)
+        c_init = np.zeros((self.nenvs, lstm_cell.state_size.c), np.float32) # [BATCH SIZE x cell_size]. You need to bring the n_envs here. The batch_size above is a TENSOR and not computed till the time that you throw in the data. But this is numpy and u need a value
+        h_init = np.zeros((self.nenvs, lstm_cell.state_size.h), np.float32) # 1 cell for each env
         # # (or bring the batch_size from out) The following should be defined in the runner and you need a self before the lstm_cell. Because you get a numpy array below you need the batch size
         self.state_init = [c_init, h_init]#lstm_cell.zero_state(2, dtype=tf.float32)# Its already a tensor with a numpy array full of zeros
-        self.c_in = tf.placeholder(tf.float32, [2, lstm_cell.state_size.c])
-        self.h_in = tf.placeholder(tf.float32, [2, lstm_cell.state_size.h])
+        self.c_in = tf.placeholder(tf.float32, [self.nenvs, lstm_cell.state_size.c]) # PLACEHOLDER SHAPE has to be a number!!!
+        self.h_in = tf.placeholder(tf.float32, [self.nenvs, lstm_cell.state_size.h])
         self.state_in = (self.c_in, self.h_in) # You need this so from outside you can feed the two placeholders
         rnn_in = hidden #tf.reshape(hidden,[-1,1,80017])#tf.expand_dims(hidden, [0]) # 1 is the timestep, if you have more you might need -1 also there
         self.mask = tf.sequence_mask(self.mb_dones, tf.shape(self.placeholders.rgb_screen)[1],#tf.shape(rnn_in[1]), # The tf.shape is for the max_timesteps
@@ -461,7 +464,7 @@ class MetaPolicy:
         rnn_out = tf.reshape(lstm_outputs, [-1, 256])
 
         # Add layer normalization
-        # fc1_ = layers.layer_norm(rnn_out,trainable=self.trainable)
+        # fc1 = layers.layer_norm(rnn_out,trainable=self.trainable)
 
         # map_output_flat = layers.flatten(self.map_output)
         ''' COMBOS '''
@@ -470,7 +473,7 @@ class MetaPolicy:
         #TODO: Use the layer normalization:
         # (MINE) This is the last layer (fully connected -fc) for the non-spatial (categorical) actions
         fc1 = layers.fully_connected(
-            rnn_out,
+            rnn_out,#fc1
             num_outputs=256,
             activation_fn=tf.nn.relu,
             scope="fc1",
@@ -478,7 +481,7 @@ class MetaPolicy:
         )
 
         # Add layer normalization
-        # fc1_ = layers.layer_norm(fc1,trainable=self.trainable)
+        # fc1 = layers.layer_norm(fc1,trainable=self.trainable)
 
         # (MINE) From the previous layer you extract action_id_probs (non spatial - categorical - actions) and value
         # estimate
@@ -507,11 +510,11 @@ class MetaPolicy:
         # action_id_probs /= tf.reduce_sum(action_id_probs, axis=1, keepdims=True)
 
         action_id_log_probs = logclip(action_id_probs)  # Apply the mask again below here!!!
-        action_id_log_probs = tf.reshape(action_id_log_probs, [tf.shape(self.placeholders.rgb_screen)[0], tf.shape(self.placeholders.rgb_screen)[1], self.num_actions])
+        action_id_log_probs = tf.reshape(action_id_log_probs, [batch_size, maxsteps, self.num_actions])
         action_id_log_probs *= tf.expand_dims(self.mask, axis=2)
         action_id_log_probs = tf.reshape(action_id_log_probs, [tf.shape(rgb_screen)[0], self.num_actions])
 
-        action_id_probs = tf.reshape(action_id_probs, [tf.shape(self.placeholders.rgb_screen)[0], tf.shape(self.placeholders.rgb_screen)[1], self.num_actions])
+        action_id_probs = tf.reshape(action_id_probs, [batch_size, maxsteps, self.num_actions])
         action_id_probs *= tf.expand_dims(self.mask, axis=2)
         action_id_probs = tf.reshape(action_id_probs, [tf.shape(rgb_screen)[0], self.num_actions]) # back to batch*maxteps x 16 so we can sample
 

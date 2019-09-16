@@ -75,7 +75,7 @@ class Runner(object):
         obs = self.envs.reset()
         self.latest_obs = self.obs_processer.process([obs])
 
-    def _log_score_to_tb(self, score):
+    def _log_score_to_tb(self, score): # log score to tensorboard
         summary = tf.Summary()
         summary.value.add(tag='sc2/episode_score', simple_value=score)
         self.agent.summary_writer.add_summary(summary, self.episode_counter)
@@ -89,7 +89,9 @@ class Runner(object):
         #score = timestep.observation["score_cumulative"][0]
         #self.score = (self.score + timestep) # //self.episode_counter # It is zero at the beginning so you get inf
         self.score = timestep
-        print(">>>>>>>>>>>>>>>episode %d ended. Score %f | Total Steps %d | Last step Reward %f" % (self.episode_counter, self.score, length, last_step_r))
+        # print(">>>>>>>>>>>>>>>episode %d ended. Score %f | Total Steps %d | Last step Reward %f" % (self.episode_counter, self.score, length, last_step_r))
+        print(">>>>>>>>>>>>>>>episode %d ended. Score %f | Total Steps %d" % (
+        self.episode_counter, self.score, length))
         self._log_score_to_tb(self.score) # logging score to tensorboard
         self.episode_counter += 1 # Is not used for stopping purposes judt for printing. You train for a number of batches (nsteps+training no matter reset)
         #self.reset() # Error if Monitor doesnt have the option to reset without an env to be done (THIS RESETS ALL ENVS!!! YOU NEED remot.send(env.reset) to reset a specific env. Else restart within the env
@@ -134,7 +136,7 @@ class Runner(object):
             # could calculate value estimate from obs when do training
             # but saving values here will make n step reward calculation a bit easier
             action_ids, value_estimate = self.agent.step(latest_obs)
-            print('|step:', n, '|actions:', action_ids)  # (MINE) If you put it after the envs.step the SUCCESS appears at the envs.step so it will appear oddly
+            # print('|step:', n, '|actions:', action_ids)  # (MINE) If you put it after the envs.step the SUCCESS appears at the envs.step so it will appear oddly
             # (MINE) Store actions and value estimates for all steps
             mb_values[:, n] = value_estimate
             mb_obs.append(latest_obs)
@@ -219,7 +221,7 @@ class Runner(object):
         rnn_state = self.agent.theta.state_init
         for n in range(self.n_steps):
             action_ids, value_estimate, rnn_state_new = self.agent.step_recurrent(latest_obs, rnn_state, r_, a_) # Automatically returns [num_envs, outx] for each outx you want
-            print('|step:', n, '|actions:', action_ids)
+            # print('|step:', n, '|actions:', action_ids)
             # (MINE) Store actions and value estimates for all steps
             mb_values[:, n] = value_estimate
             mb_obs.append(latest_obs)
@@ -246,9 +248,9 @@ class Runner(object):
                     epis_length = obs_raw[3][indx]['episode']['l'] # EPISODE LENGTH HERE!!!
                     last_step_r = obs_raw[1][indx]
                     self._handle_episode_end(epis_reward, epis_length, last_step_r) # The printing score process is NOT a parallel process apparrently as you input every reward (t) independently
-                    # Here you have to reset the rnn_state of that env: rnn_state[i] = 0 or smth like that
-                    rnn_state[0][indx] = np.zeros(256)
-                    rnn_state[1][indx] = np.zeros(256)
+                    # Here you have to reset the rnn_state of that env (rnn_state has h and c EACH has dims [batch_size x hidden dims]
+                    # rnn_state[0][indx] = np.zeros(256)
+                    # rnn_state[1][indx] = np.zeros(256)
                     #reset the relevant r_ and a_
                     r_[indx] = 0
                     a_[indx] = 0
@@ -264,7 +266,7 @@ class Runner(object):
         # Below: r + gammaV(s')(1-done) - V(s)// V(s')=mb_values[:,-1] but if its done we dont care if we put the last nstep V or the actual V(s_done+1) as the whole term is gonna be zero
         # From V(nstep) estimate the expected reward - what if though we finished the sequence earlier???
         # This is for the last obs which you do not store. All other values that will be used as targets are available
-        mb_values[:, -1] = self.agent.get_recurrent_value(latest_obs, rnn_state, r_, a_) # Put at last slot the estimated future expected reward for bootstrap the V after the nsteps
+        # mb_values[:, -1] = self.agent.get_recurrent_value(latest_obs, rnn_state, r_, a_) # Put at last slot the estimated future expected reward for bootstrap the V after the nsteps
         mask_v = ~(np.ones(mb_values.shape).cumsum(axis=1).T > mb_l).T
         mb_values = mb_values*mask_v
         # Mask below the values that enter the nstep advantage
