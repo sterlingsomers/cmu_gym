@@ -18,6 +18,7 @@ import pygame
 from scipy.misc import imresize
 
 from gym_gridworld.envs import create_np_map as CNP
+import time
 
 #from mavsim_server import MavsimHandler
 
@@ -490,7 +491,7 @@ class GridworldEnv(gym.Env):
             # else:
             #     reward = -1 / self.dist
             if self.check_for_hiker():
-                done = True
+                done = False
                 reward = 1# + self.alt_rewards[self.altitude]
                 # reward = 1 + 1 / self.dist
                 print('SUCCESS!!!')
@@ -501,6 +502,9 @@ class GridworldEnv(gym.Env):
             self.dist_old = self.dist
             #reward = (self.alt_rewards[self.altitude] * 0.1) * ( 1/((self.dist** 2) + 1e-7) )  # -0.01 + # previous reward = (self.alt_rewards[self.altitude] * 0.1) * ( 1 / self.dist** 2 + 1e-7 )  # -0.01 + #
             reward = -0.01 # If you put -0.1 then it prefers to go down and crash all the time for (n-step=32)!!!
+
+            if action == 15:
+                done = True
             return (observation, reward, done, info)
 
     def add_blob(self, map_array, n_cycles, value):
@@ -592,7 +596,7 @@ class GridworldEnv(gym.Env):
         self.dist_old = 1000
         self.drop = False
         self.heading = random.randint(1, 8)
-        self.altitude = random.randint(1,3)
+        self.altitude = 2#random.randint(1,3)
         self.reward = 0
         self.crash = 0
         self.package_dropped = 0
@@ -732,7 +736,7 @@ class GridworldEnv(gym.Env):
 
         # self.map_volume = CNP.map_to_volume_dict(_map[0],_map[1], self.mapw, self.maph)
         # drone = (random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))#(6,5)#(2,6)#(random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2)) #(1,8)
-        drone = (11,18) # first dimension is down the map and second is right from top left corner
+        drone = (3,3) # first dimension is down the map and second is right from top left corner
         # drone = (random.randint(2, self.map_volume['vol'].shape[1] - 4), random.randint(2, self.map_volume['vol'].shape[1] - 4))
         hiker = (10,10)#(random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))
         ##################

@@ -6,7 +6,7 @@ from datetime import datetime
 from time import sleep
 import numpy as np
 import pickle
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
 from absl import flags
 from actorcritic.agent import ActorCriticAgent, ACMode
@@ -36,14 +36,14 @@ flags.DEFINE_bool("Save", False, "Whether to save the collected data of the agen
 flags.DEFINE_integer("resolution", 32, "Resolution for screen and minimap feature layers.")
 flags.DEFINE_integer("step_mul", 100, "Game steps per agent step.")
 flags.DEFINE_integer("n_envs", 20, "Number of environments to run in parallel")
-flags.DEFINE_integer("episodes", 500, "Number of complete episodes")
+flags.DEFINE_integer("episodes", 1, "Number of complete episodes")
 flags.DEFINE_integer("n_steps_per_batch", 32,
     "Number of steps per batch, if None use 8 for a2c and 128 for ppo")  # (MINE) TIMESTEPS HERE!!! You need them cauz you dont want to run till it finds the beacon especially at first episodes - will take forever
 flags.DEFINE_integer("all_summary_freq", 50, "Record all summaries every n batch")
 flags.DEFINE_integer("scalar_summary_freq", 5, "Record scalar summaries every n batch")
 flags.DEFINE_string("checkpoint_path", "_files/models", "Path for agent checkpoints")
 flags.DEFINE_string("summary_path", "_files/summaries", "Path for tensorboard summaries")
-flags.DEFINE_string("model_name", "Drop_2020", "Name for checkpoints and tensorboard summaries") # Last best Drop_2020_new_terrain_new_reward_2
+flags.DEFINE_string("model_name", "Drop_Agent", "Name for checkpoints and tensorboard summaries") # Last best Drop_2020_new_terrain_new_reward_2
 flags.DEFINE_integer("K_batches", 10000, # Batch is like a training epoch!
     "Number of training batches to run in thousands, use -1 to run forever") #(MINE) not for now
 flags.DEFINE_string("map_name", "DefeatRoaches", "Name of a map to use.")
@@ -286,8 +286,8 @@ def main():
 
 
     with nav_graph.as_default():
-        if os.path.exists('_files/models/navi_2020'):
-            nav_agent.load('_files/models/navi_2020')
+        if os.path.exists('_files/models/Nav_Agent'):
+            nav_agent.load('_files/models/Nav_Agent')
 
     nav_runner = Runner(
         envs=envs,
@@ -369,8 +369,14 @@ def main():
 
             dictionary = {}
             running = True
-            while nav_runner.episode_counter <= (FLAGS.episodes - 1) and running==True:
+            done = 0
+            while nav_runner.episode_counter <= (FLAGS.episodes - 1) and running==True and done ==False:
                 print('Episode: ', nav_runner.episode_counter)
+                human_data = {}
+                human_data['maps'] = []
+                human_data['actions'] = []
+                human_data['headings'] = []
+                human_data['altitudes'] = []
                 # Init storage structures
                 # dictionary[nav_runner.episode_counter] = {}
                 # mb_obs = []
@@ -402,6 +408,9 @@ def main():
                 # Also it seems that the pygame.event.get() is responsible to REALLY updating the screen contents
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT:
+                        print("human data being written.")
+                        with open('./data/human.tj', 'wb') as handle:
+                            pickle.dump(dictionary, handle)
                         running = False
                 sleep(sleep_time)
 
@@ -410,7 +419,7 @@ def main():
                 t=0
 
                 drop_flag = 0
-                done = 0
+                # done = 0
                 while done==0:
 
                     # mb_obs.append(nav_runner.latest_obs)
@@ -461,10 +470,19 @@ def main():
                             action = 14
                         elif (event.key == pygame.K_SPACE):
                             action = 15
+                        else:
+                            continue
 
-
+                    if action == -1:
+                        continue
                     # action stays till renewed no matter what key you press!!! So whichever key will do the last action
                     pygame.event.clear()
+
+                    human_data['maps'].append(nav_runner.envs.map_volume)
+                    human_data['headings'].append(nav_runner.envs.heading)
+                    human_data['altitudes'].append(nav_runner.envs.altitude)
+                    human_data['actions'].append(action)
+
                     # dictionary[nav_runner.episode_counter]['observations'].append(nav_runner.latest_obs)
                     # dictionary[nav_runner.episode_counter]['flag'].append(drop_flag)
 
@@ -480,6 +498,8 @@ def main():
                     obs = obs_raw[0:-3]
                     reward = obs_raw[1]
                     done = obs_raw[2]
+
+                    print("DONE:", done)
                     # mb_actions.append(action)
                     # mb_rewards.append(reward)
                     # mb_representation.append(representation)
@@ -535,12 +555,15 @@ def main():
                     #     break
 
                 clock.tick(15)
+
             if FLAGS.Save:
                 print("...saving dictionary.")
                 pickle_in = open('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/All_maps_20x20_500_images_volume_ego.tj','wb')
                 pickle.dump(dictionary, pickle_in)
-            # with open('./data/All_maps_20x20_500.tj', 'wb') as handle:
-            #     pickle.dump(dictionary, handle)
+            print("human data being written.")
+            timestr = timestr = time.strftime("%Y%m%d-%H%M%S")
+            with open('./data/human-' + timestr + '.tj', 'wb') as handle:
+                pickle.dump(human_data, handle)
 
         except KeyboardInterrupt:
             pass
