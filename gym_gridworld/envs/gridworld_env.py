@@ -1,20 +1,15 @@
-import gym
-import sys
-import os
-import time
+# import gym
+
 import copy
-import math
+
 import itertools
-from gym import error, spaces, utils
-from gym.utils import seeding
+#from gym import error, spaces, utils
+# from gym.utils import seeding
 import numpy as np
-from PIL import Image as Image
-# import matplotlib
-# matplotlib.use('TkAgg')
-# import matplotlib.pyplot as plt
+
 import threading
 import random
-import pygame
+
 from scipy.misc import imresize
 
 from gym_gridworld.envs import create_np_map as CNP
@@ -30,7 +25,7 @@ COLORS = {0: [0.0, 0.0, 0.0], 1: [0.5, 0.5, 0.5], \
           7: [1.0, 1.0, 0.0]}
 
 
-class GridworldEnv(gym.Env):
+class GridworldEnv():
     metadata = {'render.modes': ['human']}
     num_envs = 1
 
@@ -76,10 +71,10 @@ class GridworldEnv(gym.Env):
         self.drop_package_grid_size_by_alt = {1: 3, 2: 5, 3: 7}
         self.factor = 5
         self.reward = 0
-        self.action_space = spaces.Discrete(16)
-        self.actions = list(range(self.action_space.n))
+        self.action_space = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]#spaces.Discrete(16)
+        self.actions = self.action_space#list(range(self.action_space.n))
         self.obs_shape = [100,100,3]
-        self.observation_space = spaces.Box(low=0, high=255, shape=self.obs_shape)
+        #_self.observation_space = spaces.Box(low=0, high=255, shape=self.obs_shape)
         self.real_actions = False
         self.crash = 0
         self.package_dropped = 0
