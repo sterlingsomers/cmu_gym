@@ -147,9 +147,9 @@ def main():
             # mb_ego = []
 
 
-
-            map_xy = environment.map_image
-            map_alt = environment.alt_view
+            new_image = environment.generate_observation()
+            map_xy = new_image['img']#environment.generate_observation()['img']map_image
+            map_alt = new_image['nextstepimage']#environment.alt_view
             process_img(map_xy, 20, 20)
             process_img(map_alt, 20, 400)
             pygame.display.update()
