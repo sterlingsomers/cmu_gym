@@ -37,8 +37,10 @@ flags.DEFINE_integer("episodes", 1, "Number of complete episodes")
 #
 # flags.DEFINE_integer("max_agent_steps", 0, "Total agent steps.")
 
-flags.DEFINE_string("participant", 'Test', "The participants name")
 
+#human subject flags
+flags.DEFINE_string("participant", 'Test', "The participants name")
+flags.DEFINE_integer("Map", 0, "Map index 0-10")
 
 
 
@@ -106,7 +108,7 @@ def main():
             gameDisplay.blit(surf, (x, y))
 
         def text_objects(text, font):
-            textSurface = font.render(text, True, (0,0,0))
+            textSurface = font.render(text, True, (255,0,0))
             return textSurface, textSurface.get_rect()
 
         def message_display(text):
