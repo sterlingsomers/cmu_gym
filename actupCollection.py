@@ -1,8 +1,13 @@
 import os
+import glob
 from pyactup import *
 import pickle
 import random
 import math
+
+from pathlib import Path
+
+import time
 
 from multiprocessing import Pool
 from functools import partial
@@ -252,7 +257,7 @@ def multi_blends(chunk, memory, slots ):
     return [memory.blend(slot,**chunk) for slot in slots]
 
 def vector_similarity(x,y):
-    return distance.euclidean(x,y) / max(FC_distances)
+    return distance.euclidean(x,y) / 4.5#max(FC_distances)
     # return distance.cosine(x,y)
 
 
@@ -270,15 +275,15 @@ if __name__ == "__main__":
     FC_distances = []
 
 
-    normalized_data_file = 'normalized_all_chunks_with_fc.lst'
-    chunks_path = '/Users/paulsomers/COGLE/gym-gridworld/'#data_tools/'
+    normalized_data_file = 'normalized_all_chunks_fc.lst'
+    chunks_path = Path("C:/Users/Konstantron/PycharmProjects/cmu_gym/")
 
-    if not os.path.isfile(chunks_path + normalized_data_file):
+    if not os.path.isfile(os.path.join(chunks_path,normalized_data_file)):
 
         ###load the data
         ###Need the raw data, then convert it into chunks because you need the intial distributions for the actions
         data_file_name = 'all_data308-110_9-7_4-1_9-115000.lst'
-        data_path = '/Users/paulsomers/COGLE/gym-gridworld/data_tools/'
+        data_path = Path('C:/Users/Konstantron/PycharmProjects/cmu_gym/data/')
         all_data = pickle.load(open(os.path.join(data_path, data_file_name), 'rb'))
 
         ###convert the data to chunks
@@ -291,7 +296,7 @@ if __name__ == "__main__":
             FCs.append(chunk['fc'])
 
         #normalize the fc
-        normalizer = preprocessing.Normalizer(norm='max').fit(FCs)
+        normalizer = preprocessing.Normalizer(norm='l2').fit(FCs)
         FCs = normalizer.transform(FCs)#[normalizer.transform(x) for x in FCs]
         for chunk,fc in zip(all_chunks,FCs):
             chunk['fc'] = tuple(fc.tolist())
@@ -304,7 +309,7 @@ if __name__ == "__main__":
 
 
 
-        with open(chunks_path + 'FC_distances.pkl', 'wb') as handle:
+        with open(os.path.join(chunks_path, 'FC_distances.pkl'), 'wb') as handle:
             pickle.dump(FC_distances, handle)
 
         #the chunks values should be normalized
@@ -320,12 +325,13 @@ if __name__ == "__main__":
                 chunk[slot] = chunk[slot] / max(data_by_slot[slot])
             acount += 1
 
-        with open(chunks_path + normalized_data_file, 'wb') as handle:
+        with open(os.path.join(chunks_path, normalized_data_file), 'wb') as handle:
             pickle.dump(all_chunks, handle)
 
     else:
-        all_chunks = pickle.load(open(chunks_path + normalized_data_file, 'rb'))
-        FC_distances = pickle.load(open(chunks_path + 'FC_distances.pkl', 'rb'))
+        # all_chunks = pickle.load(open(chunks_path + normalized_data_file, 'rb'))
+        FC_distances = pickle.load(open(os.path.join(chunks_path, 'FC_distances.pkl'), 'rb'))
+        all_chunks = pickle.load(open(os.path.join(chunks_path, normalized_data_file), 'rb'))
 
 
 
@@ -348,28 +354,57 @@ if __name__ == "__main__":
 
 
     ###now run the model
-    m = Memory(noise=0.0, decay=0.0, temperature=0.2, threshold=-100.0, mismatch=1.25, optimized_learning=False)
-    m._maximum_similarity = 5
-    #put the training chunks in memory
-    for chunk in training_chunks:
-        m.learn(**chunk)
+    temperatures = [0.25,0.65,1.0]#.3,0.4,0.5]#.6,0.7,0.8,0.9,1.0]
+    mismatches = [8.0,10.0,12.0,14.0,16.0]
+    parameters = [(x,y) for x in temperatures for y in mismatches]
+    used_parameters = {'temperature': [], 'mismatches': []}
+    os.chdir(chunks_path)
+    datafiles = glob.glob("20190912*")
+    for file in datafiles:
+        dats = pickle.load(open(file, 'rb'))
+        used_parameters['temperature'].append(dats['temperature'])
+        used_parameters['mismatches'].append(dats['mismatch'])
 
-    m.advance()
-    p = Pool(processes=8)
-    # split_chunks = [test_chunks[i::10] for i in range(10)]
-    multi_p = partial(multi_blends, memory=m,slots=action_slots)
-    data = p.map(multi_p, test_chunks[0:100])
-    # for test_chunk in test_chunks:
-        # results.append([m.blend(x,**test_chunk) for x in action_slots])
+    for parameter in parameters:
+        #because of issues with crashing - find all parameters that have been done, and skip them
+        if parameter in zip(used_parameters['temperature'],used_parameters['mismatches']):
+            continue
 
-    JS = []
-    matches = []
-    for result,datum in zip(data,Y_test):
-        JS.append(distance.jensenshannon(result,datum[-1][0]))
-        matches.append(int(np.argmax(result)==np.argmax(datum[:-1])))
-    avgJS = sum(JS)/len(JS)
-    avgMatch = sum(matches)/len(matches)
 
+        m = Memory(noise=0.0, decay=0.0, temperature=parameter[0], threshold=-100.0, mismatch=parameter[1], optimized_learning=False)
+        m._maximum_similarity = 5
+        #put the training chunks in memory
+        for chunk in training_chunks:
+            m.learn(**chunk)
+
+        m.advance()
+        p = Pool(processes=20)
+        # split_chunks = [test_chunks[i::10] for i in range(10)]
+        multi_p = partial(multi_blends, memory=m,slots=action_slots)
+        data = p.map(multi_p, test_chunks[0:100])
+        # for test_chunk in test_chunks:
+            # results.append([m.blend(x,**test_chunk) for x in action_slots])
+
+        JS = []
+        matches = []
+        for result,datum in zip(data,Y_test):
+            JS.append(distance.jensenshannon(result,datum[-1][0]))
+            matches.append(int(np.argmax(result)==np.argmax(datum[:-1])))
+        avgJS = sum(JS)/len(JS)
+        avgMatch = sum(matches)/len(matches)
+
+        save_dict = {'data':data,'Y_test':Y_test,'JS':JS,'matches':matches,'AVGJS':avgJS, 'avgMatch':avgMatch, 'temperature':parameter[0],'mismatch':parameter[1]}
+
+        timestr = time.strftime("%Y%m%d-%H%M%S")
+        with open(os.path.join(chunks_path, timestr), 'wb') as handle:
+            pickle.dump(save_dict, handle)
+        p.close()
+       #del m
+       #del data
+       #del p
+       #del multi_p
+       #del JS
+       #del matches
 
 
     print('stop')
