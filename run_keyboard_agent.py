@@ -6,6 +6,7 @@ from datetime import datetime
 from time import sleep
 import pickle
 import pygame, time
+import numpy as np
 
 from absl import flags
 
@@ -40,7 +41,7 @@ flags.DEFINE_integer("episodes", 1, "Number of complete episodes")
 #human subject flags
 flags.DEFINE_string("participant", 'Test', "The participants name")
 flags.DEFINE_string("map", 'canyon', "river, canyon")
-flags.DEFINE_integer("configuration", 1, "1,2,3")
+flags.DEFINE_integer("configuration", 1, "1,2, or 3")
 
 
 
@@ -72,7 +73,8 @@ def _print(i):
 
 
 def main():
-
+        score = 0.0
+        reward = 0.0
         environment = GridWorld.GridworldEnv()
         environment.reset(map=flags.FLAGS.map)
 
@@ -134,6 +136,9 @@ def main():
             human_data['actions'] = []
             human_data['headings'] = []
             human_data['altitudes'] = []
+            human_data['drone'] = []
+            human_data['hiker'] = []
+
 
 
 
@@ -164,6 +169,7 @@ def main():
             # done = 0
             while 1:#done==0:
 
+                gameDisplay.fill(DARK_BLUE)
 
                 #
                 # drone_pos = np.where(nav_runner.envs.map_volume['vol'] == nav_runner.envs.map_volume['feature_value_map']['drone'][nav_runner.envs.altitude]['val'])
@@ -224,12 +230,16 @@ def main():
                 human_data['headings'].append(environment.heading)
                 human_data['altitudes'].append(environment.altitude)
                 human_data['actions'].append(action)
+                drone_pos = np.where(environment.map_volume['vol'] == environment.map_volume['feature_value_map']['drone'][environment.altitude]['val'])
+
+                human_data['drone'].append(drone_pos)
+                human_data['hiker'].append(environment.hiker_position)
 
 
 
                 observation, reward, done, info = environment.step(action)
 
-
+                score += reward
 
                 print("DONE:", done)
                 print("REWARD:", reward)
@@ -237,13 +247,18 @@ def main():
                 pygame.event.set_blocked([pygame.MOUSEMOTION, pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP])
                 event = pygame.event.wait() # PREVENTS FOR CONSIDERING MORE THAN A KEY PRESS AT ONCE. CAREFUL
 
+                scoreFont = pygame.font.Font('freesansbold.ttf', 24)
+                scoreText = scoreFont.render("Current Score {}".format(score), 1, (0,0,0))
+                gameDisplay.blit(scoreText,(500,200))
+
+                rewardText = scoreFont.render("Last Reward {}".format(reward), 1, (0,0,0))
+                gameDisplay.blit(rewardText,(500,250))
+
                 pygame.display.update()
                 pygame.event.get()
                 sleep(sleep_time)
 
-                # BLIT!!!
-                # First Background covering everything from previous session
-                gameDisplay.fill(DARK_BLUE)
+
 
                 obs = environment.generate_observation()
                 map_xy = obs['img']
