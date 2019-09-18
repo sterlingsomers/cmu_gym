@@ -70,6 +70,19 @@ def _print(i):
 
 
 
+def restore_last_move(human_data,environment):
+    if len(human_data['maps']) == 0:
+        return 0
+    environment.reset(map=flags.FLAGS.map)
+    for step in human_data['actions'][:-1]:
+        environment.step(step)
+    human_data['maps'] = human_data['maps'][:-1]
+    human_data['actions'] = human_data['actions'][:-1]
+    human_data['headings'] = human_data['headings'][:-1]
+    human_data['altitudes'] = human_data['altitudes'][:-1]
+    human_data['drone'] = human_data['drone'][:-1]
+    human_data['hiker'] = human_data['hiker'][:-1]
+
 
 
 def main():
@@ -77,6 +90,13 @@ def main():
         reward = 0.0
         environment = GridWorld.GridworldEnv()
         environment.reset(map=flags.FLAGS.map)
+        human_data = {}
+        human_data['maps'] = []
+        human_data['actions'] = []
+        human_data['headings'] = []
+        human_data['altitudes'] = []
+        human_data['drone'] = []
+        human_data['hiker'] = []
 
         episode_counter = 0
 
@@ -218,6 +238,24 @@ def main():
                         action = 14
                     elif (event.key == pygame.K_SPACE):
                         action = 15
+                    elif (event.key == pygame.K_DELETE):
+                        restore_last_move(human_data, environment)
+                        obs = environment.generate_observation()
+                        score -= reward
+                        map_xy = obs['img']
+                        map_alt = obs['nextstepimage']
+                        process_img(map_xy, 20, 20)
+                        process_img(map_alt, 20, 400)
+                        pygame.display.update()
+                    elif (event.key == pygame.K_BACKSPACE):
+                        restore_last_move(human_data,environment)
+                        obs = environment.generate_observation()
+                        score -= reward
+                        map_xy = obs['img']
+                        map_alt = obs['nextstepimage']
+                        process_img(map_xy, 20, 20)
+                        process_img(map_alt, 20, 400)
+                        pygame.display.update()
                     else:
                         continue
 
