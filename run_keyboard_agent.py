@@ -40,8 +40,8 @@ flags.DEFINE_integer("episodes", 1, "Number of complete episodes")
 
 #human subject flags
 flags.DEFINE_string("participant", 'Test', "The participants name")
-flags.DEFINE_string("map", 'canyon', "river, canyon")
-flags.DEFINE_integer("configuration", 1, "1,2, or 3")
+flags.DEFINE_string("map", 'river', "river, canyon")
+flags.DEFINE_integer("configuration", 2, "0,1, or 2")
 
 
 
@@ -82,6 +82,7 @@ def restore_last_move(human_data,environment):
     human_data['altitudes'] = human_data['altitudes'][:-1]
     human_data['drone'] = human_data['drone'][:-1]
     human_data['hiker'] = human_data['hiker'][:-1]
+    human_data['reward'] = human_data['reward'][:-1]
 
 
 
@@ -89,7 +90,8 @@ def main():
         score = 0.0
         reward = 0.0
         environment = GridWorld.GridworldEnv()
-        environment.reset(map=flags.FLAGS.map)
+        config = flags.FLAGS.configuration
+        environment.reset(map=flags.FLAGS.map,config=config)
         human_data = {}
         human_data['maps'] = []
         human_data['actions'] = []
@@ -97,6 +99,7 @@ def main():
         human_data['altitudes'] = []
         human_data['drone'] = []
         human_data['hiker'] = []
+        human_data['reward'] = []
 
         episode_counter = 0
 
@@ -158,6 +161,9 @@ def main():
             human_data['altitudes'] = []
             human_data['drone'] = []
             human_data['hiker'] = []
+            human_data['reward'] = []
+
+
 
 
 
@@ -275,7 +281,10 @@ def main():
 
 
 
+
                 observation, reward, done, info = environment.step(action)
+
+                human_data['reward'].append(reward)
 
                 score += reward
 

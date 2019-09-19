@@ -516,11 +516,11 @@ class GridworldEnv():
         #print("scale:",(1/((self.dist**2+1e-7))), "dist=",self.dist+1e-7, "alt=", self.altitude, "drone:",drone, "hiker:", hiker,"found:", self.check_for_hiker())
         return (self.generate_observation(), reward, done, info)
 
-    def reset(self,map='river'):
+    def reset(self,map='river',config=0):
         self.dist_old = 1000
         self.drop = False
-        self.heading = 1#random.randint(1, 8)
-        self.altitude = 2#random.randint(1,3)
+        self.heading = map_dict[map]['heading'][config]#heading#random.randint(1, 8)
+        self.altitude = map_dict[map]['altitude'][config]#random.randint(1,3)
         self.reward = 0
         self.crash = 0
         self.package_dropped = 0
@@ -661,9 +661,9 @@ class GridworldEnv():
 
         # self.map_volume = CNP.map_to_volume_dict(_map[0],_map[1], self.mapw, self.maph)
         # drone = (random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))#(6,5)#(2,6)#(random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2)) #(1,8)
-        drone = (3,3) # first dimension is down the map and second is right from top left corner
+        drone = map_dict[map]['drone'][config]#drone # first dimension is down the map and second is right from top left corner
         # drone = (random.randint(2, self.map_volume['vol'].shape[1] - 4), random.randint(2, self.map_volume['vol'].shape[1] - 4))
-        hiker = (10,10)#(random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))
+        hiker = map_dict[map]['hiker'][config]#hiker#(random.randint(2, self.map_volume['vol'].shape[1] - 2), random.randint(2, self.map_volume['vol'].shape[1] - 2))
         ##################
 
         # while drone == hiker:
