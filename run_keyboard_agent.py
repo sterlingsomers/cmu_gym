@@ -40,7 +40,7 @@ flags.DEFINE_integer("episodes", 1, "Number of complete episodes")
 
 #human subject flags
 flags.DEFINE_string("participant", 'Test', "The participants name")
-flags.DEFINE_string("map", 'v-river', "river, canyon, v-river, treeline, small-canyon")
+flags.DEFINE_string("map", 'flatland', "river, canyon, v-river, treeline, small-canyon, flatland")
 flags.DEFINE_integer("configuration", 2, "0,1, or 2")
 
 
@@ -73,7 +73,7 @@ def _print(i):
 def restore_last_move(human_data,environment):
     if len(human_data['maps']) == 0:
         return 0
-    environment.reset(map=flags.FLAGS.map)
+    environment.reset(map=flags.FLAGS.map,config=flags.FLAGS.configuration)
     for step in human_data['actions'][:-1]:
         environment.step(step)
     human_data['maps'] = human_data['maps'][:-1]
