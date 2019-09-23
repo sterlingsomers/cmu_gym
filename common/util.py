@@ -20,6 +20,58 @@ def select_from_each_row(params, indices):
     sel = tf.stack([tf.range(tf.shape(params)[0]), indices], axis=1)
     return tf.gather_nd(params, sel)
 
+# def calc_rewards(self, batch):
+def calc_rewards(self, rewards, state_values, next_state_values, dones, gamma):
+        '''
+        Inputs
+        =====================================================
+        batch: tuple of state, action, reward, done, and
+            next_state values from generate_episode function
+
+        Outputs
+        =====================================================
+        R: np.array of discounted rewards
+        G: np.array of TD-error
+        '''
+
+        # states, actions, rewards, dones, next_states = batch
+        # Convert values to np.arrays
+        # rewards = np.array(rewards)
+        # states = np.vstack(states)
+        # next_states = np.vstack(states)
+        # actions = np.array(actions)
+        # dones = np.array(dones)
+        batch = rewards.shape[0]
+        # total_steps = len(rewards)
+        total_steps = rewards.size #(MINE)
+        rewards = np.reshape(rewards,(rewards.size))#(rewards, (1,batch*self.n_steps))
+        next_state_values = next_state_values.reshape(rewards.size)
+        state_values = state_values.reshape(rewards.size)
+        dones = dones.reshape(rewards.size)
+        next_state_values[dones] = 0
+
+        # R = np.zeros_like(rewards, dtype=np.float32)
+        R = np.zeros_like(rewards, dtype=np.float32)
+        # G = np.zeros_like(rewards, dtype=np.float32)
+
+        for t in range(total_steps):
+            last_step = min(self.n_steps, total_steps - t)
+
+            # Look for end of episode
+            check_episode_completion = dones[t:t + last_step]
+            if check_episode_completion.size > 0:
+                if True in check_episode_completion:
+                    next_ep_completion = np.where(check_episode_completion == True)[0][0]
+                    last_step = next_ep_completion
+
+            # Sum and discount rewards
+            R[t] = sum([rewards[t + n:t + n + 1] * gamma ** n for n in range(last_step)])
+
+        if total_steps > self.n_steps:
+            R[:total_steps - self.n_steps] += next_state_values[self.n_steps:]
+
+        G = R - state_values
+        return R, G # R is used as the target and G as the advantage
 
 def calculate_n_step_reward(
         one_step_rewards: np.ndarray,
@@ -37,6 +89,43 @@ def calculate_n_step_reward(
     full_discounted_reverse_rewards = reverse_rewards * discount
     return (np.cumsum(full_discounted_reverse_rewards, axis=1) / discount)[:, :0:-1]
 
+def general_nstep_adv_sequential(
+        mb_rewards: np.ndarray,
+        mb_values: np.ndarray,
+        discount: float,
+        mb_done: np.ndarray,
+        lambda_par: float,
+        nenvs: int,
+        maxsteps: int):
+    gae = np.zeros((nenvs, maxsteps))
+    batch = np.arange(nenvs)
+    ind = np.array(np.nonzero(mb_done)) # [batch x maxsteps]. first row indicate the batch and second the index where done=1
+    for b in batch:
+        told = 0
+        adv = []
+        indices = ind[1, np.where(ind[0] == b)[0]] + 1 # take the appropriate index in which done=1 per batch b
+        indices = np.insert(indices, 0, 0, axis=0) # insert a 0 in front so the first index will be 0 to ...
+        if indices[-1] != (maxsteps):
+            indices = np.insert(indices, indices.size, maxsteps, axis=0)
+        for t in range(indices.size):
+            # print('t=', t, 'told=', told)
+            # print('ind_t=', indices[t], 'ind_t-1=', indices[told])
+            d = mb_done[b, indices[told]:indices[t]]
+            # print('done', d)
+            r = mb_rewards[b, indices[told]:indices[t]]
+            r = r.reshape([1, r.size])
+            # print('reward', r)
+            v = mb_values[b, indices[told]:indices[t] + 1]
+            # print('values', v)
+            batch_size, timesteps = r.shape  # [1,18]
+            delta = r + discount * v[1:] * (1 - d) - v[:-1]
+            delta_rev = delta[:, ::-1]
+            adjustment = (discount * lambda_par) ** np.arange(timesteps, 0, -1)
+            advantage = (np.cumsum(delta_rev * adjustment, axis=1) / adjustment)[:, ::-1]
+            adv = np.concatenate([adv, advantage[0]])
+            told = t
+        gae[b] = adv
+    return gae
 
 def general_n_step_advantage(
         one_step_rewards: np.ndarray,

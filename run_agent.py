@@ -35,7 +35,7 @@ from gridworld import gameEnv
 FLAGS = flags.FLAGS
 flags.DEFINE_bool("visualize", False, "Whether to render with pygame.")
 flags.DEFINE_float("sleep_time", 0.0, "Time-delay in the demo")
-flags.DEFINE_integer("resolution", 32, "Resolution for screen and minimap feature layers.")
+flags.DEFINE_integer("resolution", 8, "Resolution for screen and minimap feature layers.")
 flags.DEFINE_integer("step_mul", 100, "Game steps per agent step.")
 flags.DEFINE_integer("step2save", 500, "Game step to save the model.") #A2C every 1000, PPO 250
 flags.DEFINE_integer("n_envs", 80, "Number of environments to run in parallel")
@@ -121,7 +121,7 @@ def make_custom_env(env_id, num_env, seed, wrapper_kwargs=None, start_index=0):
         def _thunk():
             # env = gym.make(env_id)
             # env.seed(seed + rank)
-            env = gameEnv(partial=False,size=9)#,goal_color=[np.random.uniform(), np.random.uniform(), np.random.uniform()])
+            env = gameEnv(partial=True,size=9)#,goal_color=[np.random.uniform(), np.random.uniform(), np.random.uniform()])
             # Monitor should take care of reset!
             env = Monitor(env, logger.get_dir() and os.path.join(logger.get_dir(), str(rank)), allow_early_resets=True) # SUBPROC NEEDS 4 OUTPUS FROM STEP FUNCTION
             return env
@@ -204,7 +204,8 @@ def main():
         n_steps=n_steps_per_batch,
         do_training=FLAGS.training,
         ppo_par=ppo_par,
-        policy_type = FLAGS.policy_type
+        policy_type = FLAGS.policy_type,
+        n_envs= FLAGS.n_envs
     )
 
     # runner.reset() # Reset env which means you get first observation. You need reset if you run episodic tasks!!! SC2 is not episodic task!!!

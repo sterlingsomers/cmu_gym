@@ -135,7 +135,7 @@ class FullyConvPolicy:
             trainable=self.trainable
         )
         # Add layer normalization for better stability
-        self.fc1 = layers.layer_norm(self.fc1,trainable=self.trainable)
+        # self.fc1 = layers.layer_norm(self.fc1,trainable=self.trainable) # VERY BAD FOR THE 2D GRIDWORLD!!!
 
         action_id_probs = layers.fully_connected(
             self.fc1,
@@ -399,7 +399,7 @@ class MetaPolicy:
         return conv2
 
     def build(self):
-        self.mb_dones = tf.placeholder(shape=[None], dtype=tf.int32) # size of this is batch_size
+        self.mb_dones = tf.placeholder(shape=[None], dtype=tf.int32) # size of this is batch_size and each element is the actual sequence length
         # Maybe you need to bring in the inputs as batch x max_steps and not as batch * max_steps. The reshape should have only ONE None dimension so timestep should vary BUT when you test then the env vary
         # or maybe you need even the 1-step prediction to create a batch x self.nsteps x 100 x 100 tensor with 0s
         batch_size = tf.shape(self.placeholders.rgb_screen)[0]
@@ -448,11 +448,11 @@ class MetaPolicy:
         self.h_in = tf.placeholder(tf.float32, [self.nenvs, lstm_cell.state_size.h])
         self.state_in = (self.c_in, self.h_in) # You need this so from outside you can feed the two placeholders
         rnn_in = hidden #tf.reshape(hidden,[-1,1,80017])#tf.expand_dims(hidden, [0]) # 1 is the timestep, if you have more you might need -1 also there
-        self.mask = tf.sequence_mask(self.mb_dones, tf.shape(self.placeholders.rgb_screen)[1],#tf.shape(rnn_in[1]), # The tf.shape is for the max_timesteps
+        self.mask = tf.sequence_mask(self.mb_dones, tf.shape(self.placeholders.rgb_screen)[1],#mask has [batch x maxsteps]#tf.shape(rnn_in[1]), # The tf.shape is for the max_timesteps
                                 dtype=tf.float32)  # by default it will be bool which doesnt work with multiplicaiton
-        rnn_in = rnn_in * tf.expand_dims(self.mask, axis=2)
+        rnn_in = rnn_in * tf.expand_dims(self.mask, axis=2) # expand mask to the 3rd dim of the tensor [batch x masteps x dims] so you cover actual values
 
-        self.seq_length = self.get_rnn_length(rnn_in)
+        self.seq_length = self.mb_dones#self.get_rnn_length(rnn_in) # mb_dones = seq_length. Better use the mb_dones rather than the function which finds non zero elements
         state_in = tf.contrib.rnn.LSTMStateTuple(self.c_in, self.h_in)
         lstm_outputs, lstm_state = tf.nn.dynamic_rnn(
             lstm_cell, rnn_in, initial_state=state_in, sequence_length=self.seq_length, time_major=False) #sequence_length=step_size,
@@ -516,7 +516,11 @@ class MetaPolicy:
 
         action_id_probs = tf.reshape(action_id_probs, [batch_size, maxsteps, self.num_actions])
         action_id_probs *= tf.expand_dims(self.mask, axis=2)
-        action_id_probs = tf.reshape(action_id_probs, [tf.shape(rgb_screen)[0], self.num_actions]) # back to batch*maxteps x 16 so we can sample
+        action_id_probs = tf.reshape(action_id_probs, [tf.shape(rgb_screen)[0], self.num_actions]) # back to batch*maxteps(=tf.shape(rgb_screen)[0]) x 16 so we can sample
+
+        value_estimate = tf.reshape(value_estimate, [batch_size, maxsteps])
+        value_estimate *= self.mask#tf.expand_dims(self.mask, axis=0)
+        value_estimate = tf.reshape(value_estimate, [tf.shape(rgb_screen)[0]])
 
         self.value_estimate = value_estimate
         self.action_id_probs = action_id_probs

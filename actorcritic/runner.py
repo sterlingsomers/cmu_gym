@@ -6,8 +6,8 @@ import numpy as np
 import sys
 from actorcritic.agent import ActorCriticAgent, ACMode
 from common.preprocess import ObsProcesser, ActionProcesser, FEATURE_KEYS
-from common.util import calculate_n_step_reward, general_n_step_advantage, combine_first_dimensions, \
-    dict_of_lists_to_list_of_dicst
+from common.util import general_n_step_advantage, combine_first_dimensions, \
+    dict_of_lists_to_list_of_dicst, general_nstep_adv_sequential
 import tensorflow as tf
 from absl import flags
 # from time import sleep
@@ -170,21 +170,37 @@ class Runner(object):
 
         #print(">> Avg. Reward:",np.round(np.mean(mb_rewards),3))
         mb_values[:, -1] = self.agent.get_value(latest_obs) # We bootstrap from last step. If not terminal! although he doesnt use any check here
+        # R, G = calc_rewards(self, mb_rewards, mb_values[:,:-1], mb_values[:,1:], mb_done, self.discount)
+        # R = R.reshape((self.n_envs, self.n_steps)) # self.n_envs returns 1, self.envs.num_envs
+        # G = G.reshape((self.n_envs, self.n_steps))
         # He replaces the last value with a bootstrap value. E.g. s_t-->V(s_t),s_{lastnstep}-->V(s_{lastnstep}), s_{lastnstep+1}
         # and we replace the V(s_{lastnstep}) with V(s_{lastnstep+1})
-        n_step_advantage = general_n_step_advantage(
+        n_step_advantage = general_nstep_adv_sequential(
             mb_rewards,
             mb_values,
             self.discount,
             mb_done,
-            lambda_par=self.ppo_par.lambda_par if self.is_ppo else 1.0
+            lambda_par=self.ppo_par.lambda_par if self.is_ppo else 1.0,
+            nenvs=self.n_envs,
+            maxsteps=self.n_steps
         )
-
+        # n_step_advantage = general_n_step_advantage(
+        #     mb_rewards,
+        #     mb_values,
+        #     self.discount,
+        #     mb_done,
+        #     lambda_par=self.ppo_par.lambda_par if self.is_ppo else 1.0
+        # )
+        # disc_ret = calculate_n_step_reward(
+        #     mb_rewards,
+        #     self.discount,
+        #     mb_values,
+        # )
         full_input = {
             # these are transposed because action/obs
             # processers return [time, env, ...] shaped arrays CHECK THIS OUT!!!YOU HAVE ALREADY THE TIMESTEP DIM!!!
-            FEATURE_KEYS.advantage: n_step_advantage.transpose(),
-            FEATURE_KEYS.value_target: (n_step_advantage + mb_values[:, :-1]).transpose() # (we left out the last element) if you add to the advantage the value you get the target for your value function training. Check onenote in cmu_gym/Next Steps
+            FEATURE_KEYS.advantage: n_step_advantage.transpose(),#, G.transpose()
+            FEATURE_KEYS.value_target: (n_step_advantage + mb_values[:, :-1]).transpose()# R.transpose()# (we left out the last element) if you add to the advantage the value you get the target for your value function training. Check onenote in cmu_gym/Next Steps
         }
         #(MINE) Probably we combine all experiences from every worker below
         full_input.update(self.action_processer.combine_batch(mb_actions))
@@ -209,6 +225,7 @@ class Runner(object):
     def run_meta_batch(self):
         mb_actions = []
         mb_obs = []
+        mb_rnns = []
         mb_values = np.zeros((self.envs.num_envs, self.n_steps + 1), dtype=np.float32)
         mb_rewards = np.zeros((self.envs.num_envs, self.n_steps), dtype=np.float32) # n x d array (ndarray)
         mb_done = np.zeros((self.envs.num_envs, self.n_steps), dtype=np.int32)
@@ -230,6 +247,7 @@ class Runner(object):
             obs_raw = self.envs.step(action_ids)
             latest_obs = self.obs_processer.process(obs_raw[0]) # For obs_raw as tuple! #(MINE) =state(t+1). Processes all inputs/obs from all timesteps (and envs)
 
+            mb_rnns.append(rnn_state)
             rnn_state = rnn_state_new
             r_ = obs_raw[1] # (nenvs,) but you need (nenvs,1)
             r_ = np.reshape(r_,[self.envs.num_envs,1]) # gets into recurrency as [nenvs,1] # The 1 might be used as timestep
@@ -249,8 +267,8 @@ class Runner(object):
                     last_step_r = obs_raw[1][indx]
                     self._handle_episode_end(epis_reward, epis_length, last_step_r) # The printing score process is NOT a parallel process apparrently as you input every reward (t) independently
                     # Here you have to reset the rnn_state of that env (rnn_state has h and c EACH has dims [batch_size x hidden dims]
-                    # rnn_state[0][indx] = np.zeros(256)
-                    # rnn_state[1][indx] = np.zeros(256)
+                    rnn_state[0][indx] = np.zeros(256)
+                    rnn_state[1][indx] = np.zeros(256)
                     #reset the relevant r_ and a_
                     r_[indx] = 0
                     a_[indx] = 0
@@ -260,7 +278,9 @@ class Runner(object):
         mb_l = self.first_nonzero(mb_done,axis=1) # the last obs s-->sdone are not getting in the training!!!This is because sdone--> ? and R=0
         # Substitute 0s with 1 declaring 1 step
         # mb_l[mb_l==0] = 1
-        mb_l = mb_l + 1 # You start stepping from step 0 to 1
+        for b in range(mb_l.shape[0]):
+            if mb_l[b] < self.n_steps:
+                mb_l[b] = mb_l[b] + 1 # You start stepping from step 0 to 1
         mask = ~(np.ones(mb_rewards.shape).cumsum(axis=1).T > mb_l).T
         mb_rewards = mb_rewards*mask
         # Below: r + gammaV(s')(1-done) - V(s)// V(s')=mb_values[:,-1] but if its done we dont care if we put the last nstep V or the actual V(s_done+1) as the whole term is gonna be zero
@@ -269,14 +289,28 @@ class Runner(object):
         # mb_values[:, -1] = self.agent.get_recurrent_value(latest_obs, rnn_state, r_, a_) # Put at last slot the estimated future expected reward for bootstrap the V after the nsteps
         mask_v = ~(np.ones(mb_values.shape).cumsum(axis=1).T > mb_l).T
         mb_values = mb_values*mask_v
+        # We take the vector of values after nsteps and we use ONLY the valid ones in the loop below
+        vec = self.agent.get_recurrent_value(latest_obs, rnn_state, r_, a_)
+        for b in range(mb_l.shape[0]):
+            if mb_l[b] == self.n_steps:
+                mb_values[b, -1] = vec[b] # if the sequence didnt end within nsteps then we add the value so the term gammaVt+1(1-done) is not 0
         # Mask below the values that enter the nstep advantage
-        n_step_advantage = general_n_step_advantage(
+        n_step_advantage = general_nstep_adv_sequential(
             mb_rewards,
             mb_values,
             self.discount,
             mb_done,
-            lambda_par=self.ppo_par.lambda_par if self.is_ppo else 1.0
+            lambda_par=self.ppo_par.lambda_par if self.is_ppo else 1.0,
+            nenvs=self.n_envs,
+            maxsteps=self.n_steps
         )
+        # n_step_advantage = general_n_step_advantage(
+        #     mb_rewards,
+        #     mb_values,
+        #     self.discount,
+        #     mb_done,
+        #     lambda_par=self.ppo_par.lambda_par if self.is_ppo else 1.0
+        # )
         # prev_rewards = [0] + mb_rewards[:, :-1]#.tolist() # from the rewards you take out the last element and replace it with 0
         prev_rewards = np.c_[np.zeros((self.envs.num_envs, 1), dtype=np.float32), mb_rewards[:, :-1]]
         # Below we add one zero action element and we take out the a_t so we get at=0:t-1

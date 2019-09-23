@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from gym import spaces
 
 
-class gameOb():
+class gameOb(): # Any object registered will have all these properties below!
     def __init__(self, coordinates, size, color, reward, name):
         self.x = coordinates[0]
         self.y = coordinates[1]
@@ -34,6 +34,7 @@ class gameEnv():
         self.partial = partial
         self.bg = np.zeros([size, size])
         self.goal_color = [0,1,0]#[np.random.uniform(), np.random.uniform(), np.random.uniform()]
+        self.info = {}
         # self.fig = plt.figure(1)
         # Below no need
         # obs = self.reset()
@@ -56,9 +57,9 @@ class gameEnv():
         # for i in range(self.sizeX - 1): # This creates multiple targets (8 if size.X=9) to be collected thats why it doesnt ever terminate.
         bug = gameOb(self.newPosition(0), 1, self.goal_color, 1, 'goal')
         self.objects.append(bug)
-        # for i in range(self.sizeX - 1): # For now we remove the fire
-        #     hole = gameOb(self.newPosition(0), 1, self.other_color, 0, 'fire')
-        #     self.objects.append(hole)
+        for i in range(self.sizeX - 1): # It will create 9-1=8 fires in total
+            hole = gameOb(self.newPosition(0), 1, [1,0,0], 0, 'fire')
+            self.objects.append(hole)
         # state, s_big = self.renderEnv()
         obs = self.renderEnv()
         s_big = obs['img']
@@ -68,8 +69,7 @@ class gameEnv():
 
     def moveChar(self, action):
         # 0 - up, 1 - down, 2 - left, 3 - right, 4 - 90 counter-clockwise, 5 - 90 clockwise
-        info = {}
-        info['success'] = True
+        self.info['success'] = True
         hero = self.objects[0]
         blockPositions = [[-1, -1]]
         for ob in self.objects:
@@ -117,11 +117,11 @@ class gameEnv():
                 hero.x -= 1
             if direction == 3 and hero.x <= self.sizeX - 2 and [hero.x + 1, hero.y] not in blockPositions.tolist():
                 hero.x += 1
-        if hero.x == heroX and hero.y == heroY:
+        if hero.x == heroX and hero.y == heroY: # hit a wall and stay at same position
             penalize = 0.0
-            info['success'] = False
+            self.info['success'] = False
         self.objects[0] = hero
-        return penalize, info
+        return penalize, self.info
 
     def newPosition(self, sparcity):
         iterables = [range(self.sizeX), range(self.sizeY)] # list [range(0,9) range(0,9)]
@@ -144,12 +144,12 @@ class gameEnv():
                 if other.reward == 1:
                     self.objects.append(gameOb(self.newPosition(0), 1, self.goal_color, 1, 'goal')) # Moves the goal somewhere else as it is now reached
                     return other.reward, True#False
-                # else: # else its a fire
-                #     self.objects.append(gameOb(self.newPosition(0), 1, self.other_color, 0, 'fire'))
-                #     return other.reward, False
+                else: # else its a fire
+                    self.objects.append(gameOb(self.newPosition(0), 1, [1,0,0], 0, 'fire')) #self.other_color. We keep fire under the red color
+                    return other.reward, False
         if ended == False:
-            # return 0.0, False
-            return -0.01, False
+            return 0.0, False
+            # return -0.01, False
 
     def renderEnv(self):
         if self.partial == True:

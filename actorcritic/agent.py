@@ -255,18 +255,29 @@ class ActorCriticAgent:
             # RESHAPE ACTIONS, ADVANTAGES, VALUES. USE MASK TO COMPUTE CORRECT MEANS!!!
             batch_size = tf.shape(self.placeholders.rgb_screen)[0] # or maybe use -1
             max_steps = tf.shape(self.placeholders.rgb_screen)[1]
+            mask = self.theta.mask # Check dims!!!
+            self.mask = mask # for debug
+
+            # Actions (already masked)
             self.action_id_probs = tf.reshape(self.theta.action_id_probs, [batch_size, max_steps, self.num_actions])
             self.action_id_log_probs = tf.reshape(self.theta.action_id_log_probs, [batch_size,max_steps,self.num_actions])
 
+            # --------------
+            # Cross Entropy
+            # -------------
             entropy_i = tf.multiply(self.action_id_probs, self.action_id_log_probs) # [batch,max_steps,num_actions]
-            cross_entropy = -tf.reduce_sum(entropy_i, 2) # result: [batch,max_steps], axis=2 means sum wrt actions
-            mask = tf.sign(tf.reduce_max(tf.abs(entropy_i), 2)) # # [batch,max_steps] with zeros and ones
+            # cross_entropy = -tf.reduce_sum(entropy_i, 2) # result: [batch,max_steps], axis=2 means sum wrt actions
+            cross_entropy = tf.reduce_sum(entropy_i, 2)
+            # mask = tf.sign(tf.reduce_max(tf.abs(entropy_i), 2)) # # [batch,max_steps] with zeros and ones
             cross_entropy *= mask
             # Average over actual sequence lengths.
             cross_entropy = tf.reduce_sum(cross_entropy, 1) # sum all policy values per timestep for each sequence. result: batch x 1
             cross_entropy /= tf.reduce_sum(mask, 1) # You sum the 1s of the [batch x maxsteps] over axis=1 (maxsteps) to get the actual length of each sequence in your batch
             self.neg_entropy_action_id = tf.reduce_mean(cross_entropy)
-
+            # self.neg_entropy_action_id = tf.reduce_sum(cross_entropy_m) / tf.reduce_sum(tf.reduce_sum(mask, 1))
+            # --------------
+            #   Policy
+            # --------------
             # Start with policy per timestep i per sequence. Result will be [batch * maxsteps]
             policy_i = selected_log_probs.total * self.placeholders.advantage # The selected log probs for masked actions should already be zero. The mask also (inside the policy.py) masks specific lengths so even if there are actions 0 (which are valid as a number) if not included in episode, they will be masked
             # Reshape now to calculate correct means
@@ -274,12 +285,17 @@ class ActorCriticAgent:
             policy = tf.reduce_sum(policy, 1) # sum all policy values per timestep for each sequence. result: batch x 1
             policy /= tf.reduce_sum(mask, 1)
             self.policy_loss = -tf.reduce_mean(policy)
+            # self.policy_loss = tf.reduce_sum(policy_i) / tf.reduce_sum(tf.reduce_sum(mask, 1))
 
+            # --------------
+            #    Value
+            # --------------
             vloss_i = tf.squared_difference(self.placeholders.value_target, self.theta.value_estimate)
             mse = tf.reshape(vloss_i, [batch_size, max_steps]) # result: [batch x maxsteps]
-            mse = tf.reduce_sum(mse, 1) # sum all policy values per timestep for each sequence. result: batch x 1
-            mse /= tf.reduce_sum(mask, 1)
-            self.value_loss = tf.reduce_mean(mse)
+            mse = tf.reduce_sum(mse, 1) # sum all value losses per timestep for each sequence. result: batch x 1
+            mse /= tf.reduce_sum(mask, 1) # Denominator is the number of timesteps per sequence [batch x 1] vector
+            self.value_loss = tf.reduce_mean(mse) # the mean of the mean losses per sequence (so the denominator in mean will be the number of batches)
+            # self.value_loss = tf.reduce_sum(vloss_i)/tf.reduce_sum(tf.reduce_sum(mask, 1))# alternative: instead of the mean of the mean per sequence we take the mean of all samples
 
         else:
             self.neg_entropy_action_id = tf.reduce_mean(tf.reduce_sum(self.theta.action_id_probs * self.theta.action_id_log_probs, axis=1))
@@ -303,8 +319,8 @@ class ActorCriticAgent:
             name="train_op"
         )
 
-        self._scalar_summary("value/estimate", tf.reduce_mean(self.value_estimate))
-        self._scalar_summary("value/target", tf.reduce_mean(self.placeholders.value_target))
+        self._scalar_summary("value/estimate", tf.reduce_mean(self.value_estimate)) # no correct!mean is for all samples but we use masks!!!
+        self._scalar_summary("value/target", tf.reduce_mean(self.placeholders.value_target)) # no correct!mean is for all samples
         # self._scalar_summary("action/is_spatial_action_available",
         #     tf.reduce_mean(self.placeholders.is_spatial_action_available))
         # self._scalar_summary("action/selected_id_log_prob",
