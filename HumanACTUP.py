@@ -174,6 +174,47 @@ def angle_categories(angle):
     return returndict
 
 def create_chunks_from_files(filelist, include_fc=False):
+    chunks = []
+    for file in filelist:
+        mission = pickle.load(open(file,'rb'))
+        for i in range(len(mission['altitudes'])):
+            step = {}
+            step['volume'] = mission['maps'][i]['vol']
+            step['heading'] = mission['headings'][i]
+            step['drone'] = mission['drone'][i]
+            step['hiker'] = mission['hiker'][i]
+            step['altitude'] = mission['altitudes'][i]
+            step['action'] = mission['actions'][i]
+            egocentric_angle_to_hiker = heading_to_hiker(step['heading'], step['drone'], step['hiker'])
+            angle_categories_to_hiker = angle_categories(egocentric_angle_to_hiker)
+            egocentric_slice = egocentric_representation(step['drone'], step['heading'], step['volume'])
+            chunk = {}
+            for key, value in angle_categories_to_hiker.items():
+                chunk[key] = value
+            altitudes = altitudes_from_egocentric_slice(egocentric_slice)
+            altitudes = [x - 1 for x in altitudes]
+            alt = step['altitude']
+            # chunk.extend(['altitude', ['altitude', int(alt)]])
+            chunk['altitude'] = int(alt)
+            chunk['ego_left'] = altitudes[0]
+            chunk['ego_diagonal_left'] = altitudes[1]
+            chunk['ego_center'] = altitudes[2]
+            chunk['ego_diagonal_right'] = altitudes[3]
+            chunk['ego_right'] = altitudes[4]
+            chunk['distance_to_hiker'] = distance_to_hiker(np.array(step['drone']), np.array(step['hiker']))
+
+            for key,value in action_to_category_map.items():
+                if len(value) > 1:
+                    actr_action = '_'.join(value)
+                else:
+                    actr_action = value[0]
+                if key == step['action']:
+                    chunk[actr_action] = 1
+                else:
+                    chunk[actr_action] = 0
+
+            chunks.append(chunk)
+    return chunks
 
 
 def convert_data_to_chunks(all_data,include_fc=False):
@@ -265,7 +306,6 @@ def vector_similarity(x,y):
 
 
 def custom_similarity(x,y):
-    return 0
     return abs(x - y)
 
 #set the similarity function
@@ -281,11 +321,11 @@ def main():
     if not os.path.isdir(human_data_folder):
         return 0
     os.chdir(human_data_folder)
-    data_files = glob.glob(human_data_folder)
+    data_files = glob.glob('*2019*')
 
     all_chunks = create_chunks_from_files(data_files)
 
-    normalized_data_file = 'human_normalized_all_chunks_fc.lst'
+    normalized_data_file = 'human_normalized_all_chunks.lst'
     chunks_path = Path("./")
 
     if not os.path.isfile(os.path.join(chunks_path, normalized_data_file)):
@@ -294,31 +334,31 @@ def main():
         ###Need the raw data, then convert it into chunks because you need the intial distributions for the actions
         # data_file_name = 'all_data308-110_9-7_4-1_9-115000.lst'
         # ata_path = Path('C:/Users/Konstantron/PycharmProjects/cmu_gym/data/')
-        all_data = pickle.load(open(os.path.join(data_path, data_file_name), 'rb'))
+        # all_data = pickle.load(open(os.path.join(human_data_folder, normalized_data_file), 'rb'))
 
         ###convert the data to chunks
-        all_chunks = convert_data_to_chunks(all_data, include_fc=True)
+        # all_chunks = convert_data_to_chunks(all_data, include_fc=True)
 
-        # find all the euclidean distances between all fc to normalize the euclidean
-        FCs = []
-
-        for chunk in all_chunks:
-            FCs.append(chunk['fc'])
-
-        # normalize the fc
-        normalizer = preprocessing.Normalizer(norm='l2').fit(FCs)
-        FCs = normalizer.transform(FCs)  # [normalizer.transform(x) for x in FCs]
-        for chunk, fc in zip(all_chunks, FCs):
-            chunk['fc'] = tuple(fc.tolist())
-
-        split_FCs = [FCs[i::100] for i in range(100)]  # [test_chunks[i::10] for i in range(10)]
-        for FC_list in split_FCs:
-            FC_combination = list(itertools.combinations(FC_list, 2))
-            sub_distances = [distance.euclidean(x[0], x[1]) for x in FC_combination]
-            FC_distances.append(max(sub_distances))
-
-        with open(os.path.join(chunks_path, 'FC_distances.pkl'), 'wb') as handle:
-            pickle.dump(FC_distances, handle)
+        # # find all the euclidean distances between all fc to normalize the euclidean
+        # FCs = []
+        #
+        # for chunk in all_chunks:
+        #     FCs.append(chunk['fc'])
+        #
+        # # normalize the fc
+        # normalizer = preprocessing.Normalizer(norm='l2').fit(FCs)
+        # FCs = normalizer.transform(FCs)  # [normalizer.transform(x) for x in FCs]
+        # for chunk, fc in zip(all_chunks, FCs):
+        #     chunk['fc'] = tuple(fc.tolist())
+        #
+        # split_FCs = [FCs[i::100] for i in range(100)]  # [test_chunks[i::10] for i in range(10)]
+        # for FC_list in split_FCs:
+        #     FC_combination = list(itertools.combinations(FC_list, 2))
+        #     sub_distances = [distance.euclidean(x[0], x[1]) for x in FC_combination]
+        #     FC_distances.append(max(sub_distances))
+        #
+        # with open(os.path.join(chunks_path, 'FC_distances.pkl'), 'wb') as handle:
+        #     pickle.dump(FC_distances, handle)
 
         # the chunks values should be normalized
         # make a dictionary of all values, use max(values) to normalize
@@ -338,13 +378,13 @@ def main():
 
     else:
         # all_chunks = pickle.load(open(chunks_path + normalized_data_file, 'rb'))
-        FC_distances = pickle.load(open(os.path.join(chunks_path, 'FC_distances.pkl'), 'rb'))
+        # FC_distances = pickle.load(open(os.path.join(chunks_path, 'FC_distances.pkl'), 'rb'))
         all_chunks = pickle.load(open(os.path.join(chunks_path, normalized_data_file), 'rb'))
 
     # vectorize the data, ensuring the order
     # include the action probs
-    vectorized_data = [convert_dict_chunk_to_vector(chunk, observation_slots + ['fc']) for chunk in all_chunks]
-    vectorized_targets = [convert_dict_chunk_to_vector(chunk, action_slots + ['action_probs']) for chunk in all_chunks]
+    vectorized_data = [convert_dict_chunk_to_vector(chunk, observation_slots) for chunk in all_chunks]
+    vectorized_targets = [convert_dict_chunk_to_vector(chunk, action_slots) for chunk in all_chunks]
 
     X_train, X_test, Y_train, Y_test = train_test_split(vectorized_data, vectorized_targets, test_size=0.20,
                                                         random_state=42)
@@ -353,18 +393,18 @@ def main():
     # cannot store the numpy array (action_probs) so, perserve the order from this point on - you can go back to X_train, Y_train to match the action_probs
     training_chunks = []
     for obs, act in zip(X_train, Y_train):
-        chunk = convert_vector_to_dict_chunk(obs + act, observation_slots + ['fc'] + action_slots)
+        chunk = convert_vector_to_dict_chunk(obs + act, observation_slots + action_slots)
         training_chunks.append(chunk)
 
-    test_chunks = [convert_vector_to_dict_chunk(test, observation_slots + ['fc']) for test in X_test]
+    test_chunks = [convert_vector_to_dict_chunk(test, observation_slots) for test in X_test]
 
     ###now run the model
-    temperatures = [0.25, 0.65, 1.0]  # .3,0.4,0.5]#.6,0.7,0.8,0.9,1.0]
-    mismatches = [8.0, 10.0, 12.0, 14.0, 16.0]
+    temperatures = [0.1,0.2,0.3,0.4,0.50,0.6,0.7,0.8,0.9, 1.0]  # .3,0.4,0.5]#.6,0.7,0.8,0.9,1.0]
+    mismatches = [0.2,0.5,1,2,4,6,8.0, 10.0, 12.0, 14.0, 16.0]
     parameters = [(x, y) for x in temperatures for y in mismatches]
     used_parameters = {'temperature': [], 'mismatches': []}
     os.chdir(chunks_path)
-    datafiles = glob.glob("20190912*")
+    datafiles = glob.glob("2019*")
     for file in datafiles:
         dats = pickle.load(open(file, 'rb'))
         used_parameters['temperature'].append(dats['temperature'])
@@ -383,26 +423,26 @@ def main():
             m.learn(**chunk)
 
         m.advance()
-        p = Pool(processes=20)
+        p = Pool(processes=8)
         # split_chunks = [test_chunks[i::10] for i in range(10)]
         multi_p = partial(multi_blends, memory=m, slots=action_slots)
-        data = p.map(multi_p, test_chunks[0:100])
+        data = p.map(multi_p, test_chunks)
         # for test_chunk in test_chunks:
         # results.append([m.blend(x,**test_chunk) for x in action_slots])
 
         JS = []
         matches = []
         for result, datum in zip(data, Y_test):
-            JS.append(distance.jensenshannon(result, datum[-1][0]))
-            matches.append(int(np.argmax(result) == np.argmax(datum[:-1])))
-        avgJS = sum(JS) / len(JS)
+            # JS.append(distance.jensenshannon(result, datum[-1][0]))
+            matches.append(int(np.argmax(result) == np.argmax(datum)))
+        # avgJS = sum(JS) / len(JS)
         avgMatch = sum(matches) / len(matches)
 
-        save_dict = {'data': data, 'Y_test': Y_test, 'JS': JS, 'matches': matches, 'AVGJS': avgJS, 'avgMatch': avgMatch,
+        save_dict = {'data': data, 'Y_test': Y_test, 'JS': JS, 'matches': matches,  'avgMatch': avgMatch,
                      'temperature': parameter[0], 'mismatch': parameter[1]}
 
         timestr = time.strftime("%Y%m%d-%H%M%S")
-        with open(os.path.join(chunks_path, timestr), 'wb') as handle:
+        with open(os.path.join('/Users/paulsomers/COGLE/gym-gridworld/data/human-human-data/', timestr), 'wb') as handle:
             pickle.dump(save_dict, handle)
         p.close()
     # del m
