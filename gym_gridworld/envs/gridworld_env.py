@@ -460,6 +460,7 @@ class GridworldEnv():
         ''' return next observation, reward, finished, success '''
 
         action = int(action)
+        x = eval(self.actionvalue_heading_action[action][self.heading])
         info = {}
         info['success'] = False
 
@@ -476,7 +477,7 @@ class GridworldEnv():
                 return (self.generate_observation(), reward, done, info) # You should get the previous obs so no change here, or return obs=None
 
         # Do the action (drone is moving). If we crash we dont perform an action so no new observation
-        x = eval(self.actionvalue_heading_action[action][self.heading]) # actionvalue dict contains take_action function given the arguments.
+         # actionvalue dict contains take_action function given the arguments.
         # if self.no_action_flag == True:
         #     reward = self.reward#-1#TODO: it was 0 in all successful training session with PPO. TRY -1 so it avoids dropping at the edges!!!! ahouls be = self.reward and fix self. reward in the drop package function
         #     done = True

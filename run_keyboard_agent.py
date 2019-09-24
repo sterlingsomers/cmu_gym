@@ -38,9 +38,10 @@ flags.DEFINE_integer("episodes", 1, "Number of complete episodes")
 # flags.DEFINE_integer("max_agent_steps", 0, "Total agent steps.")
 
 
+
 #human subject flags
-flags.DEFINE_string("participant", 'Test', "The participants name")
-flags.DEFINE_string("map", 'small-canyon', "river, canyon, v-river, treeline, small-canyon, flatland")
+flags.DEFINE_string("participant", 'dfm', "The participants name")
+flags.DEFINE_string("map", 'canyon', "river, canyon, v-river, treeline, small-canyon, flatland")
 flags.DEFINE_integer("configuration", 2, "0,1, or 2")
 
 
