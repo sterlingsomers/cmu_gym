@@ -1,4 +1,5 @@
-
+import random
+import math
 import os
 import shutil
 import sys
@@ -11,6 +12,8 @@ import numpy as np
 from absl import flags
 
 import gym_gridworld.envs.gridworld_env as GridWorld
+
+random.seed(42)
 
 FLAGS = flags.FLAGS
 # flags.DEFINE_bool("visualize", False, "Whether to render with pygame.")
@@ -53,7 +56,309 @@ flags.DEFINE_integer("configuration", 0, "0,1, or 2")
 
 FLAGS(sys.argv)
 
+###some global variables that should be useful in multiple spots
+action_slots = ['left_down','diagonal_left_down','center_down','diagonal_right_down','right_down',
+                   'left_level','diagonal_left_level','center_level','diagonal_right_level','right_level',
+                   'left_up','diagonal_left_up','center_up','diagonal_right_up','right_up', 'drop']
+#excluds entropy and FC
+observation_slots = ['hiker_left', 'hiker_diagonal_left', 'hiker_center', 'hiker_diagonal_right', 'hiker_right',
+              'ego_left', 'ego_diagonal_left', 'ego_center', 'ego_diagonal_right', 'ego_right',
+              'altitude', 'distance_to_hiker']
 
+combos_to_actions = {'left_down':0,'diagonal_left_down':1,'center_down':2,
+                     'diagonal_right_down':3,'right_down':4,
+                     'left_level':5,'diagonal_left_level':6,'center_level':7,
+                     'diagonal_right_level':8,'right_level':9,
+                     'left_up':10,'diagonal_left_up':11,'center_up':12,
+                     'diagonal_right_up':13,'right_up':14,'drop':15}
+
+action_to_category_map = {
+    0: ['left','down'],
+    1: ['diagonal_left','down'],
+    2: ['center', 'down'],
+    3: ['diagonal_right','down'],
+    4: ['right', 'down'],
+    5: ['left','level'],
+    6: ['diagonal_left','level'],
+    7: ['center', 'level'],
+    8: ['diagonal_right','level'],
+    9: ['right', 'level'],
+    10: ['left','up'],
+    11: ['diagonal_left','up'],
+    12: ['center', 'up'],
+    13: ['diagonal_right','up'],
+    14: ['right', 'up'],
+    15: ['drop']
+}
+
+possible_actions_map = {
+        1: [[0, -1], [-1, -1], [-1, 0], [-1, 1], [0, 1]],
+        2: [[-1, -1], [-1, 0], [-1, 1], [0, 1], [1, 1]],
+        3: [[-1, 0], [-1, 1], [0, 1], [1, 1], [1, 0]],
+        4: [[-1, 1], [0, 1], [1, 1], [1, 0], [1, -1]],
+        5: [[0, 1], [1, 1], [1, 0], [1, -1], [0, -1]],
+        6: [[1, 1], [1, 0], [1, -1], [0, -1], [-1, -1]],
+        7: [[1, 0], [1, -1], [0, -1], [-1, -1], [-1, 0]],
+        8: [[1, -1], [0, -1], [-1, -1], [-1, 0], [-1, 1]]
+
+    }
+
+FC_distances = []
+
+
+
+def convert_dict_chunk_to_vector(chunk,keys):
+    '''cannot just take the values because it does not preserve order. this function makes a list of values, all in the same order'''
+    values = [chunk[slot] for slot in keys]
+    return values
+
+def convert_vector_to_dict_chunk(vector,keys):
+    '''len of vector must equal len of keys'''
+    return {slot:value for slot,value in zip(keys,vector) if not slot == 'action_probs'}
+
+def strip_slots(chunk, slots):
+    '''strips actions away, leaving only observations'''
+    for action in slots:
+        del chunk[action]
+    return chunk
+
+def unpack_chunks(chunks):
+    temp_chunks = []
+    all_chunks = []
+    for action in chunks:
+        for chunk in chunks[action]:
+            chunk = chunk[:-4]
+            achunk = {}
+            for i in range(1,len(chunk),2):
+                slot,value = chunk[i][0], chunk[i][1]
+                achunk[slot] = value
+            for possible_action in action_slots:
+                achunk[possible_action] = int(possible_action == action)
+
+            # print('test')
+            all_chunks.append(achunk)
+    return all_chunks
+
+def distance_to_hiker(drone_position,hiker_position):
+    distance = np.linalg.norm(drone_position-hiker_position)
+    return distance
+
+
+def altitudes_from_egocentric_slice(egocentric_slice):
+    alts = np.count_nonzero(egocentric_slice, axis=0)
+    alts = [int(x) for x in alts]
+    return alts
+
+
+def egocentric_representation(drone_position, drone_heading, volume):
+    ego_slice = np.zeros((5,5))
+    column_number = 0
+    for xy in possible_actions_map[drone_heading]:
+        try:
+            column = volume[:, int(drone_position[1]) + xy[0], int(drone_position[2]) + xy[1]]
+        except IndexError:
+            column = [1., 1., 1., 1., 1.]
+        ego_slice[:,column_number] = column
+        column_number += 1
+    return np.flip(ego_slice,0)
+
+def heading_to_hiker(drone_heading, drone_position, hiker_position):
+    '''Outputs either 90Left, 45Left, 0, 45Right,90Right, or both 90Left and 90Right'''
+    category_to_angle_range = {1:[0,45],2:[45,90],3:[90,135],4:[135,180],5:[180,225],6:[225,270],7:[270,315],8:[315,360]}
+    category_angle = {1:0,2:45,3:90,4:135,5:180,6:225,7:270,8:315}
+    drone = drone_position[-2:]
+    hiker = hiker_position[-2:]
+    if drone == hiker:
+        return 500
+    x1, x2 = drone[-2:]
+    y1, y2 = hiker[-2:]
+
+    rads = math.atan2(y1 - x1, y2 - x2)
+    deg = math.degrees(rads) + 90 - (category_angle[drone_heading])
+    if deg < -180:
+        deg = deg + 360
+    if deg > 180:
+        deg = deg - 360
+    return deg
+
+def angle_categories(angle):
+    '''Values -180 to +180. Returns a fuzzy set dictionary.'''
+    returndict = {'hiker_left': 0, 'hiker_diagonal_left': 0, 'hiker_center': 0, 'hiker_diagonal_right': 0, 'hiker_right': 0}
+    if angle < -90:
+        returndict['hiker_left'] = 1
+    if angle >= -90 and angle < -60:
+        returndict['hiker_left'] = abs(angle + 60) / 30.0
+    if angle >= -75 and angle < -45:
+        returndict['hiker_diagonal_left'] = 1 + (angle + 45) / 30
+    if angle >= -45 and angle < -15:
+        returndict['hiker_diagonal_left'] = abs(angle + 15) / 30.0
+    if angle >= - 30 and angle < 0:
+        returndict['hiker_center'] = 1 + angle/30.0
+    if angle >= 0 and angle < 30:
+        returndict['hiker_center'] = 1 - angle/30.0
+    if angle >=15 and angle < 45:
+        returndict['hiker_diagonal_right'] = (angle - 15)/30.0
+    if angle >=45 and angle < 75:
+        returndict['hiker_diagonal_right'] = 1 - (angle - 45)/30.0
+    if angle >=60 and angle < 90:
+        returndict['hiker_right'] = (angle - 60)/30.0
+    if angle >=90:
+        returndict['hiker_right'] = 1
+
+    if angle >= 179.9:
+        returndict['hiker_right'] = 1
+        returndict['hiker_left'] = 1
+    if angle <= -179.9:
+        returndict['hiker_right'] = 1
+        returndict['hiker_left'] = 1
+
+    if angle == 500:
+        returndict['hiker_right'] = 0
+        returndict['hiker_left'] = 0
+
+
+
+
+
+
+
+    return returndict
+
+def convert_obs_to_chunk(step):
+
+
+    step['volume'] = step['map']['vol']
+    egocentric_angle_to_hiker = heading_to_hiker(step['heading'], step['drone'], step['hiker'])
+    angle_categories_to_hiker = angle_categories(egocentric_angle_to_hiker)
+    egocentric_slice = egocentric_representation(step['drone'], step['heading'], step['volume'])
+    # compile all that into chunks [slot, value, slot, value]
+    chunk = {}
+    for key, value in angle_categories_to_hiker.items():
+        chunk[key] = value  # .extend([key, [key, value]])
+    # need the altitudes from the slice
+    altitudes = altitudes_from_egocentric_slice(egocentric_slice)
+    altitudes = [x - 1 for x in altitudes]
+    alt = step['altitude']
+    # chunk.extend(['altitude', ['altitude', int(alt)]])
+    chunk['altitude'] = int(alt)
+    chunk['ego_left'] = altitudes[0]
+    chunk['ego_diagonal_left'] = altitudes[1]
+    chunk['ego_center'] = altitudes[2]
+    chunk['ego_diagonal_right'] = altitudes[3]
+    chunk['ego_right'] = altitudes[4]
+    # chunk.extend(['ego_left', ['ego_left', altitudes[0]],
+    #               'ego_diagonal_left', ['ego_diagonal_left', altitudes[1]],
+    #               'ego_center', ['ego_center', altitudes[2]],
+    #               'ego_diagonal_right', ['ego_diagonal_right', altitudes[3]],
+    #               'ego_right', ['ego_right', altitudes[4]]])
+
+    chunk['distance_to_hiker'] = distance_to_hiker(np.array(step['drone']), np.array(step['hiker']))
+    # also want distance  to hiker
+    # chunk.extend(['distance_to_hiker',
+    #               ['distance_to_hiker', distance_to_hiker(np.array(step['drone']), np.array(step['hiker']))]])
+    # split action into components [up, level, down, left, right, etc]
+    # components = action_to_category_map[step['action']]
+    # for component in components:
+    #     action_values[component] = 1
+    # for key, value in action_values.items():
+    #     chunk.extend([key, [key, value]])
+
+    return chunk
+
+
+
+
+def convert_data_to_chunks(all_data,include_fc=False):
+    nav = []
+    drop = []
+    for episode in all_data:
+        for step in episode['nav']:
+            # action_values = {'drop': 0, 'left': 0, 'diagonal_left': 0,
+            #                  'center': 0, 'diagonal_right': 0, 'right': 0,
+            #                  'up': 0, 'down': 0, 'level': 0}
+            # angle to hiker: negative = left, positive right
+            egocentric_angle_to_hiker = heading_to_hiker(step['heading'], step['drone'], step['hiker'])
+            angle_categories_to_hiker = angle_categories(egocentric_angle_to_hiker)
+            egocentric_slice = egocentric_representation(step['drone'], step['heading'], step['volume'])
+            # compile all that into chunks [slot, value, slot, value]
+            chunk = {}
+            for key, value in angle_categories_to_hiker.items():
+                chunk[key] = value#.extend([key, [key, value]])
+            # need the altitudes from the slice
+            altitudes = altitudes_from_egocentric_slice(egocentric_slice)
+            altitudes = [x - 1 for x in altitudes]
+            alt = step['altitude']
+            #chunk.extend(['altitude', ['altitude', int(alt)]])
+            chunk['altitude'] = int(alt)
+            chunk['ego_left'] = altitudes[0]
+            chunk['ego_diagonal_left'] = altitudes[1]
+            chunk['ego_center'] = altitudes[2]
+            chunk['ego_diagonal_right'] = altitudes[3]
+            chunk['ego_right'] = altitudes[4]
+            # chunk.extend(['ego_left', ['ego_left', altitudes[0]],
+            #               'ego_diagonal_left', ['ego_diagonal_left', altitudes[1]],
+            #               'ego_center', ['ego_center', altitudes[2]],
+            #               'ego_diagonal_right', ['ego_diagonal_right', altitudes[3]],
+            #               'ego_right', ['ego_right', altitudes[4]]])
+
+
+            chunk['distance_to_hiker'] = distance_to_hiker(np.array(step['drone']), np.array(step['hiker']))
+            # also want distance  to hiker
+            # chunk.extend(['distance_to_hiker',
+            #               ['distance_to_hiker', distance_to_hiker(np.array(step['drone']), np.array(step['hiker']))]])
+            # split action into components [up, level, down, left, right, etc]
+            # components = action_to_category_map[step['action']]
+            # for component in components:
+            #     action_values[component] = 1
+            # for key, value in action_values.items():
+            #     chunk.extend([key, [key, value]])
+
+            #last part of the observation side will be the vector
+            if include_fc:
+                fc_list = tuple(step['fc'].tolist()[0])
+                chunk['fc'] = fc_list#.extend(['fc', ['fc', fc_list]])
+
+            # if step['action'] == 15:
+            #     print('15')
+
+            #add the action probabilities, to keep track of
+            chunk['action_probs'] = step['action_probs']
+
+
+            #no longer splitting the actions. Use all 15
+            #actr_actions = ['_'.join(x) if len(x) > 1 else x for x in action_to_category_map.values()]
+            for key,value in action_to_category_map.items():
+                if len(value) > 1:
+                    actr_action = '_'.join(value)
+                else:
+                    actr_action = value[0]
+                if key == step['action']:
+                    chunk[actr_action] = 1#.extend([actr_action,[actr_action,1]])
+                else:
+                    chunk[actr_action] = 0#.extend([actr_action,[actr_action,0]])
+
+            # chunk.extend(['drop',['drop',drop_val]])
+            # chunk.extend(['type', 'nav'])
+
+
+
+
+            nav.append(chunk)
+
+
+    return nav
+
+def multi_blends(chunk, memory, slots ):
+    return [memory.blend(slot,**chunk) for slot in slots]
+
+def vector_similarity(x,y):
+    return distance.euclidean(x,y) / 4.5#max(FC_distances)
+    # return distance.cosine(x,y)
+
+
+def custom_similarity(x,y):
+    return 0
+    return abs(x - y)
 
 def check_and_handle_existing_folder(f):
     if os.path.exists(f):
@@ -83,7 +388,9 @@ def restore_last_move(human_data,environment):
     human_data['altitudes'] = human_data['altitudes'][:-1]
     human_data['drone'] = human_data['drone'][:-1]
     human_data['hiker'] = human_data['hiker'][:-1]
-    human_data['reward'] = human_data['reward'][:-1]
+    #human_data['reward'] = human_data['reward'][:-1]
+
+
 
 
 
@@ -94,13 +401,13 @@ def main():
         config = flags.FLAGS.configuration
         environment.reset(map=flags.FLAGS.map,config=config)
         human_data = {}
-        human_data['maps'] = []
+        human_data['map'] = []
         human_data['actions'] = []
         human_data['headings'] = []
         human_data['altitudes'] = []
         human_data['drone'] = []
         human_data['hiker'] = []
-        human_data['reward'] = []
+        #human_data['reward'] = []
 
         episode_counter = 0
 
@@ -156,13 +463,13 @@ def main():
         while episode_counter <= (FLAGS.episodes - 1) and running==True and done ==False:
             print('Episode: ', episode_counter)
             human_data = {}
-            human_data['maps'] = []
-            human_data['actions'] = []
-            human_data['headings'] = []
-            human_data['altitudes'] = []
+            human_data['map'] = []
+            human_data['action'] = []
+            human_data['heading'] = []
+            human_data['altitude'] = []
             human_data['drone'] = []
             human_data['hiker'] = []
-            human_data['reward'] = []
+            #human_data['reward'] = []
 
 
 
@@ -270,22 +577,25 @@ def main():
                     continue
                 # action stays till renewed no matter what key you press!!! So whichever key will do the last action
                 pygame.event.clear()
-
-                human_data['maps'].append(environment.map_volume)
-                human_data['headings'].append(environment.heading)
-                human_data['altitudes'].append(environment.altitude)
-                human_data['actions'].append(action)
-                drone_pos = np.where(environment.map_volume['vol'] == environment.map_volume['feature_value_map']['drone'][environment.altitude]['val'])
-
-                human_data['drone'].append(drone_pos)
-                human_data['hiker'].append(environment.hiker_position)
-
-
-
-
                 observation, reward, done, info = environment.step(action)
 
-                human_data['reward'].append(reward)
+                human_data = {}
+                human_data['map'] = environment.map_volume
+                human_data['heading'] = environment.heading
+                human_data['altitude'] = environment.altitude
+                human_data['action'] = action
+                drone_pos = np.where(environment.map_volume['vol'] == environment.map_volume['feature_value_map']['drone'][environment.altitude]['val'])
+
+                human_data['drone'] = drone_pos
+                human_data['hiker'] = environment.hiker_position
+
+                chunk_observation = convert_obs_to_chunk(human_data)
+                print(chunk_observation)
+
+
+
+
+                #human_data['reward'].append(reward)
 
                 score += reward
 
