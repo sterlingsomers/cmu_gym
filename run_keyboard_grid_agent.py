@@ -16,7 +16,7 @@ FLAGS = flags.FLAGS
 flags.DEFINE_integer("resolution", 400, "Resolution for task image.")
 # flags.DEFINE_integer("step_mul", 100, "Game steps per agent step.")
 # flags.DEFINE_integer("n_envs", 20, "Number of environments to run in parallel")
-flags.DEFINE_integer("episodes", 1, "Number of complete episodes")
+flags.DEFINE_integer("episodes", 2, "Number of complete episodes")
 # flags.DEFINE_integer("n_steps_per_batch", 32,
 #     "Number of steps per batch, if None use 8 for a2c and 128 for ppo")  # (MINE) TIMESTEPS HERE!!! You need them cauz you dont want to run till it finds the beacon especially at first episodes - will take forever
 # flags.DEFINE_integer("all_summary_freq", 50, "Record all summaries every n batch")
@@ -62,12 +62,11 @@ def _print(i):
 
 def main():
     env = gameEnv(partial=False, size=9)
-    env.reset()
     episode_counter = 0
 
     # pygame.font.get_fonts() # Run it to get a list of all system fonts
-    display_w = 500#1200
-    display_h = 500#720
+    display_w = 450#1200
+    display_h = 450#720
     resolution = FLAGS.resolution
 
     BLUE = (128, 128, 255)
@@ -112,8 +111,8 @@ def main():
 
     dictionary = {}
     running = True
-    done = 0
-    while episode_counter <= (FLAGS.episodes - 1) and running == True and done == False:
+    # done = 0
+    while episode_counter <= (FLAGS.episodes - 1):# and running == True: #and done == False:
         print('Episode: ', episode_counter)
         # human_data = {}
         # human_data['maps'] = []
@@ -135,7 +134,7 @@ def main():
         # mb_crash = []
         # mb_map_volume = [] # obs[0]['volume']==envs.map_volume
         # mb_ego = []
-
+        env.reset()
         obs = env.renderEnv()
         map_xy = obs['img']  # env.generate_observation()['img']map_image
         # map_alt = new_image['nextstepimage']  # env.alt_view
@@ -161,8 +160,8 @@ def main():
         t = 0
 
         drop_flag = 0
-        # done = 0
-        while 1:  # done==0:
+        done = 0
+        while done==0:
 
             # mb_obs.append(nav_runner.latest_obs)
             # mb_flag.append(drop_flag)
@@ -179,8 +178,8 @@ def main():
             if event.type == pygame.QUIT:
                 print('participant data written.')
                 timestr = timestr = time.strftime("%Y%m%d-%H%M%S")
-                with open('./data/human-data/' + flags.FLAGS.participant + '-' + timestr + '.tj', 'wb') as handle:
-                    pickle.dump(human_data, handle)
+                # with open('./data/human-data/' + flags.FLAGS.participant + '-' + timestr + '.tj', 'wb') as handle:
+                #     pickle.dump(human_data, handle)
                 pygame.quit()
                 sys.exit()
             elif event.type == pygame.KEYDOWN:
@@ -192,30 +191,6 @@ def main():
                     action = 2
                 elif (event.key == pygame.K_RIGHT):
                     action = 3
-                # elif (event.key == pygame.K_b):
-                #     action = 4
-                # elif (event.key == pygame.K_a):
-                #     action = 5
-                # elif (event.key == pygame.K_s):
-                #     action = 6
-                # elif (event.key == pygame.K_d):
-                #     action = 7
-                # elif (event.key == pygame.K_f):
-                #     action = 8
-                # elif (event.key == pygame.K_g):
-                #     action = 9
-                # elif (event.key == pygame.K_q):
-                #     action = 10
-                # elif (event.key == pygame.K_w):
-                #     action = 11
-                # elif (event.key == pygame.K_e):
-                #     action = 12
-                # elif (event.key == pygame.K_r):
-                #     action = 13
-                # elif (event.key == pygame.K_t):
-                #     action = 14
-                # elif (event.key == pygame.K_SPACE):
-                #     action = 15
                 else:
                     continue
 
@@ -258,8 +233,8 @@ def main():
             t += 1
             # if t == 70:
             #     break
-            if done:
-                pygame.event.set_blocked([pygame.KEYDOWN])
+        if episode_counter <= (FLAGS.episodes - 1):#done:
+            pygame.event.set_blocked([pygame.KEYDOWN])
                 # message_display("GAME OVER")
 
         clock.tick(15)

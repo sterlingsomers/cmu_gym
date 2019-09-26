@@ -11,7 +11,7 @@ from common.util import general_n_step_advantage, combine_first_dimensions, \
 import tensorflow as tf
 from absl import flags
 # from time import sleep
-from actorcritic.policy import FullyConvPolicy, MetaPolicy, RelationalPolicy, FullyConv3DPolicy, FullyConvPolicyAlt#, LSTM
+from actorcritic.policy import FullyConvPolicy, MetaPolicy, RelationalPolicy, FullyConv3DPolicy, FullyConvPolicyAlt, FactoredPolicy#, LSTM
 
 PPORunParams = namedtuple("PPORunParams", ["lambda_par", "batch_size", "n_epochs"])
 
@@ -51,8 +51,8 @@ class Runner(object):
             self.policy_type = FullyConv3DPolicy
         elif policy_type == 'AlloAndAlt':
             self.policy_type = FullyConvPolicyAlt
-        elif policy_type == 'LSTM':
-            self.policy_type = LSTM
+        elif policy_type == 'Factored':
+            self.policy_type = FactoredPolicy
         else: print('Unknown Policy')
 
         assert self.agent.mode in [ACMode.A2C, ACMode.PPO]
@@ -85,9 +85,6 @@ class Runner(object):
         return np.where(mask.any(axis=axis), mask.argmax(axis=axis), self.n_steps)
 
     def _handle_episode_end(self, timestep, length, last_step_r):
-        #(MINE) This timestep is actually the last set of feature observations
-        #score = timestep.observation["score_cumulative"][0]
-        #self.score = (self.score + timestep) # //self.episode_counter # It is zero at the beginning so you get inf
         self.score = timestep
         # print(">>>>>>>>>>>>>>>episode %d ended. Score %f | Total Steps %d | Last step Reward %f" % (self.episode_counter, self.score, length, last_step_r))
         print(">>>>>>>>>>>>>>>episode %d ended. Score %f | Total Steps %d" % (
@@ -202,6 +199,133 @@ class Runner(object):
             FEATURE_KEYS.advantage: n_step_advantage.transpose(),#, G.transpose()
             FEATURE_KEYS.value_target: (n_step_advantage + mb_values[:, :-1]).transpose()# R.transpose()# (we left out the last element) if you add to the advantage the value you get the target for your value function training. Check onenote in cmu_gym/Next Steps
         }
+        #(MINE) Probably we combine all experiences from every worker below
+        full_input.update(self.action_processer.combine_batch(mb_actions))
+        full_input.update(self.obs_processer.combine_batch(mb_obs))
+        # Below comment it out for LSTM
+        full_input = {k: combine_first_dimensions(v) for k, v in full_input.items()} # The function takes in nsteps x nenvs x [dims] and combines nsteps*nenvs x [dims].
+
+        if not self.do_training:
+            pass
+        elif self.agent.mode == ACMode.A2C:
+            self.agent.train(full_input)
+        elif self.agent.mode == ACMode.PPO:
+            for epoch in range(self.ppo_par.n_epochs):
+                self._train_ppo_epoch(full_input)
+            self.agent.update_theta()
+
+        self.latest_obs = latest_obs
+        self.batch_counter += 1 # It is used only for printing reasons as the outer while loop takes care to stop the number of batches
+        print('Batch %d finished' % self.batch_counter)
+        sys.stdout.flush()
+
+    def run_factored_batch(self):
+        #(MINE) MAIN LOOP!!!
+        # The reset is happening through Monitor (except the first one of the first batch (is in hte run_agent)
+        mb_actions = []
+        mb_obs = []
+        mb_values = np.zeros((self.envs.num_envs, self.n_steps + 1), dtype=np.float32)
+        mb_values_goal = np.zeros((self.envs.num_envs, self.n_steps + 1), dtype=np.float32)
+        mb_values_fire = np.zeros((self.envs.num_envs, self.n_steps + 1), dtype=np.float32)
+        mb_rewards = np.zeros((self.envs.num_envs, self.n_steps), dtype=np.float32)
+        mb_rewards_goal = np.zeros((self.envs.num_envs, self.n_steps), dtype=np.float32)
+        mb_rewards_fire = np.zeros((self.envs.num_envs, self.n_steps), dtype=np.float32)
+        mb_done = np.zeros((self.envs.num_envs, self.n_steps), dtype=np.int32)
+
+        latest_obs = self.latest_obs # (MINE) =state(t)
+
+        for n in range(self.n_steps):
+            # could calculate value estimate from obs when do training
+            # but saving values here will make n step reward calculation a bit easier
+            action_ids, value_estimate_goal, value_estimate_fire, value_estimate = self.agent.step_factored(latest_obs)
+            # print('|step:', n, '|actions:', action_ids)  # (MINE) If you put it after the envs.step the SUCCESS appears at the envs.step so it will appear oddly
+            # (MINE) Store actions and value estimates for all steps
+            mb_values[:, n] = value_estimate
+            mb_values_goal[:, n] = value_estimate_goal
+            mb_values_fire[:, n] = value_estimate_fire
+            mb_obs.append(latest_obs)
+            mb_actions.append((action_ids))
+            # (MINE)  do action, return it to environment, get new obs and reward, store reward
+            #actions_pp = self.action_processer.process(action_ids) # Actions have changed now need to check: BEFORE: actions.FunctionCall(actions.FUNCTIONS.no_op.id, []) NOW: actions.FUNCTIONS.no_op()
+            obs_raw = self.envs.step(action_ids)
+            #obs_raw.reward = reward
+            latest_obs = self.obs_processer.process(obs_raw[0]) # For obs_raw as tuple! #(MINE) =state(t+1). Processes all inputs/obs from all timesteps (and envs)
+            #print('-->|rewards:', np.round(np.mean(obs_raw[1]), 3))
+            mb_rewards[:, n] = [t for t in obs_raw[1]]
+            temp = [t for t in obs_raw[3]]
+            mb_rewards_goal[:,n] = [d['goal'] for d in temp]
+            mb_rewards_fire[:, n] = [d['fire'] for d in temp]
+            mb_done[:, n] = [t for t in obs_raw[2]]
+
+            # IF MAX_STEPS OR GOAL REACHED
+            indx=0 # env count
+            for t in obs_raw[2]: # Monitor returns additional stuff such as epis_reward and epis_length etc apart the obs, r, done, info
+                #obs_raw[2] = done = [True, False, False, True,...] each element corresponds to an env
+                if t == True: # done=true
+                    # Put reward in scores
+                    epis_reward = obs_raw[3][indx]['episode']['r']
+                    epis_length = obs_raw[3][indx]['episode']['l']
+                    last_step_r = obs_raw[1][indx]
+                    self._handle_episode_end(epis_reward, epis_length, last_step_r) # The printing score process is NOT a parallel process apparrently as you input every reward (t) independently
+                indx = indx + 1 # finished envs count
+            # for t in obs_raw:
+            #     if t.last():
+            #         self._handle_episode_end(t)
+
+        #print(">> Avg. Reward:",np.round(np.mean(mb_rewards),3))
+        mb_values_goal[:, -1], mb_values_fire[:, -1], mb_values[:, -1] = self.agent.get_factored_value(latest_obs) # We bootstrap from last step. If not terminal! although he doesnt use any check here
+        # R, G = calc_rewards(self, mb_rewards, mb_values[:,:-1], mb_values[:,1:], mb_done, self.discount)
+        # R = R.reshape((self.n_envs, self.n_steps)) # self.n_envs returns 1, self.envs.num_envs
+        # G = G.reshape((self.n_envs, self.n_steps))
+        # He replaces the last value with a bootstrap value. E.g. s_t-->V(s_t),s_{lastnstep}-->V(s_{lastnstep}), s_{lastnstep+1}
+        # and we replace the V(s_{lastnstep}) with V(s_{lastnstep+1})
+        n_step_advantage_goal = general_nstep_adv_sequential(
+            mb_rewards_goal,
+            mb_values_goal,
+            self.discount,
+            mb_done,
+            lambda_par=self.ppo_par.lambda_par if self.is_ppo else 1.0,
+            nenvs=self.n_envs,
+            maxsteps=self.n_steps
+        )
+        n_step_advantage_fire = general_nstep_adv_sequential(
+            mb_rewards_fire,
+            mb_values_fire,
+            self.discount,
+            mb_done,
+            lambda_par=self.ppo_par.lambda_par if self.is_ppo else 1.0,
+            nenvs=self.n_envs,
+            maxsteps=self.n_steps
+        )
+        # n_step_advantage = n_step_advantage_goal + n_step_advantage_fire
+        n_step_advantage = general_nstep_adv_sequential(
+            mb_rewards,
+            mb_values,
+            self.discount,
+            mb_done,
+            lambda_par=self.ppo_par.lambda_par if self.is_ppo else 1.0,
+            nenvs=self.n_envs,
+            maxsteps=self.n_steps
+        )
+        # disc_ret = calculate_n_step_reward(
+        #     mb_rewards,
+        #     self.discount,
+        #     mb_values,
+        # )
+        full_input = {
+            # these are transposed because action/obs
+            # processers return [time, env, ...] shaped arrays CHECK THIS OUT!!!YOU HAVE ALREADY THE TIMESTEP DIM!!!
+            FEATURE_KEYS.advantage: n_step_advantage.transpose(),#, G.transpose()
+            FEATURE_KEYS.value_target: (n_step_advantage + mb_values[:, :-1]).transpose(),
+            FEATURE_KEYS.value_target_goal: (n_step_advantage_goal + mb_values_goal[:, :-1]).transpose(),# R.transpose()# (we left out the last element) if you add to the advantage the value you get the target for your value function training. Check onenote in cmu_gym/Next Steps
+            FEATURE_KEYS.value_target_fire: (n_step_advantage_fire + mb_values_fire[:, :-1]).transpose()
+        }
+        # full_input = {
+        #     # these are transposed because action/obs
+        #     # processers return [time, env, ...] shaped arrays CHECK THIS OUT!!!YOU HAVE ALREADY THE TIMESTEP DIM!!!
+        #     FEATURE_KEYS.advantage: n_step_advantage.transpose(),#, G.transpose()
+        #     FEATURE_KEYS.value_target: (n_step_advantage + mb_values[:, :-1]).transpose()# R.transpose()# (we left out the last element) if you add to the advantage the value you get the target for your value function training. Check onenote in cmu_gym/Next Steps
+        # }
         #(MINE) Probably we combine all experiences from every worker below
         full_input.update(self.action_processer.combine_batch(mb_actions))
         full_input.update(self.obs_processer.combine_batch(mb_obs))
@@ -365,3 +489,19 @@ class Runner(object):
         #print('Batch %d finished' % self.batch_counter)
         sys.stdout.flush()
         return obs_raw[0:-3], action_ids[0], value_estimate[0], obs_raw[1], obs_raw[2], obs_raw[3], fc, action_probs
+
+    def run_trained_factored_batch(self):
+
+        latest_obs = self.latest_obs # (MINE) =state(t)
+
+        action_ids, value_estimate, value_estimate_goal, value_estimate_fire, fc, action_probs = self.agent.step_eval_factored(latest_obs) # (MINE) AGENT STEP = INPUT TO NN THE CURRENT STATE AND OUTPUT ACTION
+        print('|actions:', action_ids)
+        obs_raw = self.envs.step(action_ids) # It will also visualize the next observation if all the episodes have ended as after success it retunrs the obs from reset
+        latest_obs = self.obs_processer.process(obs_raw[0:-3])  # Take only the first element which is the rgb image and ignore the reward, done etc
+        print('-->|rewards:', np.round(np.mean(obs_raw[1]), 3))
+
+        self.latest_obs = latest_obs # (MINE) state(t) = state(t+1), the usual s=s'
+        self.batch_counter += 1
+        #print('Batch %d finished' % self.batch_counter)
+        sys.stdout.flush()
+        return obs_raw[0:-3], action_ids[0], value_estimate[0], value_estimate_goal[0], value_estimate_fire[0], obs_raw[1], obs_raw[2], obs_raw[3], fc, action_probs

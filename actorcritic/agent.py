@@ -5,7 +5,7 @@ import tensorflow as tf
 from pysc2.lib import actions
 from tensorflow.contrib import layers
 from tensorflow.contrib.layers.python.layers.optimizers import OPTIMIZER_SUMMARIES
-from actorcritic.policy import FullyConvPolicy, MetaPolicy, RelationalPolicy, FullyConvPolicyAlt, FullyConv3DPolicy#, LSTM
+from actorcritic.policy import FullyConvPolicy, MetaPolicy, RelationalPolicy, FullyConvPolicyAlt, FullyConv3DPolicy, FactoredPolicy#, LSTM
 from common.preprocess import ObsProcesser, FEATURE_KEYS, AgentInputTuple
 from common.util import weighted_random_sample, select_from_each_row, ravel_index_pairs
 import tensorboard.plugins.beholder as beholder_lib
@@ -34,6 +34,8 @@ def _get_placeholders(spatial_dim, nsteps, nenvs, policy_type):
         (FEATURE_KEYS.selected_spatial_action, tf.int32, [None, 2]),
         (FEATURE_KEYS.selected_action_id, tf.int32, [None]),
         (FEATURE_KEYS.value_target, tf.float32, [None]),
+        (FEATURE_KEYS.value_target_goal, tf.float32, [None]),
+        (FEATURE_KEYS.value_target_fire, tf.float32, [None]),
         (FEATURE_KEYS.rgb_screen, tf.float32, [nenvs, None, 100, 100, 3]), #[None, 32, 100, 100, 3] for LSTM
         (FEATURE_KEYS.alt_view, tf.float32, [nenvs, None, 100, 100, 3]), #[None, 32, 100, 100, 3] for LSTM
         (FEATURE_KEYS.player_relative_screen, tf.int32, [None, sd, sd]),
@@ -65,6 +67,8 @@ def _get_placeholders(spatial_dim, nsteps, nenvs, policy_type):
             (FEATURE_KEYS.selected_spatial_action, tf.int32, [None, 2]),
             (FEATURE_KEYS.selected_action_id, tf.int32, [None]),
             (FEATURE_KEYS.value_target, tf.float32, [None]),
+            (FEATURE_KEYS.value_target_goal, tf.float32, [None]),
+            (FEATURE_KEYS.value_target_fire, tf.float32, [None]),
             (FEATURE_KEYS.rgb_screen, tf.float32, [None, 100, 100, 3]),  # [None, 32, 100, 100, 3] for LSTM
             (FEATURE_KEYS.alt_view, tf.float32, [None, 100, 100, 3]),  # [None, 32, 100, 100, 3] for LSTM
             (FEATURE_KEYS.player_relative_screen, tf.int32, [None, sd, sd]),
@@ -169,8 +173,8 @@ class ActorCriticAgent:
             self.policy = FullyConv3DPolicy
         elif policy == 'AlloAndAlt':
             self.policy = FullyConvPolicyAlt
-        elif policy == 'LSTM':
-            self.policy = LSTM
+        elif policy == 'FactoredPolicy':
+            self.policy = FactoredPolicy
         else: print('Unknown Policy')
 
         # assert (self.policy_type == 'MetaPolicy') and not (self.mode == ACMode.PPO) # For now the policy in PPO is not calculated taken into account recurrencies
@@ -249,7 +253,12 @@ class ActorCriticAgent:
             self.policy_loss = -tf.reduce_mean(l_clip)
         else:
             self.sampled_action_id = weighted_random_sample(self.theta.action_id_probs)
-            self.value_estimate = self.theta.value_estimate
+            if self.policy_type == 'FactoredPolicy':
+                self.value_estimate_goal = self.theta.value_estimate_goal
+                self.value_estimate_fire = self.theta.value_estimate_fire
+                self.value_estimate = self.theta.value_estimate
+            else:
+                self.value_estimate = self.theta.value_estimate
 
         if self.policy_type == 'MetaPolicy':
             # RESHAPE ACTIONS, ADVANTAGES, VALUES. USE MASK TO COMPUTE CORRECT MEANS!!!
@@ -297,17 +306,30 @@ class ActorCriticAgent:
             self.value_loss = tf.reduce_mean(mse) # the mean of the mean losses per sequence (so the denominator in mean will be the number of batches)
             # self.value_loss = tf.reduce_sum(vloss_i)/tf.reduce_sum(tf.reduce_sum(mask, 1))# alternative: instead of the mean of the mean per sequence we take the mean of all samples
 
+        elif self.policy_type == 'FactoredPolicy':
+            self.neg_entropy_action_id = tf.reduce_mean(tf.reduce_sum(self.theta.action_id_probs * self.theta.action_id_log_probs, axis=1))
+            self.value_loss_goal = tf.losses.mean_squared_error(self.placeholders.value_target_goal, self.theta.value_estimate_goal) # value_target comes from runner/run_batch when you specify the full input
+            self.value_loss_fire = tf.losses.mean_squared_error(self.placeholders.value_target_fire,
+                                                                self.theta.value_estimate_fire)
+            self.value_loss = tf.losses.mean_squared_error(self.placeholders.value_target, self.theta.value_estimate)
+            self.policy_loss = -tf.reduce_mean(selected_log_probs.total * self.placeholders.advantage)
         else:
             self.neg_entropy_action_id = tf.reduce_mean(tf.reduce_sum(self.theta.action_id_probs * self.theta.action_id_log_probs, axis=1))
             self.value_loss = tf.losses.mean_squared_error(self.placeholders.value_target, self.theta.value_estimate) # value_target comes from runner/run_batch when you specify the full input
             self.policy_loss = -tf.reduce_mean(selected_log_probs.total * self.placeholders.advantage)
 
-
-        loss = (
-            self.policy_loss
-            + self.value_loss * self.loss_value_weight
-            + self.neg_entropy_action_id * self.entropy_weight_action_id
-        )
+        if self.policy_type == 'FactoredPolicy':
+            loss = (
+                    self.policy_loss
+                    + (self.value_loss_goal + self.value_loss_fire) * self.loss_value_weight
+                    + self.neg_entropy_action_id * self.entropy_weight_action_id
+            )
+        else:
+            loss = (
+                self.policy_loss
+                + self.value_loss * self.loss_value_weight
+                + self.neg_entropy_action_id * self.entropy_weight_action_id
+            )
 
         self.train_op = layers.optimize_loss(
             loss=loss,
@@ -318,15 +340,24 @@ class ActorCriticAgent:
             learning_rate=None,
             name="train_op"
         )
-
-        self._scalar_summary("value/estimate", tf.reduce_mean(self.value_estimate)) # no correct!mean is for all samples but we use masks!!!
-        self._scalar_summary("value/target", tf.reduce_mean(self.placeholders.value_target)) # no correct!mean is for all samples
+        if self.policy_type == 'FactoredPolicy':
+            self._scalar_summary("value_goal/estimate", tf.reduce_mean(self.value_estimate_goal)) # no correct!mean is for all samples but we use masks!!!
+            self._scalar_summary("value_goal/target", tf.reduce_mean(self.placeholders.value_target_goal)) # no correct!mean is for all samples
+            self._scalar_summary("value_fire/estimate", tf.reduce_mean(self.value_estimate_fire)) # no correct!mean is for all samples but we use masks!!!
+            self._scalar_summary("value_fire/target", tf.reduce_mean(self.placeholders.value_target_fire))
+            self._scalar_summary("loss/value_fire", self.value_loss_fire)
+            self._scalar_summary("loss/value_goal", self.value_loss_goal)
+            self._scalar_summary("value/estimate", tf.reduce_mean(self.value_estimate))
+            self._scalar_summary("loss/value", self.value_loss)
+        else:
+            self._scalar_summary("value/estimate", tf.reduce_mean(self.value_estimate)) # no correct!mean is for all samples but we use masks!!!
+            self._scalar_summary("value/target", tf.reduce_mean(self.placeholders.value_target))
+            self._scalar_summary("loss/value", self.value_loss)
         # self._scalar_summary("action/is_spatial_action_available",
         #     tf.reduce_mean(self.placeholders.is_spatial_action_available))
         # self._scalar_summary("action/selected_id_log_prob",
         #     tf.reduce_mean(selected_log_probs.action_id)) # You need the corrected one
         self._scalar_summary("loss/policy", self.policy_loss)
-        self._scalar_summary("loss/value", self.value_loss)
 
         self._scalar_summary("loss/neg_entropy_action_id", self.neg_entropy_action_id)
         self._scalar_summary("loss/total", loss)
@@ -407,6 +438,16 @@ class ActorCriticAgent:
         # value_estimate = np.reshape(value_estimate, [self.num_envs, self.nsteps])[:, 0]
         return action_id, value_estimate, state_out
 
+    def step_factored(self, obs):
+        # (MINE) Pass the observations through the net
+        feed_dict = self._input_to_feed_dict(obs)
+
+        action_id, value_estimate_goal, value_estimate_fire, value_estimate = self.sess.run(
+            [self.sampled_action_id, self.value_estimate_goal, self.value_estimate_fire, self.theta.value_estimate],
+            feed_dict=feed_dict
+        )
+        return action_id, value_estimate_goal, value_estimate_fire, value_estimate
+
     def step_eval(self, obs):
         # (MINE) Pass the observations through the net
 
@@ -419,6 +460,18 @@ class ActorCriticAgent:
         )
 
         return action_id, value_estimate, fc, action_probs
+
+    def step_eval_factored(self, obs):
+        # (MINE) Pass the observations through the net
+
+        feed_dict = {'rgb_screen:0' : obs['rgb_screen']},
+                     # 'alt_view:0': obs['alt_view']}
+
+        action_id, value_estimate, value_estimate_goal, value_estimate_fire, fc, action_probs = self.sess.run(
+            [self.sampled_action_id, self.value_estimate, self.value_estimate_goal, self.value_estimate_fire, self.theta.fc1, self.theta.action_id_probs],
+            feed_dict=feed_dict[0] #TODO: ERASE THIS FOR DRONE ENV!!!
+        )
+        return action_id, value_estimate, value_estimate_goal, value_estimate_fire, fc, action_probs
 
     def train(self, input_dict):
         feed_dict = self._input_to_feed_dict(input_dict)
@@ -512,6 +565,11 @@ class ActorCriticAgent:
              )
         # value_estimate = np.reshape(value_estimate, [self.num_envs, self.nsteps])[:, 0]
         return value_estimate
+
+    def get_factored_value(self, obs):
+        feed_dict = self._input_to_feed_dict(obs)
+        return self.sess.run([self.value_estimate_goal, self.value_estimate_fire, self.theta.value_estimate],
+                             feed_dict=feed_dict)
 
     def flush_summaries(self):
         self.summary_writer.flush()

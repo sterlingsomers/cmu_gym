@@ -35,6 +35,8 @@ class gameEnv():
         self.bg = np.zeros([size, size])
         self.goal_color = [0,1,0]#[np.random.uniform(), np.random.uniform(), np.random.uniform()]
         self.info = {}
+        self.info['fire'] = 0
+        self.info['goal'] = 0
         # self.fig = plt.figure(1)
         # Below no need
         # obs = self.reset()
@@ -47,6 +49,9 @@ class gameEnv():
         return np.array([self.objects[0].x, self.objects[0].y]) / float(self.sizeX)
 
     def reset(self):#, goal_color):
+        self.info = {}
+        self.info['fire'] = 0
+        self.info['goal'] = 0
         self.objects = []
         # self.goal_color = goal_color
         self.other_color = [1 - a for a in self.goal_color]
@@ -58,7 +63,7 @@ class gameEnv():
         bug = gameOb(self.newPosition(0), 1, self.goal_color, 1, 'goal')
         self.objects.append(bug)
         for i in range(self.sizeX - 1): # It will create 9-1=8 fires in total
-            hole = gameOb(self.newPosition(0), 1, [1,0,0], 0, 'fire')
+            hole = gameOb(self.newPosition(0), 1, [1,0,0], -0.1, 'fire') # REWARD FOR FIRE!!! CHANGE IT ALSO AT checkgoal function
             self.objects.append(hole)
         # state, s_big = self.renderEnv()
         obs = self.renderEnv()
@@ -131,7 +136,7 @@ class gameEnv():
         for objectA in self.objects: # objects is a list containing two gameOb objects with their respective attributes
             if (objectA.x, objectA.y) in points: points.remove((objectA.x, objectA.y)) # Remove from points the coords of the already placed objects (hero and goal)
         location = np.random.choice(range(len(points)), replace=False)
-        return points[location]
+        return points[location] # returns new location
 
     def checkGoal(self): # This seems that never returns done=True
         hero = self.objects[0]
@@ -143,12 +148,14 @@ class gameEnv():
                 self.objects.remove(other)
                 if other.reward == 1:
                     self.objects.append(gameOb(self.newPosition(0), 1, self.goal_color, 1, 'goal')) # Moves the goal somewhere else as it is now reached
-                    return other.reward, True#False
+                    self.info['goal'] = other.reward
+                    return other.reward, True, self.info#False
                 else: # else its a fire
-                    self.objects.append(gameOb(self.newPosition(0), 1, [1,0,0], 0, 'fire')) #self.other_color. We keep fire under the red color
-                    return other.reward, False
+                    self.objects.append(gameOb(self.newPosition(0), 1, [1,0,0], -0.1, 'fire')) #self.other_color. We keep fire under the red color
+                    self.info['fire'] = other.reward
+                    return other.reward, False, self.info # return done=true if you want to reset in case you hit a fire
         if ended == False:
-            return 0.0, False
+            return 0.0, False, self.info
             # return -0.01, False
 
     def renderEnv(self):
@@ -182,8 +189,9 @@ class gameEnv():
 
     def step(self, action):
         # plt.close('all')
-        penalty, info = self.moveChar(action)
-        reward, done = self.checkGoal()
+        penalty, self.info = self.moveChar(action)
+        reward, done, self.info = self.checkGoal()
+        info = self.info
         # state, s_big = self.renderEnv()
         obs = self.renderEnv()
         if reward == None:

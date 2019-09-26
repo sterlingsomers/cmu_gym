@@ -618,6 +618,7 @@ class GridworldEnv(gym.Env):
 
         done = False
 
+        # TODO: this checks AT YOUR CURRENT STATE but if you havent taken the action (with x=eval) then you havent landed on that state to check it
         crash = self.check_for_crash()
         info['success'] = not crash
 

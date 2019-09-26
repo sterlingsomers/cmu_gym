@@ -228,6 +228,8 @@ FEATURE_LIST = (
     "selected_action_id",
     "available_action_ids",
     "value_target",
+    "value_target_goal",
+    "value_target_fire",
     "advantage",
     "prev_actions",
     "prev_rewards",
