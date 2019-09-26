@@ -136,6 +136,8 @@ def heading_to_hiker(drone_heading, drone_position, hiker_position):
     category_angle = {1:0,2:45,3:90,4:135,5:180,6:225,7:270,8:315}
     drone = drone_position[-2:]
     hiker = hiker_position[-2:]
+    if drone == hiker:
+        return 500
     x1, x2 = drone[-2:]
     y1, y2 = hiker[-2:]
 
@@ -170,6 +172,17 @@ def angle_categories(angle):
         returndict['hiker_right'] = (angle - 60)/30.0
     if angle >=90:
         returndict['hiker_right'] = 1
+
+    if angle >= 179.9:
+        returndict['hiker_right'] = 1
+        returndict['hiker_left'] = 1
+    if angle <= -179.9:
+        returndict['hiker_right'] = 1
+        returndict['hiker_left'] = 1
+
+    if angle == 500:
+        returndict['hiker_right'] = 0
+        returndict['hiker_left'] = 0
 
     return returndict
 
@@ -275,15 +288,15 @@ if __name__ == "__main__":
     FC_distances = []
 
 
-    normalized_data_file = 'normalized_all_chunks_fc.lst'
-    chunks_path = Path("C:/Users/Konstantron/PycharmProjects/cmu_gym/")
+    normalized_data_file = 'normalized_all_chunks_fc_MOD1.lst'
+    chunks_path = Path("/Users/paulsomers/COGLE/gym-gridworld/")
 
     if not os.path.isfile(os.path.join(chunks_path,normalized_data_file)):
 
         ###load the data
         ###Need the raw data, then convert it into chunks because you need the intial distributions for the actions
         data_file_name = 'all_data308-110_9-7_4-1_9-115000.lst'
-        data_path = Path('C:/Users/Konstantron/PycharmProjects/cmu_gym/data/')
+        data_path = Path('/Users/paulsomers/COGLE/gym-gridworld/data_tools/')
         all_data = pickle.load(open(os.path.join(data_path, data_file_name), 'rb'))
 
         ###convert the data to chunks
