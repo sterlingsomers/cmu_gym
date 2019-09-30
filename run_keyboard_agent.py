@@ -40,8 +40,8 @@ flags.DEFINE_integer("episodes", 1, "Number of complete episodes")
 
 
 #human subject flags
-flags.DEFINE_string("participant", 'Test', "The participants name")
-flags.DEFINE_string("map", 'flatland', "river, canyon, v-river, treeline, small-canyon, flatland")
+flags.DEFINE_string("participant", 'mike', "The participants name")
+flags.DEFINE_string("map", 'canyon', "flatland, canyon, v-river, treeline, small-canyon, flatland")
 flags.DEFINE_integer("configuration", 0, "0,1, or 2")
 
 
