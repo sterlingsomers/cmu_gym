@@ -136,6 +136,8 @@ def heading_to_hiker(drone_heading, drone_position, hiker_position):
     category_angle = {1:0,2:45,3:90,4:135,5:180,6:225,7:270,8:315}
     drone = drone_position[-2:]
     hiker = hiker_position[-2:]
+    if drone == hiker:
+        return 500
     x1, x2 = drone[-2:]
     y1, y2 = hiker[-2:]
 
@@ -170,6 +172,17 @@ def angle_categories(angle):
         returndict['hiker_right'] = (angle - 60)/30.0
     if angle >=90:
         returndict['hiker_right'] = 1
+
+    if angle >= 179.9:
+        returndict['hiker_right'] = 1
+        returndict['hiker_left'] = 1
+    if angle <= -179.9:
+        returndict['hiker_right'] = 1
+        returndict['hiker_left'] = 1
+
+    if angle == 500:
+        returndict['hiker_right'] = 0
+        returndict['hiker_left'] = 0
 
     return returndict
 
@@ -301,7 +314,7 @@ def multi_blends(chunk, memory, slots ):
     return [memory.blend(slot,**chunk) for slot in slots]
 
 def vector_similarity(x,y):
-    return distance.euclidean(x,y) / 4.5#max(FC_distances)
+    return 0#distance.euclidean(x,y) / 4.5#max(FC_distances)
     # return distance.cosine(x,y)
 
 
@@ -399,11 +412,11 @@ def main():
     test_chunks = [convert_vector_to_dict_chunk(test, observation_slots) for test in X_test]
 
     ###now run the model
-    temperatures = [0.1,0.2,0.3,0.4,0.50,0.6,0.7,0.8,0.9, 1.0]  # .3,0.4,0.5]#.6,0.7,0.8,0.9,1.0]
-    mismatches = [0.2,0.5,1,2,4,6,8.0, 10.0, 12.0, 14.0, 16.0]
+    temperatures = [1.0,1.25,1.5,1.75,2,2.25,2.5,2.75,3.0,3.25,3.5,3.75,4.0,4.25,4.75,5.0,5.25,5.5,5.75,6.0,6.25,6.5,6.75,7.00]  # .3,0.4,0.5]#.6,0.7,0.8,0.9,1.0]
+    mismatches = [0.2,0.5,1,2,4,6,8.0, 10.0, 11.0, 12.0, 13.0, 14.0, 16.0]
     parameters = [(x, y) for x in temperatures for y in mismatches]
     used_parameters = {'temperature': [], 'mismatches': []}
-    os.chdir(chunks_path)
+    os.chdir('/Users/paulsomers/COGLE/gym-gridworld/data/human-human-data/')
     datafiles = glob.glob("2019*")
     for file in datafiles:
         dats = pickle.load(open(file, 'rb'))
@@ -437,6 +450,8 @@ def main():
             matches.append(int(np.argmax(result) == np.argmax(datum)))
         # avgJS = sum(JS) / len(JS)
         avgMatch = sum(matches) / len(matches)
+        print(parameter)
+        print(avgMatch)
 
         save_dict = {'data': data, 'Y_test': Y_test, 'JS': JS, 'matches': matches,  'avgMatch': avgMatch,
                      'temperature': parameter[0], 'mismatch': parameter[1]}
