@@ -2,7 +2,7 @@ import collections
 import os
 import numpy as np
 import tensorflow as tf
-from pysc2.lib import actions
+# from pysc2.lib import actions
 from tensorflow.contrib import layers
 from tensorflow.contrib.layers.python.layers.optimizers import OPTIMIZER_SUMMARIES
 from actorcritic.policy import FullyConvPolicy, MetaPolicy, RelationalPolicy, FullyConvPolicyAlt, FullyConv3DPolicy, FactoredPolicy#, LSTM
@@ -30,7 +30,7 @@ def _get_placeholders(spatial_dim, nsteps, nenvs, policy_type):
         (FEATURE_KEYS.screen_numeric, tf.float32, [None, sd, sd, ObsProcesser.N_SCREEN_CHANNELS]),
         (FEATURE_KEYS.screen_unit_type, tf.int32, [None, sd, sd]),
         (FEATURE_KEYS.is_spatial_action_available, tf.float32, [None]),
-        (FEATURE_KEYS.available_action_ids, tf.float32, [None, len(actions.FUNCTIONS)]),
+        # (FEATURE_KEYS.available_action_ids, tf.float32, [None, len(actions.FUNCTIONS)]),
         (FEATURE_KEYS.selected_spatial_action, tf.int32, [None, 2]),
         (FEATURE_KEYS.selected_action_id, tf.int32, [None]),
         (FEATURE_KEYS.value_target, tf.float32, [None]),
@@ -63,7 +63,7 @@ def _get_placeholders(spatial_dim, nsteps, nenvs, policy_type):
             (FEATURE_KEYS.screen_numeric, tf.float32, [None, sd, sd, ObsProcesser.N_SCREEN_CHANNELS]),
             (FEATURE_KEYS.screen_unit_type, tf.int32, [None, sd, sd]),
             (FEATURE_KEYS.is_spatial_action_available, tf.float32, [None]),
-            (FEATURE_KEYS.available_action_ids, tf.float32, [None, len(actions.FUNCTIONS)]),
+            # (FEATURE_KEYS.available_action_ids, tf.float32, [None, len(actions.FUNCTIONS)]),
             (FEATURE_KEYS.selected_spatial_action, tf.int32, [None, 2]),
             (FEATURE_KEYS.selected_action_id, tf.int32, [None]),
             (FEATURE_KEYS.value_target, tf.float32, [None]),
@@ -321,7 +321,7 @@ class ActorCriticAgent:
         if self.policy_type == 'FactoredPolicy':
             loss = (
                     self.policy_loss
-                    + (self.value_loss_goal + self.value_loss_fire) * self.loss_value_weight
+                    + (self.value_loss_goal + self.value_loss_fire + self.value_loss) * self.loss_value_weight
                     + self.neg_entropy_action_id * self.entropy_weight_action_id
             )
         else:
