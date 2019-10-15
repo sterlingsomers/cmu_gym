@@ -275,8 +275,7 @@ def vector_similarity(x,y):
 
 
 def custom_similarity(x,y):
-    return 0
-    return abs(x - y)
+    return abs(x - y) * - 1
 
 #set the similarity function
 set_similarity_function(custom_similarity, *observation_slots)
