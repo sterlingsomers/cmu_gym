@@ -133,8 +133,8 @@ for chunk in chunks:
 
 m.advance(0.0)
 m.activation_history = []
-probe_chunk = {'f0':0.0, 'f1':1.0, 'f2':0.0}
-blend_slot = 'a1'
+probe_chunk = {'f0':0.0, 'f1':0.0, 'f2':1.0}
+blend_slot = 'a2'
 blend_value = m.blend(blend_slot, **probe_chunk)
 
 # activations = [chunk['retrieval_probability'] for chunk in m.activation_history]

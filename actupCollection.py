@@ -270,12 +270,13 @@ def multi_blends(chunk, memory, slots ):
     return [memory.blend(slot,**chunk) for slot in slots]
 
 def vector_similarity(x,y):
-    return distance.euclidean(x,y) / 4.5#max(FC_distances)
+    return 1
+    # return distance.euclidean(x,y) / 4.5#max(FC_distances)
     # return distance.cosine(x,y)
 
 
 def custom_similarity(x,y):
-    return abs(x - y)
+    return 1 - abs(x - y)
 
 #set the similarity function
 set_similarity_function(custom_similarity, *observation_slots)
@@ -390,7 +391,7 @@ if __name__ == "__main__":
             m.learn(**chunk)
 
         m.advance()
-        p = Pool(processes=20)
+        p = Pool(processes=8)
         # split_chunks = [test_chunks[i::10] for i in range(10)]
         multi_p = partial(multi_blends, memory=m,slots=action_slots)
         data = p.map(multi_p, test_chunks[0:100])
