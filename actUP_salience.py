@@ -104,13 +104,14 @@ def curate_chunks(n=100,features=1,targets=1):
 
 def custom_similarity(x,y):
     # return math.sqrt((x-y)**2) * -1
-    return abs(x - y) * - 1
+    result = abs(x - y)
+    return result
 
 observation_slots = ['f0', 'f1', 'f2']
-set_similarity_function(custom_similarity, *observation_slots)
+# set_similarity_function(custom_similarity, *observation_slots)
 
 m = Memory()
-MP = 3
+MP = 4
 t = 1
 m = Memory(noise=0.0, decay=0.0, temperature=t, threshold=-100.0, mismatch=MP,optimized_learning=False)
 
@@ -132,8 +133,8 @@ for chunk in chunks:
 
 m.advance(0.0)
 m.activation_history = []
-probe_chunk = {'f0':0.0, 'f1':1.0, 'f2':0.0}
-blend_slot = 'a1'
+probe_chunk = {'f0':0.0, 'f1':0.0, 'f2':1.0}
+blend_slot = 'a2'
 blend_value = m.blend(blend_slot, **probe_chunk)
 
 # activations = [chunk['retrieval_probability'] for chunk in m.activation_history]

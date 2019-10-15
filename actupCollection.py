@@ -275,7 +275,7 @@ def vector_similarity(x,y):
 
 
 def custom_similarity(x,y):
-    return abs(x - y) * - 1
+    return abs(x - y)
 
 #set the similarity function
 set_similarity_function(custom_similarity, *observation_slots)
@@ -367,11 +367,11 @@ if __name__ == "__main__":
 
     ###now run the model
     temperatures = [0.25,0.65,1.0]#.3,0.4,0.5]#.6,0.7,0.8,0.9,1.0]
-    mismatches = [8.0,10.0,12.0,14.0,16.0]
+    mismatches = [1.0,2.0,4.0,6.0]
     parameters = [(x,y) for x in temperatures for y in mismatches]
     used_parameters = {'temperature': [], 'mismatches': []}
     os.chdir(chunks_path)
-    datafiles = glob.glob("20190912*")
+    datafiles = glob.glob("20191015*")
     for file in datafiles:
         dats = pickle.load(open(file, 'rb'))
         used_parameters['temperature'].append(dats['temperature'])
@@ -404,6 +404,8 @@ if __name__ == "__main__":
             matches.append(int(np.argmax(result)==np.argmax(datum[:-1])))
         avgJS = sum(JS)/len(JS)
         avgMatch = sum(matches)/len(matches)
+
+        print(repr(parameter[0]) + ' ' + repr(parameter[1]) + ' ' + repr(avgJS) + repr(avgMatch))
 
         save_dict = {'data':data,'Y_test':Y_test,'JS':JS,'matches':matches,'AVGJS':avgJS, 'avgMatch':avgMatch, 'temperature':parameter[0],'mismatch':parameter[1]}
 
