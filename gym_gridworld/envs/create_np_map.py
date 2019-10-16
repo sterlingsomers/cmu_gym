@@ -4,7 +4,7 @@ import numpy as np
 from gym_gridworld.envs.mapquery import terrain_request
 from pathlib import Path
 import itertools
-path='./gym_gridworld/'
+path='../gym_gridworld/' # YOU MIGHT NEED TO DELETE ONE OF THE DOTS
 
 
 def get_feature_value_maps(x,y,map):

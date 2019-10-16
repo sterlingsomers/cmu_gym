@@ -47,7 +47,7 @@ flags.DEFINE_integer("scalar_summary_freq", 5, "Record scalar summaries every n 
 flags.DEFINE_string("checkpoint_path", "_files/models", "Path for agent checkpoints")
 flags.DEFINE_string("summary_path", "_files/summaries", "Path for tensorboard summaries") #A2C_custom_maps#A2C-science-allmaps - BEST here for one policy
 flags.DEFINE_string("model_name", "dokimi", "Name for checkpoints and tensorboard summaries") # DONT touch TESTING is the best (take out normalization layer in order to work! -- check which parts exist in the restore session if needed)
-flags.DEFINE_integer("K_batches", 2100, # Batch is like a training epoch!
+flags.DEFINE_integer("K_batches", 100000, # Batch is like a training epoch!
     "Number of training batches to run in thousands, use -1 to run forever") #(MINE) not for now
 flags.DEFINE_string("map_name", "DefeatRoaches", "Name of a map to use.")
 flags.DEFINE_float("discount", 0.95, "Reward-discount for the agent")
@@ -64,7 +64,7 @@ flags.DEFINE_float("entropy_weight_action", 0.001, "entropy of action-id distrib
 flags.DEFINE_float("ppo_lambda", 0.95, "lambda parameter for ppo")
 flags.DEFINE_integer("ppo_batch_size", None, "batch size for ppo, if None use n_steps_per_batch")
 flags.DEFINE_integer("ppo_epochs", 3, "epochs per update")
-flags.DEFINE_enum("policy_type", "FullyConv", ["MetaPolicy", "FullyConv", "FactoredPolicy", "Relational", "AlloAndAlt", "FullyConv3D"], "Which type of Policy to use")
+flags.DEFINE_enum("policy_type", "FullyConv", ["MetaPolicy", "FullyConv", "FactoredPolicy", "FactoredPostTraining", "Relational", "AlloAndAlt", "FullyConv3D"], "Which type of Policy to use")
 flags.DEFINE_enum("agent_mode", ACMode.A2C, [ACMode.A2C, ACMode.PPO], "if should use A2C or PPO")
 
 ### NEW FLAGS ####
@@ -119,9 +119,9 @@ def make_custom_env(env_id, num_env, seed, wrapper_kwargs=None, start_index=0):
     if wrapper_kwargs is None: wrapper_kwargs = {}
     def make_env(rank): # pylint: disable=C0111
         def _thunk():
-            # env = gym.make(env_id)
-            # env.seed(seed + rank)
-            env = gameEnv(partial=False,size=9)#,goal_color=[np.random.uniform(), np.random.uniform(), np.random.uniform()])
+            env = gym.make(env_id)
+            env.seed(seed + rank)
+            # env = gameEnv(partial=False,size=9)#,goal_color=[np.random.uniform(), np.random.uniform(), np.random.uniform()])
             # Monitor should take care of reset!
             env = Monitor(env, logger.get_dir() and os.path.join(logger.get_dir(), str(rank)), allow_early_resets=True) # SUBPROC NEEDS 4 OUTPUS FROM STEP FUNCTION
             return env
@@ -138,7 +138,8 @@ def main():
     if FLAGS.training and FLAGS.visualize==False:
         #envs = SubprocVecEnv((partial(make_sc2env, **env_args),) * FLAGS.n_envs)
         #envs = SubprocVecEnv([make_env(i,**env_args) for i in range(FLAGS.n_envs)])
-        envs = make_custom_env('gridworld{}-v3'.format('visualize' if FLAGS.visualize else ''), FLAGS.n_envs, 1)
+        # envs = make_custom_env('gridworld{}-v3'.format('visualize' if FLAGS.visualize else ''), FLAGS.n_envs, 1)
+        envs = make_custom_env('MsPacman-v4', FLAGS.n_envs, 1)
     elif FLAGS.training==False:
         #envs = make_custom_env('gridworld-v0', 1, 1)
         envs = gym.make('gridworld{}-v0'.format('visualize' if FLAGS.visualize else ''))
@@ -173,6 +174,7 @@ def main():
         num_actions=envs.action_space.n,
         num_envs= FLAGS.n_envs,
         nsteps= FLAGS.n_steps_per_batch,
+        obs_dim= envs.observation_space.shape,
         policy=FLAGS.policy_type
     )
     # Build Agent
@@ -234,7 +236,7 @@ def main():
                     _save_if_training(agent)
                 if FLAGS.policy_type == 'MetaPolicy' or FLAGS.policy_type == 'LSTM':
                     runner.run_meta_batch()
-                elif FLAGS.policy_type == 'FactoredPolicy':
+                elif (FLAGS.policy_type == 'FactoredPolicy') or (FLAGS.policy_type == 'FactoredPostTraining'):
                     runner.run_factored_batch()
                 else:
                     runner.run_batch()  # (MINE) HERE WE RUN MAIN LOOP for while true
@@ -440,6 +442,7 @@ def main():
                 clock.tick(15)
 
             print("...saving dictionary.")
+            #TODO: IMPORT THE onepolicy_analysis.py FILE AND CONVERT IT INTO PANDAS
             folder = '/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/'
             map_name = str(runner.envs._map[0]) + '-' + str(runner.envs._map[1])#'custom'#str(runner.envs._map[0]) + '-' + str(runner.envs._map[1])
             drone_init_loc = str(runner.envs.drone[0]) + '-' + str(runner.envs.drone[1])
@@ -450,8 +453,8 @@ def main():
             pickle_in = open(path,'wb')
             pickle.dump(dictionary, pickle_in)# Saves a dictionary (seems smaller file)
 
-            with open('./data/all_data' + map_name + '_' + drone_init_loc + '_' + drone_head_alt + '_' + hiker_loc + str(FLAGS.episodes) + '.lst', 'wb') as handle:
-                pickle.dump(all_data, handle)# Saves a list (seems larger file)
+            # with open('./data/all_data' + map_name + '_' + drone_init_loc + '_' + drone_head_alt + '_' + hiker_loc + str(FLAGS.episodes) + '.lst', 'wb') as handle:
+            #     pickle.dump(all_data, handle)# Saves a list (seems larger file)
             # with open('./data/All_maps_20x20_500.tj', 'wb') as handle:
             #     pickle.dump(dictionary, handle)
 

@@ -268,21 +268,29 @@ def create_dataframe(obs, value_feature_map):
             slice_rep_bottom = slice_rep[-1:][0]
             alts = [int(value_feature_map[j]['alt']) for j in slice_rep_bottom]
 
+            ''' IS HIKER IN EGO '''
             # If hiker (feature value = 50) exists in the slice
             if 50 in slice_rep_bottom:
                 hiker=1 # Is hiker in the current egocentric input?
 
+            ''' MAP VOL (NUMPY) (5,20,20) ''' # for  ego representation graphics
+            map_vol = obs[epis]['map_volume'][timestep]['vol']
+
+            ''' MAP IMG (NUMPY) (20,20,3) ''' # for  ego representation graphics
+            map_img = obs[epis]['map_volume'][timestep]['img']
+
             data.append([map_name, episode, tstep, flag, agent_type, actions, action_label, action_dstr, round(reward,3),
                          round(values,3), drone_pos, drone_alt, headings, crash, hiker_pos, pack_pos, packhiker_dist,
-                         pack_condition, stuck, fc_rep, alts, hiker])
+                         pack_condition, stuck, fc_rep, alts, hiker, map_vol, map_img])
 
     # Construct dataframe
     data = np.array(data, dtype=object)  # object helps to keep arbitary type of data
     """ KEEP THE SAME ORDER BETWEEN COLUMNS AND DATA (data.append and columns=[] lines)!!!"""
     columns = ['map_name', 'episode', 'timestep', 'epis_ends', 'agent_type', 'actions', 'action_label', 'action_dstr','rewards', 'values',
                'drone_position', 'drone_alt', 'heading', 'crash', 'hiker', 'pack_position', 'packhiker_dist',
-               'pack_condition', 'stuck', 'fc', 'altitudes_in_slice', 'hiker_in_ego']
+               'pack_condition', 'stuck', 'fc', 'altitudes_in_slice', 'hiker_in_ego', 'map_volume', 'map_img']
 
+    #TODO: Optional, load Tensorboard TSNE data and stack them to the dataframe!!!
     # datab = np.reshape(data, [data.shape[0], data.shape[1]])
     df = pd.DataFrame(data, columns=columns)
     df.to_pickle(path + '.df')
@@ -295,6 +303,7 @@ map_name = 'BoxCanyon'
 drone_init_loc = 'D1118'
 hiker_loc = 'H1010'
 # path = folder + map_name + '_' + drone_init_loc + '_' + hiker_loc + '_' + '200'
+
 path ='/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/all_data'
 
 obs = load_data()

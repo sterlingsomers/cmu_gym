@@ -51,7 +51,7 @@ class Runner(object):
             self.policy_type = FullyConv3DPolicy
         elif policy_type == 'AlloAndAlt':
             self.policy_type = FullyConvPolicyAlt
-        elif policy_type == 'Factored':
+        elif (policy_type == 'Factored') or (policy_type == 'FactoredPostTraining'):
             self.policy_type = FactoredPolicy
         else: print('Unknown Policy')
 
@@ -86,6 +86,10 @@ class Runner(object):
 
     def _handle_episode_end(self, timestep, length, last_step_r):
         self.score = timestep
+        # print("\rMean Rewards: {:.2f} Episode: {:d}    ".format(
+        #     np.mean(self.ep_rewards[-100:]), self.ep_counter), end="")
+        # print("\rMean Rewards: {:.2f} Episode: {:d}    ".format(
+        #     self.score, self.episode_counter), end="") # To be persistent on the screen it needs to be ran on a main loop, so you print once and just updates the score
         # print(">>>>>>>>>>>>>>>episode %d ended. Score %f | Total Steps %d | Last step Reward %f" % (self.episode_counter, self.score, length, last_step_r))
         print(">>>>>>>>>>>>>>>episode %d ended. Score %f | Total Steps %d" % (
         self.episode_counter, self.score, length))

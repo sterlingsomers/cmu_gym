@@ -36,31 +36,31 @@ class FullyConvPolicy:
             data_format="NHWC",
             num_outputs=64,
             kernel_size=4, #4
-            stride=1,#2,#
+            stride=2,#1,
             padding='SAME',
             activation_fn=tf.nn.relu,
             scope="%s/conv2" % name,
             trainable=self.trainable
         )
-        # conv3 = layers.conv2d(
-        #     inputs=conv2,
-        #     data_format="NHWC",
-        #     num_outputs=64,
-        #     kernel_size=3,
-        #     stride=1,
-        #     padding='SAME',
-        #     activation_fn=tf.nn.relu,
-        #     scope="%s/conv3" % name,
-        #     trainable=self.trainable
-        # )
+        conv3 = layers.conv2d(
+            inputs=conv2,
+            data_format="NHWC",
+            num_outputs=64,
+            kernel_size=3,
+            stride=1,
+            padding='SAME',
+            activation_fn=tf.nn.relu,
+            scope="%s/conv3" % name,
+            trainable=self.trainable
+        )
 
         if self.trainable:
             layers.summarize_activation(conv1)
             layers.summarize_activation(conv2)
-            # layers.summarize_activation(conv3)
+            layers.summarize_activation(conv3)
 
-        return conv2
-        # return conv3
+        # return conv2
+        return conv3
 
     def build(self):
         # units_embedded = layers.embed_sequence(
@@ -129,13 +129,13 @@ class FullyConvPolicy:
         # (MINE) This is the last layer (fully connected -fc) for the non-spatial (categorical) actions
         self.fc1 = layers.fully_connected(
             map_output_flat,
-            num_outputs=256,
+            num_outputs=512,#256,
             activation_fn=tf.nn.relu,
             scope="fc1",
             trainable=self.trainable
         )
         # Add layer normalization for better stability
-        # self.fc1 = layers.layer_norm(self.fc1,trainable=self.trainable) # VERY BAD FOR THE 2D GRIDWORLD!!!
+        self.fc1 = layers.layer_norm(self.fc1,trainable=self.trainable) # VERY BAD FOR THE 2D GRIDWORLD!!!
 
         action_id_probs = layers.fully_connected(
             self.fc1,
@@ -319,7 +319,7 @@ class FactoredPolicy:
             num_outputs=1,
             activation_fn=None,
             scope='value_goal',
-            trainable=self.trainable
+            trainable=1-self.trainable
         ), axis=1
         )
         value_estimate_fire = tf.squeeze(layers.fully_connected(
@@ -328,7 +328,7 @@ class FactoredPolicy:
             num_outputs=1,
             activation_fn=None,
             scope='value_fire',
-            trainable=self.trainable
+            trainable=1-self.trainable
         ), axis=1)
         value_estimate = tf.squeeze(layers.fully_connected(
             # squeeze removes a dimension of 1 elements. e.g.: [n_batches,1,value_est_dim]--->[n_batches,value_est_dim]

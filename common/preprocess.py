@@ -93,7 +93,7 @@ class ObsProcesser:
         #     FEATURE_KEYS.rgb_screen: timestep
         # }
         pp_obs = {
-            FEATURE_KEYS.rgb_screen: timestep['img'],
+            FEATURE_KEYS.rgb_screen: timestep,#['img'],
             # FEATURE_KEYS.alt_view: timestep['nextstepimage'],
             # FEATURE_KEYS.altitudes: timestep['altitude'],
             # FEATURE_KEYS.image_vol: timestep['image_volume'],

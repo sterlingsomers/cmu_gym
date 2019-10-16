@@ -319,7 +319,10 @@ def main():
 
                 while done==0:
                     # INTERACTION
-                    obs, action, value, value_goal, value_fire, reward, done, info, fc, action_probs = runner.run_trained_factored_batch()
+                    if FLAGS.policy_type == 'Factored':
+                        obs, action, value, value_goal, value_fire, reward, done, info, fc, action_probs = runner.run_trained_factored_batch()
+                    else:
+                        obs, action, value, reward, done, info, fc, action_probs = runner.run_trained_batch()
 
                     # screen_mssg_variable("Value    : ", np.round(value,3), (168, 350))
                     # screen_mssg_variable("Reward: ", np.round(reward,3), (168, 372))
@@ -336,10 +339,11 @@ def main():
                     gameDisplay.fill(DARK_BLUE)
                     map_xy = obs[0]['img']
                     process_img(map_xy, 20, 20)
-                    raw_data, canvas = create_value_hist(np.round(value,3), np.round(value_goal,3), np.round(value_fire,3))
-                    size = canvas.get_width_height()
-                    surf = pygame.image.fromstring(raw_data, size, "RGB")
-                    gameDisplay.blit(surf, (350, 20))
+                    if FLAGS.policy_type == 'Factored':
+                        raw_data, canvas = create_value_hist(np.round(value,3), np.round(value_goal,3), np.round(value_fire,3))
+                        size = canvas.get_width_height()
+                        surf = pygame.image.fromstring(raw_data, size, "RGB")
+                        gameDisplay.blit(surf, (350, 20))
                     screen_mssg_variable("Value    : ", np.round(value,3), (168, 350))
                     screen_mssg_variable("Reward: ", np.round(reward,3), (168, 372))
                     # Update finally the screen with all the images you blitted in the run_trained_batch

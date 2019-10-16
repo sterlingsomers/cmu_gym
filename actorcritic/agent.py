@@ -12,7 +12,7 @@ import tensorboard.plugins.beholder as beholder_lib
 
 #LOG_DIRECTORY = '/tmp/beholder-demo/SCII'
 LOG_DIRECTORY = '_files/summaries/Test'
-def _get_placeholders(spatial_dim, nsteps, nenvs, policy_type):
+def _get_placeholders(spatial_dim, nsteps, nenvs, policy_type, obs_d):
     sd = spatial_dim
     if policy_type == 'MetaPolicy':
         feature_list = [
@@ -36,8 +36,8 @@ def _get_placeholders(spatial_dim, nsteps, nenvs, policy_type):
         (FEATURE_KEYS.value_target, tf.float32, [None]),
         (FEATURE_KEYS.value_target_goal, tf.float32, [None]),
         (FEATURE_KEYS.value_target_fire, tf.float32, [None]),
-        (FEATURE_KEYS.rgb_screen, tf.float32, [nenvs, None, 100, 100, 3]), #[None, 32, 100, 100, 3] for LSTM
-        (FEATURE_KEYS.alt_view, tf.float32, [nenvs, None, 100, 100, 3]), #[None, 32, 100, 100, 3] for LSTM
+        (FEATURE_KEYS.rgb_screen, tf.float32, [nenvs, None, obs_d[0], obs_d[1], 3]), #[None, 32, 100, 100, 3] for LSTM
+        (FEATURE_KEYS.alt_view, tf.float32, [nenvs, None, obs_d[0], obs_d[1], 3]), #[None, 32, 100, 100, 3] for LSTM
         (FEATURE_KEYS.player_relative_screen, tf.int32, [None, sd, sd]),
         (FEATURE_KEYS.player_relative_minimap, tf.int32, [None, sd, sd]),
         (FEATURE_KEYS.advantage, tf.float32, [None]),
@@ -69,8 +69,8 @@ def _get_placeholders(spatial_dim, nsteps, nenvs, policy_type):
             (FEATURE_KEYS.value_target, tf.float32, [None]),
             (FEATURE_KEYS.value_target_goal, tf.float32, [None]),
             (FEATURE_KEYS.value_target_fire, tf.float32, [None]),
-            (FEATURE_KEYS.rgb_screen, tf.float32, [None, 100, 100, 3]),  # [None, 32, 100, 100, 3] for LSTM
-            (FEATURE_KEYS.alt_view, tf.float32, [None, 100, 100, 3]),  # [None, 32, 100, 100, 3] for LSTM
+            (FEATURE_KEYS.rgb_screen, tf.float32, [None, obs_d[0], obs_d[1], 3]),  # [None, 32, 100, 100, 3] for LSTM
+            (FEATURE_KEYS.alt_view, tf.float32, [None, obs_d[0], obs_d[1], 3]),  # [None, 32, 100, 100, 3] for LSTM
             (FEATURE_KEYS.player_relative_screen, tf.int32, [None, sd, sd]),
             (FEATURE_KEYS.player_relative_minimap, tf.int32, [None, sd, sd]),
             (FEATURE_KEYS.advantage, tf.float32, [None]),
@@ -115,6 +115,7 @@ class ActorCriticAgent:
             num_actions=4,
             num_envs=1,
             nsteps=1,
+            obs_dim = None,
     ):
         """
         Actor-Critic Agent for learning pysc2-minigames
@@ -161,6 +162,7 @@ class ActorCriticAgent:
         self.num_actions= num_actions
         self.num_envs = num_envs
         self.nsteps = nsteps
+        self.obs_dims = obs_dim
         self.policy_type = policy
         # self.policy = FullyConvPolicy if ( (policy == 'FullyConv') or (policy == 'Relational')) else MetaPolicy
         if policy == 'FullyConv':
@@ -173,7 +175,7 @@ class ActorCriticAgent:
             self.policy = FullyConv3DPolicy
         elif policy == 'AlloAndAlt':
             self.policy = FullyConvPolicyAlt
-        elif policy == 'FactoredPolicy':
+        elif (policy == 'FactoredPolicy') or (policy == 'FactoredPostTraining'):
             self.policy = FactoredPolicy
         else: print('Unknown Policy')
 
@@ -213,7 +215,7 @@ class ActorCriticAgent:
             collections=[tf.GraphKeys.SUMMARIES, self._scalar_summary_key])
 
     def build_model(self):
-        self.placeholders = _get_placeholders(self.spatial_dim, self.nsteps, self.num_envs, self.policy_type)
+        self.placeholders = _get_placeholders(self.spatial_dim, self.nsteps, self.num_envs, self.policy_type, self.obs_dims)
         with tf.variable_scope("theta"):
             self.theta = self.policy(self, trainable=True).build() # (MINE) from policy.py you build the net. Theta is
 
@@ -253,7 +255,7 @@ class ActorCriticAgent:
             self.policy_loss = -tf.reduce_mean(l_clip)
         else:
             self.sampled_action_id = weighted_random_sample(self.theta.action_id_probs)
-            if self.policy_type == 'FactoredPolicy':
+            if (self.policy_type == 'FactoredPolicy') or (self.policy_type == 'FactoredPostTraining'):
                 self.value_estimate_goal = self.theta.value_estimate_goal
                 self.value_estimate_fire = self.theta.value_estimate_fire
                 self.value_estimate = self.theta.value_estimate
@@ -306,7 +308,7 @@ class ActorCriticAgent:
             self.value_loss = tf.reduce_mean(mse) # the mean of the mean losses per sequence (so the denominator in mean will be the number of batches)
             # self.value_loss = tf.reduce_sum(vloss_i)/tf.reduce_sum(tf.reduce_sum(mask, 1))# alternative: instead of the mean of the mean per sequence we take the mean of all samples
 
-        elif self.policy_type == 'FactoredPolicy':
+        elif (self.policy_type == 'FactoredPolicy') or (self.policy_type == 'FactoredPostTraining'):
             self.neg_entropy_action_id = tf.reduce_mean(tf.reduce_sum(self.theta.action_id_probs * self.theta.action_id_log_probs, axis=1))
             self.value_loss_goal = tf.losses.mean_squared_error(self.placeholders.value_target_goal, self.theta.value_estimate_goal) # value_target comes from runner/run_batch when you specify the full input
             self.value_loss_fire = tf.losses.mean_squared_error(self.placeholders.value_target_fire,
@@ -318,12 +320,19 @@ class ActorCriticAgent:
             self.value_loss = tf.losses.mean_squared_error(self.placeholders.value_target, self.theta.value_estimate) # value_target comes from runner/run_batch when you specify the full input
             self.policy_loss = -tf.reduce_mean(selected_log_probs.total * self.placeholders.advantage)
 
+        """ Loss function choices """
         if self.policy_type == 'FactoredPolicy':
             loss = (
                     self.policy_loss
                     + (self.value_loss_goal + self.value_loss_fire + self.value_loss) * self.loss_value_weight
                     + self.neg_entropy_action_id * self.entropy_weight_action_id
             )
+        elif self.policy_type == 'FactoredPostTraining':
+            loss = (
+                    self.policy_loss
+                    + self.value_loss* self.loss_value_weight
+                    + self.neg_entropy_action_id * self.entropy_weight_action_id
+            ) + (self.value_loss_fire + self.value_loss_goal) * 0.000
         else:
             loss = (
                 self.policy_loss
@@ -340,7 +349,7 @@ class ActorCriticAgent:
             learning_rate=None,
             name="train_op"
         )
-        if self.policy_type == 'FactoredPolicy':
+        if (self.policy_type == 'FactoredPolicy') or (self.policy_type == 'FactoredPostTraining'):
             self._scalar_summary("value_goal/estimate", tf.reduce_mean(self.value_estimate_goal)) # no correct!mean is for all samples but we use masks!!!
             self._scalar_summary("value_goal/target", tf.reduce_mean(self.placeholders.value_target_goal)) # no correct!mean is for all samples
             self._scalar_summary("value_fire/estimate", tf.reduce_mean(self.value_estimate_fire)) # no correct!mean is for all samples but we use masks!!!
@@ -451,8 +460,9 @@ class ActorCriticAgent:
     def step_eval(self, obs):
         # (MINE) Pass the observations through the net
 
-        feed_dict = {'rgb_screen:0' : obs['rgb_screen']},
-                     # 'alt_view:0': obs['alt_view']}
+        # feed_dict = {'rgb_screen:0' : obs['rgb_screen']},
+        #              # 'alt_view:0': obs['alt_view']}
+        feed_dict = self._input_to_feed_dict(obs) # FireGrid
 
         action_id, value_estimate, fc, action_probs = self.sess.run(
             [self.sampled_action_id, self.value_estimate, self.theta.fc1, self.theta.action_id_probs],
@@ -464,12 +474,13 @@ class ActorCriticAgent:
     def step_eval_factored(self, obs):
         # (MINE) Pass the observations through the net
 
-        feed_dict = {'rgb_screen:0' : obs['rgb_screen']},
-                     # 'alt_view:0': obs['alt_view']}
+        # feed_dict = {'rgb_screen:0' : obs['rgb_screen']},
+        #              # 'alt_view:0': obs['alt_view']}
+        feed_dict = self._input_to_feed_dict(obs)  # FireGrid
 
         action_id, value_estimate, value_estimate_goal, value_estimate_fire, fc, action_probs = self.sess.run(
             [self.sampled_action_id, self.value_estimate, self.value_estimate_goal, self.value_estimate_fire, self.theta.fc1, self.theta.action_id_probs],
-            feed_dict=feed_dict[0] #TODO: ERASE THIS FOR DRONE ENV!!!
+            feed_dict=feed_dict#TODO: ERASE THIS FOR DRONE ENV!!!
         )
         return action_id, value_estimate, value_estimate_goal, value_estimate_fire, fc, action_probs
 
