@@ -1,32 +1,38 @@
 # -*- coding: utf-8 -*-
+''' THIS IS THE FILE YOU NEED TO PRODUCE TSNE WITHOUT IMAGES (JUST POINTS)'''
 import os, cv2
 import numpy as np
 import matplotlib.pyplot as plt
 import pickle
 import tensorflow as tf
 from tensorflow.contrib.tensorboard.plugins import projector
+import pandas as pd
 
 tf.__version__
 
 ''' CREATE ALL NECESSARY FILES FOR TENSORBOARD TSNE'''
 
 PATH = os.getcwd() #+ '/analysis/Tensorboard'
-FOLDER = '/embedding-everything' # CHANGE HERE!!!
+FOLDER = '/embedding-onepolicy' # CHANGE HERE!!!
 LOG_DIR = PATH + FOLDER
 # metadata = os.path.join(LOG_DIR, 'metadata2.tsv')
-filename = 'selected_traj' # CHANGE HERE!!! This is a file you WILL create!
+filename = 'onepolicy'#'selected_traj' # CHANGE HERE!!! This is a file you WILL create!
 # %%
 # data_path = PATH + '/data'
 # data_dir_list = os.listdir(data_path)
 
 # Load and create the data
-pickle_in = open('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/selected_drop_traj_everything.tj','rb') # CHANGE HERE!!!
-obs = pickle.load(pickle_in)
-dims = (len(obs),256)
-fc = np.zeros(dims)
-for x in range(0,len(obs)):
-    fc[x] = obs[x]['fc']
+# previous file: selected_drop_traj_everything.tj
+# pickle_in = open('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/selected_drop_traj_everything.tj','rb') # CHANGE HERE!!!
+# obs = pickle.load(pickle_in)
+# dims = (len(obs),256)
+# fc = np.zeros(dims)
+# for x in range(0,len(obs)):
+#     fc[x] = obs[x]['fc']
 
+obs = pd.read_pickle(
+    '/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/all_data_old.df')
+fc = np.vstack(obs['fc'].values)
 # img_data = []
 # for dataset in data_dir_list:
 #     img_list = os.listdir(data_path + '/' + dataset)
@@ -50,19 +56,37 @@ for x in range(0,len(obs)):
 
 features = tf.Variable(fc, name='features')
 
-metadata_file = open(os.path.join(LOG_DIR, 'selected_traj.tsv'), 'w')
+# previous file: 'selected_traj
+metadata_file = open(os.path.join(LOG_DIR, 'onepolicy.tsv'), 'w')
 metadata_file.write('episode\ttimestep\ttarget\tactions\tvalues\taction_label\n')
 
+# Input is a dictionary or list
+# img_data = []
+# for i in range(len(obs)):
+#     # img_data.append(obs[i]['images']['alt_view'][0]) # Uncomment for image data
+#     epis = obs[i]['episode']
+#     tstep = obs[i]['timestep']
+#     target = obs[i]['target']
+#     actions = obs[i]['actions']
+#     values = obs[i]['values'] # FIX DECIMALS ITS UGLY!
+#     action_label = obs[i]['action_label']
+#     metadata_file.write('{}\t{}\t{}\t{}\t{}\t{}\n'.format(epis, tstep, target, actions, round(values,3), action_label)) # round doesnt work in writing to a file
+# metadata_file.close()
+# img_data = np.array(img_data)
 
+# Input is pandas
 img_data = []
 for i in range(len(obs)):
-    img_data.append(obs[i]['images']['alt_view'][0])
-    epis = obs[i]['episode']
-    tstep = obs[i]['timestep']
-    target = obs[i]['target']
-    actions = obs[i]['actions']
-    values = obs[i]['values'] # FIX DECIMALS ITS UGLY!
-    action_label = obs[i]['action_label']
+    # img_data.append(obs[i]['images']['alt_view'][0]) # Uncomment for image data
+    epis = obs['episode'][i]
+    tstep = obs['timestep'][i]
+    if obs['actions'][i] == 15:
+        target = 1
+    else:
+        target=0
+    actions = obs['actions'][i]
+    values = obs['values'][i] # FIX DECIMALS ITS UGLY!
+    action_label = obs['action_label'][i]
     metadata_file.write('{}\t{}\t{}\t{}\t{}\t{}\n'.format(epis, tstep, target, actions, round(values,3), action_label)) # round doesnt work in writing to a file
 metadata_file.close()
 img_data = np.array(img_data)
@@ -102,9 +126,9 @@ def images_to_sprite(data):
 
 
 # %%
-sprite = images_to_sprite(img_data)
-cv2.imwrite(os.path.join(LOG_DIR, 'sprite.png'), sprite)
-# scipy.misc.imsave(os.path.join(LOG_DIR, 'sprite.png'), sprite)
+# sprite = images_to_sprite(img_data)
+# cv2.imwrite(os.path.join(LOG_DIR, 'sprite.png'), sprite)
+# # scipy.misc.imsave(os.path.join(LOG_DIR, 'sprite.png'), sprite)
 
 # %%
 with tf.Session() as sess: #(MINE) with the ckpt you take the data for TSNE, tsv file has the metadata and finally you create the pbtxt file
@@ -120,7 +144,7 @@ with tf.Session() as sess: #(MINE) with the ckpt you take the data for TSNE, tsv
     # Link this tensor to its metadata file (e.g. labels).
     embedding.metadata_path = os.path.join(LOG_DIR, filename + '.tsv') # HERE TAKE OUT THE LOG_DIR no needed
     # Comment out if you don't want sprites
-    embedding.sprite.image_path = os.path.join(LOG_DIR, 'sprite.png') # HERE TAKE OUT THE LOG_DIR no needed
-    embedding.sprite.single_image_dim.extend([img_data.shape[1], img_data.shape[1]])
+    # embedding.sprite.image_path = os.path.join(LOG_DIR, 'sprite.png') # HERE TAKE OUT THE LOG_DIR no needed
+    # embedding.sprite.single_image_dim.extend([img_data.shape[1], img_data.shape[1]])
     # Saves a config file that TensorBoard will read during startup.
     projector.visualize_embeddings(tf.summary.FileWriter(LOG_DIR), config)

@@ -6,15 +6,19 @@ import pickle
 from scipy.misc import imresize
 from gym_gridworld.envs import create_np_map as CNP
 from matplotlib import pyplot as plt
+import warnings # IT WORKS !!!!
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 pickle_in = open('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/feat2value2feat_mapping.dct','rb')
 map_volume = pickle.load(pickle_in)
 file_name = 'all_data.df'# , 'df_dataframe.df'
 obs = pd.read_pickle('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/' + file_name)
-map_volume['vol']=obs['map_volume'][0]
-map_volume['img']=obs['map_img'][0]
-map_volume['name']=obs['map_name'][0]
-map_volume['orig'] = CNP.map_to_volume_dict(int(map_volume['name'][0:3]), int(map_volume['name'][4:]), 20, 20)
+indx = 0
+# map_volume['vol']=obs['map_volume'][0]
+# map_volume['img']=obs['map_img'][0]
+# map_volume['name']=obs['map_name'][0]
+name = [int(s) for s in obs['map_name'][indx].split('-')]
+map_volume['orig'] = CNP.map_to_volume_dict(name[0], name[1], 20, 20) # Empty vol
 # map volume
 # drone:altitude
 # drone:heading
@@ -83,7 +87,7 @@ def create_nextstep_image(map_volume, drone_position, heading):
 
     # increase the image size, then put the hiker in
     canvas = imresize(canvas, factor * 100, interp='nearest')
-    ego = np.flip(slice, 0)
+    # ego = np.flip(slice, 0)
     return imresize(np.flip(canvas, 0), 20 * map_volume['vol'].shape[2], interp='nearest')
 
 def generate_observation(map_volume, altitude, heading, hiker_position, drone_position):
@@ -108,18 +112,26 @@ def generate_observation(map_volume, altitude, heading, hiker_position, drone_po
     # map = original_map_volume['img']
     map = imresize(map, factor * 100, interp='nearest')  # resize by factor of 5
     # add the hiker
-    hiker_position = (int(hiker_position[0] * factor), int(hiker_position[1]) * factor)
+    hiker_pos = np.insert(hiker_position, 0, 0) # insert into hiker position vector a zero altitude in the first element
+    hiker_pos = tuple([np.array([a]) for a in hiker_pos])
+    hiker_position = (int(hiker_pos[1] * factor), int(hiker_pos[2]) * factor)
     for point in hikers[0][0]:
         map[hiker_position[0] + point[0], hiker_position[1] + point[1], :] = \
             map_volume['feature_value_map']['hiker']['color']
+
     # add the drone
-    drone_pos = np.where(
-        map_volume['vol'] == map_volume['feature_value_map']['drone'][altitude]['val'])
+    # drone_pos = np.where(
+    #     map_volume['vol'] == map_volume['feature_value_map']['drone'][altitude]['val'])
+    drone_pos = np.insert(drone_position, 0, altitude)
+    drone_pos = tuple([np.array([a]) for a in drone_pos]) # convert it into the format that is output from np.where
     drone_position = (int(drone_pos[1]) * factor, int(drone_pos[2]) * factor)
     for point in planes[heading][0]:
         map[drone_position[0] + point[0], drone_position[1] + point[1], :] = \
             map_volume['feature_value_map']['drone'][altitude]['color']
 
+    # PUT DRONE/HIKER VAL IN EMPY VOL
+    map_volume['orig']['vol'][drone_pos] = map_volume['feature_value_map']['drone'][altitude]['val']
+    map_volume['orig']['vol'][hiker_pos] = map_volume['feature_value_map']['hiker']['val']
     '''DRAW THE PACKAGE DROPPED'''
     # print('pack drop flag',package_dropped)
     # if package_dropped:
@@ -129,8 +141,11 @@ def generate_observation(map_volume, altitude, heading, hiker_position, drone_po
     #         # print(point, package_position)
     #         map[package_position[0] + point[0], package_position[1] + point[1], :] = [94, 249, 242]
 
-    nextstepimage = create_nextstep_image(map_volume, drone_pos, heading)
-    plt.imshow(np.concatenate([map, nextstepimage], axis=1))
-    plt.show()
+    nextstepimage = create_nextstep_image(map_volume['orig'], drone_pos, heading)
+    image = np.concatenate([map, nextstepimage], axis=0)
+    # plt.imshow(image)
+    # plt.axis('off')
+    # plt.show()
+    return image
 
-generate_observation(map_volume, obs['drone_alt'][0]-1, obs['heading'][0], obs['hiker'][0], obs['drone_position'][0])
+# generate_observation(map_volume, obs['drone_alt'][indx], obs['heading'][indx], obs['hiker'][indx], obs['drone_position'][indx])
