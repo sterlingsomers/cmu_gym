@@ -181,7 +181,7 @@ class Runner(object):
             mb_values,
             self.discount,
             mb_done,
-            lambda_par=self.ppo_par.lambda_par if self.is_ppo else 1.0,
+            lambda_par=self.ppo_par.lambda_par if self.is_ppo else 1.0, # change lambda to  something between 1 and 0 else you do not get the nstep reward calculation
             nenvs=self.n_envs,
             maxsteps=self.n_steps
         )
