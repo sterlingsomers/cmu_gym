@@ -270,7 +270,7 @@ def multi_blends(chunk, memory, slots ):
     return [memory.blend(slot,**chunk) for slot in slots]
 
 def vector_similarity(x,y):
-    return 1
+    return 0
     # return distance.euclidean(x,y) / 4.5#max(FC_distances)
     # return distance.cosine(x,y)
 
@@ -367,8 +367,8 @@ if __name__ == "__main__":
 
 
     ###now run the model
-    temperatures = [0.25,0.65,1.0]#.3,0.4,0.5]#.6,0.7,0.8,0.9,1.0]
-    mismatches = [1.0,2.0,4.0,6.0]
+    temperatures = [0.4,0.5]#.3,0.4,0.5]#.6,0.7,0.8,0.9,1.0]
+    mismatches = [100.0, 120.0,160.0]
     parameters = [(x,y) for x in temperatures for y in mismatches]
     used_parameters = {'temperature': [], 'mismatches': []}
     os.chdir(chunks_path)
@@ -406,7 +406,7 @@ if __name__ == "__main__":
         avgJS = sum(JS)/len(JS)
         avgMatch = sum(matches)/len(matches)
 
-        print(repr(parameter[0]) + ' ' + repr(parameter[1]) + ' ' + repr(avgJS) + repr(avgMatch))
+        print(repr(parameter[0]) + ' ' + repr(parameter[1]) + ' ' + repr(avgJS) + ' ' + repr(avgMatch))
 
         save_dict = {'data':data,'Y_test':Y_test,'JS':JS,'matches':matches,'AVGJS':avgJS, 'avgMatch':avgMatch, 'temperature':parameter[0],'mismatch':parameter[1]}
 
