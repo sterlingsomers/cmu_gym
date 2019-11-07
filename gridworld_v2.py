@@ -35,6 +35,7 @@ class gameEnv():
         self.objects = []
         self.partial = partial
         self.bg = np.zeros([size, size])
+        self.num_fires = 3
         self.goal_color = [0,1,0]#[np.random.uniform(), np.random.uniform(), np.random.uniform()]
         self.goal_reward = 1
         self.fire_reward = -1
@@ -63,7 +64,7 @@ class gameEnv():
         # for i in range(self.sizeX - 1): # This creates multiple targets (8 if size.X=9) to be collected thats why it doesnt ever terminate.
         bug = gameOb(self.newPosition(0), 1, self.goal_color, self.goal_reward, 'goal')
         self.objects.append(bug)
-        for i in range(self.sizeX - 1): # It will create 9-1=8 fires in total
+        for i in range(self.num_fires): # It will create 9-1=8 fires in total
             hole = gameOb(self.newPosition(0), 1, [1,0,0], self.fire_reward, 'fire') # REWARD FOR FIRE!!! CHANGE IT ALSO AT checkgoal function
             self.objects.append(hole)
         # state, s_big = self.renderEnv()
@@ -154,7 +155,7 @@ class gameEnv():
                 else: # else its a fire
                     self.objects.append(gameOb(self.newPosition(0), 1, [1,0,0], self.fire_reward, 'fire')) #self.other_color. We keep fire under the red color
                     self.info['fire'] = other.reward
-                    return other.reward, False, self.info # return done=true if you want to reset in case you hit a fire
+                    return other.reward, True, self.info # return done=true if you want to reset in case you hit a fire
         if ended == False:
             return 0.0, False, self.info
             # return -0.01, False
@@ -186,7 +187,7 @@ class gameEnv():
         # # self.fig.show()
         # plt.pause(0.1)
         # plt.close('all')
-        return obs#a, a_big # a is probably a non image representation whereas a_big is an image
+        return obs# both obs are used in reset!!!#a, a_big # a is probably a non image representation whereas a_big is an image
 
     def step(self, action):
         # plt.close('all')

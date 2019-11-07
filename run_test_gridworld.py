@@ -28,7 +28,8 @@ from baselines.common.vec_env.vec_frame_stack import VecFrameStack
 import gym
 
 import gym_gridworld
-from gridworld import gameEnv
+# from gridworld import gameEnv
+from gridworld_v2 import gameEnv
 
 FLAGS = flags.FLAGS
 flags.DEFINE_bool("visualize", True, "Whether to render with pygame.")
@@ -44,7 +45,7 @@ flags.DEFINE_integer("all_summary_freq", 10, "Record all summaries every n batch
 flags.DEFINE_integer("scalar_summary_freq", 5, "Record scalar summaries every n batch")
 flags.DEFINE_string("checkpoint_path", "_files/models", "Path for agent checkpoints")
 flags.DEFINE_string("summary_path", "_files/summaries", "Path for tensorboard summaries") #A2C_custom_maps#A2C-science-allmaps - BEST here for one policy
-flags.DEFINE_string("model_name", "factored_grid_baseline", "Name for checkpoints and tensorboard summaries") # DONT touch TESTING is the best (take out normalization layer in order to work! -- check which parts exist in the restore session if needed)
+flags.DEFINE_string("model_name", "dokimib", "Name for checkpoints and tensorboard summaries") # DONT touch TESTING is the best (take out normalization layer in order to work! -- check which parts exist in the restore session if needed)
 flags.DEFINE_integer("K_batches", 15000, # Batch is like a training epoch!
     "Number of training batches to run in thousands, use -1 to run forever") #(MINE) not for now
 flags.DEFINE_string("map_name", "DefeatRoaches", "Name of a map to use.")
@@ -62,7 +63,7 @@ flags.DEFINE_float("entropy_weight_action", 0.001, "entropy of action-id distrib
 flags.DEFINE_float("ppo_lambda", 0.95, "lambda parameter for ppo")
 flags.DEFINE_integer("ppo_batch_size", None, "batch size for ppo, if None use n_steps_per_batch")
 flags.DEFINE_integer("ppo_epochs", 3, "epochs per update")
-flags.DEFINE_enum("policy_type", "FullyConv", ["MetaPolicy", "FullyConv", "FactoredPolicy", "Relational", "AlloAndAlt", "FullyConv3D"], "Which type of Policy to use")
+flags.DEFINE_enum("policy_type", "FactoredPolicy", ["MetaPolicy", "FullyConv", "FactoredPolicy", "Relational", "AlloAndAlt", "FullyConv3D"], "Which type of Policy to use")
 flags.DEFINE_enum("agent_mode", ACMode.A2C, [ACMode.A2C, ACMode.PPO], "if should use A2C or PPO")
 
 ### NEW FLAGS ####
@@ -167,12 +168,26 @@ def main():
         num_actions=envs.action_space.n,
         num_envs= FLAGS.n_envs,
         nsteps= FLAGS.n_steps_per_batch,
+        obs_dim=envs.observation_space.shape,
         policy=FLAGS.policy_type
     )
     # Build Agent
     agent.build_model()
     if os.path.exists(full_chekcpoint_path):
-        agent.load(full_chekcpoint_path) #(MINE) LOAD!!!
+        # agent.load(full_chekcpoint_path) #(MINE) LOAD!!!
+        head_train_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "theta/heads")
+        tvars = tf.trainable_variables()
+        for v in (head_train_vars):
+            i = 0
+            for tv in tvars:
+                if v.name == tv.name: del tvars[i]
+                i += 1
+        s_heads = tf.train.Saver(var_list=head_train_vars)
+        s_tvars = tf.train.Saver(var_list=tvars)
+        ckpt = tf.train.get_checkpoint_state(full_chekcpoint_path)
+        s_heads.restore(agent.sess, ckpt.model_checkpoint_path)
+        s_tvars.restore(agent.sess,
+                        '/home/konstantinos/Documents/Projects/cmu_gym_lstm/_files/models/dokimib/model.ckpt-2000')
     else:
         agent.init()
 
@@ -294,7 +309,7 @@ def main():
                 gameDisplay.blit(txt, area)
 
             def process_img(img, x,y):
-                # swap the axes else the image will come not the same as the matplotlib one
+                # swap the axes else the image will not come the same as the matplotlib one
                 img = img.transpose(1,0,2)
                 surf = pygame.surfarray.make_surface(img)
                 surf = pygame.transform.scale(surf, (300, 300))
@@ -319,7 +334,7 @@ def main():
 
                 while done==0:
                     # INTERACTION
-                    if FLAGS.policy_type == 'Factored':
+                    if FLAGS.policy_type == 'FactoredPolicy':
                         obs, action, value, value_goal, value_fire, reward, done, info, fc, action_probs = runner.run_trained_factored_batch()
                     else:
                         obs, action, value, reward, done, info, fc, action_probs = runner.run_trained_batch()
@@ -337,9 +352,9 @@ def main():
                     # BLIT!!!
                     # First Background covering everyything from previous session
                     gameDisplay.fill(DARK_BLUE)
-                    map_xy = obs[0]['img']
+                    map_xy = obs[0]#['img']
                     process_img(map_xy, 20, 20)
-                    if FLAGS.policy_type == 'Factored':
+                    if FLAGS.policy_type == 'FactoredPolicy':
                         raw_data, canvas = create_value_hist(np.round(value,3), np.round(value_goal,3), np.round(value_fire,3))
                         size = canvas.get_width_height()
                         surf = pygame.image.fromstring(raw_data, size, "RGB")

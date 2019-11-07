@@ -69,8 +69,8 @@ def _get_placeholders(spatial_dim, nsteps, nenvs, policy_type, obs_d):
             (FEATURE_KEYS.value_target, tf.float32, [None]),
             (FEATURE_KEYS.value_target_goal, tf.float32, [None]),
             (FEATURE_KEYS.value_target_fire, tf.float32, [None]),
-            (FEATURE_KEYS.rgb_screen, tf.float32, [None, obs_d[0], obs_d[1], 3]),  # [None, 32, 100, 100, 3] for LSTM
-            (FEATURE_KEYS.alt_view, tf.float32, [None, obs_d[0], obs_d[1], 3]),  # [None, 32, 100, 100, 3] for LSTM
+            (FEATURE_KEYS.rgb_screen, tf.float32, [None, obs_d[0], obs_d[1], 3]),
+            (FEATURE_KEYS.alt_view, tf.float32, [None, obs_d[0], obs_d[1], 3]),
             (FEATURE_KEYS.player_relative_screen, tf.int32, [None, sd, sd]),
             (FEATURE_KEYS.player_relative_minimap, tf.int32, [None, sd, sd]),
             (FEATURE_KEYS.advantage, tf.float32, [None]),
@@ -328,17 +328,37 @@ class ActorCriticAgent:
                     + self.neg_entropy_action_id * self.entropy_weight_action_id
             )
         elif self.policy_type == 'FactoredPostTraining':
-            loss = (
+            phase=0
+            if phase==1:
+                loss = (
                     self.policy_loss
                     + self.value_loss* self.loss_value_weight
-                    + self.neg_entropy_action_id * self.entropy_weight_action_id
-            ) + (self.value_loss_fire + self.value_loss_goal) * 0.000
+                    + self.neg_entropy_action_id * self.entropy_weight_action_id)#\
+                    # + (self.value_loss_fire + self.value_loss_goal)*0.0 # when it was 0.0000 performance was good--so now might affect more? # You should try take them out of the loss equation completely as with symbolic differentiation might get values
+            else:
+                loss = self.value_loss_fire + self.value_loss_goal
         else:
             loss = (
                 self.policy_loss
                 + self.value_loss * self.loss_value_weight
                 + self.neg_entropy_action_id * self.entropy_weight_action_id
             )
+
+        if self.policy_type == 'FactoredPostTraining':
+            # list of the head variables
+            head_train_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,"theta/heads")
+            tvars = tf.trainable_variables()
+            for v in (head_train_vars):
+                i = 0
+                for tv in tvars:
+                    if v.name == tv.name: del tvars[i]
+                    i += 1
+            ''' PHASE I '''
+            # vars = tvars
+            ''' PHASE II '''
+            vars = head_train_vars
+        else:
+            vars = None # default
 
         self.train_op = layers.optimize_loss(
             loss=loss,
@@ -347,8 +367,10 @@ class ActorCriticAgent:
             clip_gradients=self.max_gradient_norm, # Caps the gradients at the value self.max_gradient_norm
             summaries=OPTIMIZER_SUMMARIES,
             learning_rate=None,
+            variables=vars,
             name="train_op"
         )
+
         if (self.policy_type == 'FactoredPolicy') or (self.policy_type == 'FactoredPostTraining'):
             self._scalar_summary("value_goal/estimate", tf.reduce_mean(self.value_estimate_goal)) # no correct!mean is for all samples but we use masks!!!
             self._scalar_summary("value_goal/target", tf.reduce_mean(self.placeholders.value_target_goal)) # no correct!mean is for all samples
@@ -377,7 +399,9 @@ class ActorCriticAgent:
         #tf.summary.image('convs output', tf.reshape(self.theta.map_output,[-1,25,25,64]))
 
         self.init_op = tf.global_variables_initializer()
-        self.saver = tf.train.Saver(max_to_keep=2)
+        self.saver_orig = tf.train.Saver(max_to_keep=2) # keeps only the last 2 set of params and model checkpoints. If you want more increase the umber to keep
+        # This saves and restores only the variables in the var_list
+        self.saver = tf.train.Saver(max_to_keep=2, var_list=tvars)
         self.all_summary_op = tf.summary.merge_all(tf.GraphKeys.SUMMARIES)
         self.scalar_summary_op = tf.summary.merge(tf.get_collection(self._scalar_summary_key))
         #self.beholder = beholder_lib.Beholder(logdir=LOG_DIRECTORY)
@@ -507,7 +531,7 @@ class ActorCriticAgent:
         if write_all_summaries or write_scalar_summaries:
             self.summary_writer.add_summary(r[-1], global_step=self.train_step)
 
-        self.train_step += 1
+        self.train_step += 1 # Should be equal to the "batches" variable (name is used wrong by pekaalto, should be updates)
 
     def train_recurrent(self, input_dict, mb_l, prev_reward, prev_action): # The input dictionary is designed in the runner with advantage function and other stuff in order to be used in the training.
         feed_dict = self._input_to_feed_dict(input_dict)
@@ -582,14 +606,15 @@ class ActorCriticAgent:
         return self.sess.run([self.value_estimate_goal, self.value_estimate_fire, self.theta.value_estimate],
                              feed_dict=feed_dict)
 
-    def flush_summaries(self):
+    def flush_summaries(self):# used in run_agent.py/ _save_if_training
         self.summary_writer.flush()
 
-    def save(self, path, step=None):
+    def save(self, path, step=None): # used in run_agent.py/ _save_if_training
         os.makedirs(path, exist_ok=True)
         step = step or self.train_step
         print("saving model to %s, step %d" % (path, step))
-        self.saver.save(self.sess, path + '/model.ckpt', global_step=step)
+        # self.saver.save(self.sess, path + '/model.ckpt', global_step=step)
+        self.saver_orig.save(self.sess, path + '/model.ckpt', global_step=step)
 
     def load(self, path):
         ckpt = tf.train.get_checkpoint_state(path)

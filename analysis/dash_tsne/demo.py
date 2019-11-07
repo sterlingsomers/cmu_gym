@@ -42,7 +42,7 @@ data_dict = {
 IMAGE_DATASETS = "mnist_3000"
 WORD_EMBEDDINGS = ("wikipedia_3000", "twitter_3000")
 df = pd.read_pickle(
-    '/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/all_data_old_TB_tSNE3D.df') #all_data_tsne3d
+    '/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/all_data_tsne3d.df') #all_data_tsne3d#all_data_old_TB_tSNE3D
 
 pickle_in = open('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/feat2value2feat_mapping.dct','rb')
 map_volume = pickle.load(pickle_in)
