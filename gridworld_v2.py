@@ -4,7 +4,7 @@ import random
 import itertools
 import scipy.ndimage
 import scipy.misc
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 
 from gym import spaces
 

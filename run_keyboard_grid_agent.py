@@ -5,9 +5,10 @@ from datetime import datetime
 from time import sleep
 import pickle
 import pygame, time, random
-
+import math
 from absl import flags
-from gridworld import gameEnv
+from gridworld_v2 import gameEnv
+from scipy.spatial import distance
 # import gym_gridworld.envs.gridworld_env as GridWorld
 
 FLAGS = flags.FLAGS
@@ -161,6 +162,7 @@ def main():
 
         drop_flag = 0
         done = 0
+        step_data = []
         while done==0:
 
             # mb_obs.append(nav_runner.latest_obs)
@@ -178,8 +180,8 @@ def main():
             if event.type == pygame.QUIT:
                 print('participant data written.')
                 timestr = timestr = time.strftime("%Y%m%d-%H%M%S")
-                # with open('./data/human-data/' + flags.FLAGS.participant + '-' + timestr + '.tj', 'wb') as handle:
-                #     pickle.dump(human_data, handle)
+                with open('./data/human-data/' + flags.FLAGS.participant + '-' + timestr + '.tj', 'wb') as handle:
+                    pickle.dump(step_data, handle)
                 pygame.quit()
                 sys.exit()
             elif event.type == pygame.KEYDOWN:
@@ -203,6 +205,35 @@ def main():
             # human_data['headings'].append(env.heading)
             # human_data['altitudes'].append(env.altitude)
             # human_data['actions'].append(action)
+            print('')
+            step = {}
+
+            for thing in env.objects:
+                if thing.name == 'hero':
+                    step['hero'] = (thing.x,thing.y)
+                    print('')
+                if thing.name == 'goal':
+                    step['goal'] = (thing.x,thing.y)
+                if thing.name == 'fire':
+                    fire_val = 0
+                    for key in step.keys():
+                        if 'fire' in key:
+                            fire_val += 1
+                    fire_str = 'fire' + repr(fire_val)
+                    step[fire_str] = (thing.x,thing.y)
+
+            # r = distance.euclidean(hero,goal)
+            # #angle = math.acos((hero[0] - goal[0])/r)
+            # #angle = math.atan2(hero[0]-goal[0], hero[1]-goal[1])
+            # angle = math.atan2(goal[1]-hero[1], goal[0]-hero[0])
+
+            step['action'] = action
+            step_data.append(step)
+
+
+
+
+
 
             observation, reward, done, info = env.step(action)
 
@@ -242,7 +273,7 @@ def main():
     print("human data being written.")
     timestr = timestr = time.strftime("%Y%m%d-%H%M%S")
     # with open('./data/human-data/' + flags.FLAGS.participant + '-' + timestr + '.tj', 'wb') as handle:
-    #     pickle.dump(human_data, handle)
+    #      pickle.dump(step_data, handle)
 
 
 if __name__ == "__main__":

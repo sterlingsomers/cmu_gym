@@ -3,6 +3,8 @@ import random
 import itertools
 import scipy.ndimage
 import scipy.misc
+import matplotlib
+matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 
 from gym import spaces
