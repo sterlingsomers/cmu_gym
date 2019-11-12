@@ -7,7 +7,7 @@ import pickle
 import pygame, time, random
 
 from absl import flags
-from gridworld import gameEnv
+from gridworld_v2 import gameEnv
 # import gym_gridworld.envs.gridworld_env as GridWorld
 
 FLAGS = flags.FLAGS
