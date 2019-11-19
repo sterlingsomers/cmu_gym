@@ -112,7 +112,7 @@ def main():
 
     dictionary = {}
     running = True
-    # done = 0
+    step_data = []
     while episode_counter <= (FLAGS.episodes - 1):# and running == True: #and done == False:
         print('Episode: ', episode_counter)
         # human_data = {}
@@ -162,7 +162,7 @@ def main():
 
         drop_flag = 0
         done = 0
-        step_data = []
+
         while done==0:
 
             # mb_obs.append(nav_runner.latest_obs)
@@ -180,7 +180,7 @@ def main():
             if event.type == pygame.QUIT:
                 print('participant data written.')
                 timestr = timestr = time.strftime("%Y%m%d-%H%M%S")
-                with open('./data/human-data/' + flags.FLAGS.participant + '-' + timestr + '.tj', 'wb') as handle:
+                with open('./data/human-data/fire-world/' + flags.FLAGS.participant + '-' + timestr + '.tj', 'wb') as handle:
                     pickle.dump(step_data, handle)
                 pygame.quit()
                 sys.exit()
@@ -229,6 +229,7 @@ def main():
 
             step['action'] = action
             step_data.append(step)
+            print('debug')
 
 
 
