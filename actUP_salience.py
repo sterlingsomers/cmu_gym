@@ -290,7 +290,7 @@ m = Memory(noise=0.0, decay=0.0, temperature=t, threshold=-100.0, mismatch=MP,op
 #                                                                     0.05,0.15,0.2,0.25,0.3,0.35,
 #                                                                     0.4,0.45,0.5,0.55,0.6,
 #                                                                     0.65,0.7,0.75,0.8,0.85,0.9,0.95,1.0])
-funct = lambda f0, f1, f2, f3, f4, f5, f6, f7: 2* f0 + f1 + f2 + f3 + f4 + f5 + f6 + f7
+funct = lambda f0, f1, f2: f0 + f1 + f2
 chunks, vector_features, vector_targets = curate_function_chunks(n=10000, func=funct,values=[0,1], vector=2)
 
 # chunks = [{'f0':0,'f1':0, 't0':0},
