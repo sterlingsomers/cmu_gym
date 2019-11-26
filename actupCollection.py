@@ -279,7 +279,7 @@ def custom_similarity(x,y):
     return 1 - abs(x - y)
 
 #set the similarity function
-set_similarity_function(custom_similarity, *observation_slots)
+    set_similarity_function(custom_similarity, *observation_slots)
 set_similarity_function(vector_similarity, 'fc')
 
 if __name__ == "__main__":
