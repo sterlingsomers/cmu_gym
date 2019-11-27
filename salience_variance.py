@@ -8,7 +8,8 @@ import numpy as np
 
 from multiprocessing import Pool
 from functools import partial
-import dill as pickle
+import pickle
+import time
 
 from pyactup import *
 
@@ -184,10 +185,15 @@ if __name__ == "__main__":
     funct = lambda f0, f1, f2: 2*f0 + f1 + f2 #the function I want the data to represent
     ACT_params = {'MP':1, 't':1}
 
+    all_blend_means = {}
+    all_salience_means = {}
+    all_blend_std = {}
+    all_salience_std = {}
+
     data = curate_function_chunks(n=10000, func=funct,distribution='uniform', distribution_args={'low':0, 'high':1},chunks=True)
-    fig, (ax1, ax2) = plt.subplots(2, 1)
-    fig.suptitle("2f0 + f1 + f2")
-    for sigma in [0.2,0.4,0.5]:
+    # fig, (ax1, ax2) = plt.subplots(2, 1)
+    # fig.suptitle("2f0 + f1 + f2")
+    for sigma in [0.1,0.25,0.5]:
         probes = curate_probes(n=100, func=funct, distribution='truncnorm', distribution_args={'low':0, 'high':1, 'mu':0.5, 'sigma':sigma}, chunks=True)
 
         observation_slots = list(inspect.signature(funct).parameters)
@@ -212,50 +218,66 @@ if __name__ == "__main__":
         salience_mean_results = []
         salience_sd_results = []
         mismatch_penalties = []
-        for i in [1,5,10]:#range(1,6):
+        for i in [1,5,10,20]:#The mismatch penalties
         ###multi processing
+            all_blend_means[(sigma, i)] = []
+            all_blend_std[(sigma,i)] = []
+            all_salience_means[(sigma,i)] = []
+            all_salience_std[(sigma,i)] = []
+
             p = Pool(processes=8)
             #multi_p = partial(multi_blends, memory=m, slots=action_slots)
             multi_p = partial(multi_blends_salience, observation_slots=observation_slots, action_slots=action_slots, chunks=data, noise=0.0, decay=0.0, temperature=1.0, threshold=-100.0, mismatch=i)
             results = p.map(multi_p, probes)
             mean_difference_blends = np.mean([abs(result[0][0] - result[1][0]) for result in results])
-            blend_results.append(mean_difference_blends)
+            all_blend_means[(sigma,i)].append(mean_difference_blends)
+            # blend_results.append(mean_difference_blends)
             sd_blends = np.std([abs(result[0][0] - result[1][0]) for result in results])
-            blend_sd_results.append(sd_blends)
+            all_blend_std[(sigma,i)].append(sd_blends)
+            # blend_sd_results.append(sd_blends)
             salience_dictionaries = [result[2] for result in results]
             salience_values = [sd[os] for sd in salience_dictionaries for os in observation_slots]
             salince_values = np.asarray(salience_values,dtype=np.float32)
             salience_values_array = np.reshape(salience_values, (-1,3))
-            salience_mean_results.append(np.mean(salience_values_array,axis=0))
-            salience_sd_results.append(np.std(salience_values_array,axis=0))
-            mismatch_penalties.append(i)
+            all_salience_means[(sigma,i)].append(np.mean(salience_values_array,axis=0))
+            all_salience_std[(sigma,i)].append(np.std(salience_values_array,axis=0))
+            # salience_mean_results.append(np.mean(salience_values_array,axis=0))
+            # salience_sd_results.append(np.std(salience_values_array,axis=0))
+            # mismatch_penalties.append(i)
 
 
 
 
+    ###save the blend and salience to a dictionary by parameter tuple
+    data = {}
+    data['blend_means'] = all_blend_means
+    data['blend_std'] = all_blend_std
+    data['salience_means'] = all_salience_means
+    data['salience_std'] = all_salience_std
 
-        # blends = [abs(result[0][0]-result[1][0]) for result in results]
-        # x = range(1,len(blends)+1)
-        #
-        # ax1.plot(x, blends)
-        # for mean_blends in blend_results:
-        #     ax1_x = range(1, len(mean_blends)+1)
-        #     ax1.plot(ax1_x, mean_blends)
-        ax1_x = range(1, len(blend_results)+1)
-        ax1.errorbar(mismatch_penalties, blend_results, yerr=blend_sd_results, fmt='--o', label='mean diff. sigma:' + repr(sigma))
-        ax1.legend()
-        ax1.set_title("mean diff. blend vs ground truth.")
+    timestr = time.strftime("%Y%m%d-%H%M%S")
+    filename = 'salience_variance_data-' + timestr + '.dict'
+    with open(filename, 'wb') as handle:
+        pickle.dump(data, handle)
 
-        for n in range(len(salience_mean_results)):#mean_set in salience_mean_results:
-            mean_set = salience_mean_results[n]
-            sd_set = salience_sd_results[n]
-            ax2_x = observation_slots#range(1,len(mean_set)+1)
-            MP = mismatch_penalties[n]
-            # ax2.scatter(ax2_x, mean_set, label='MP'+repr(i+1))#s=[sd * 1000 for sd in sd_set],
-            ax2.errorbar(ax2_x, mean_set, yerr=sd_set ,label='sigma: ' + repr(sigma) + ' MP: '+repr(MP),fmt='--o')
-        ax2.legend()
-        ax2.set_title("mean salience")
 
-    plt.show()
+
+
+    #     ax1_x = range(1, len(blend_results)+1)
+    #     ax1.errorbar(mismatch_penalties, blend_results, yerr=blend_sd_results, fmt='--o', label='mean diff. sigma:' + repr(sigma))
+    #     ax1.legend()
+    #     ax1.set_title("mean diff. blend vs ground truth.")
+    #
+    #     for n in range(len(salience_mean_results)):#mean_set in salience_mean_results:
+    #         mean_set = salience_mean_results[n]
+    #         sd_set = salience_sd_results[n]
+    #         ax2_x = observation_slots#range(1,len(mean_set)+1)
+    #         MP = mismatch_penalties[n]
+    #         # ax2.scatter(ax2_x, mean_set, label='MP'+repr(i+1))#s=[sd * 1000 for sd in sd_set],
+    #         ax2.errorbar(ax2_x, mean_set, yerr=sd_set ,label='sigma: ' + repr(sigma) + ' MP: '+repr(MP),fmt='--o')
+    #     ax2.legend()
+    #     ax2.set_title("mean salience")
+    #
+    # plt.show()
 
 
