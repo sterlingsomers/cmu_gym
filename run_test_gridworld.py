@@ -24,28 +24,28 @@ from baselines import logger
 from baselines.bench import Monitor
 from baselines.common import set_global_seeds
 from baselines.common.vec_env.subproc_vec_env import SubprocVecEnv
-from baselines.common.vec_env.vec_frame_stack import VecFrameStack
+# from baselines.common.vec_env.vec_frame_stack import VecFrameStack
 import gym
 
-import gym_gridworld
+# import gym_gridworld
 # from gridworld import gameEnv
 from gridworld_v2 import gameEnv
 
 FLAGS = flags.FLAGS
 flags.DEFINE_bool("visualize", True, "Whether to render with pygame.")
-flags.DEFINE_float("sleep_time", 1.0, "Time-delay in the demo")
+flags.DEFINE_float("sleep_time", 0.0, "Time-delay in the demo")
 flags.DEFINE_integer("resolution", 8, "Resolution for screen and minimap feature layers.")
 flags.DEFINE_integer("step_mul", 100, "Game steps per agent step.")
 flags.DEFINE_integer("step2save", 500, "Game step to save the model.") #A2C every 1000, PPO 250
 flags.DEFINE_integer("n_envs", 2, "Number of environments to run in parallel")
-flags.DEFINE_integer("episodes", 10, "Number of complete episodes")
+flags.DEFINE_integer("episodes", 200, "Number of complete episodes to save")
 flags.DEFINE_integer("n_steps_per_batch", 32,
     "Number of steps per batch, if None use 8 for a2c and 128 for ppo")  # (MINE) TIMESTEPS HERE!!! You need them cauz you dont want to run till it finds the beacon especially at first episodes - will take forever
 flags.DEFINE_integer("all_summary_freq", 10, "Record all summaries every n batch")
 flags.DEFINE_integer("scalar_summary_freq", 5, "Record scalar summaries every n batch")
 flags.DEFINE_string("checkpoint_path", "_files/models", "Path for agent checkpoints")
 flags.DEFINE_string("summary_path", "_files/summaries", "Path for tensorboard summaries") #A2C_custom_maps#A2C-science-allmaps - BEST here for one policy
-flags.DEFINE_string("model_name", "dokimib", "Name for checkpoints and tensorboard summaries") # DONT touch TESTING is the best (take out normalization layer in order to work! -- check which parts exist in the restore session if needed)
+flags.DEFINE_string("model_name", "factored_grid_allinloss", "Name for checkpoints and tensorboard summaries") # DONT touch TESTING is the best (take out normalization layer in order to work! -- check which parts exist in the restore session if needed)
 flags.DEFINE_integer("K_batches", 15000, # Batch is like a training epoch!
     "Number of training batches to run in thousands, use -1 to run forever") #(MINE) not for now
 flags.DEFINE_string("map_name", "DefeatRoaches", "Name of a map to use.")
@@ -174,20 +174,20 @@ def main():
     # Build Agent
     agent.build_model()
     if os.path.exists(full_chekcpoint_path):
-        # agent.load(full_chekcpoint_path) #(MINE) LOAD!!!
-        head_train_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "theta/heads")
-        tvars = tf.trainable_variables()
-        for v in (head_train_vars):
-            i = 0
-            for tv in tvars:
-                if v.name == tv.name: del tvars[i]
-                i += 1
-        s_heads = tf.train.Saver(var_list=head_train_vars)
-        s_tvars = tf.train.Saver(var_list=tvars)
-        ckpt = tf.train.get_checkpoint_state(full_chekcpoint_path)
-        s_heads.restore(agent.sess, ckpt.model_checkpoint_path)
-        s_tvars.restore(agent.sess,
-                        '/home/konstantinos/Documents/Projects/cmu_gym_lstm/_files/models/dokimib/model.ckpt-2000')
+        agent.load(full_chekcpoint_path) #(MINE) LOAD!!!
+        # head_train_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "theta/heads")
+        # tvars = tf.trainable_variables()
+        # for v in (head_train_vars):
+        #     i = 0
+        #     for tv in tvars:
+        #         if v.name == tv.name: del tvars[i]
+        #         i += 1
+        # s_heads = tf.train.Saver(var_list=head_train_vars)
+        # s_tvars = tf.train.Saver(var_list=tvars)
+        # ckpt = tf.train.get_checkpoint_state(full_chekcpoint_path)
+        # s_heads.restore(agent.sess, ckpt.model_checkpoint_path)
+        # s_tvars.restore(agent.sess,
+        #                 '/home/konstantinos/Documents/Projects/cmu_gym_lstm/_files/models/dokimib/model.ckpt-2000')
     else:
         agent.init()
 
@@ -315,9 +315,24 @@ def main():
                 surf = pygame.transform.scale(surf, (300, 300))
                 gameDisplay.blit(surf, (x, y))
 
+            dictionary = {}
             running = True
+            ''' EPISODE LOOP '''
             while runner.episode_counter <= (FLAGS.episodes - 1) and running==True:
                 print('Episode: ', runner.episode_counter)
+
+                # Init storage structures
+                dictionary[runner.episode_counter] = {}
+                mb_actions = []
+                mb_action_probs = []
+                mb_fc = []
+                mb_rewards = []
+                mb_values = []
+                if FLAGS.policy_type == 'FactoredPolicy':
+                    mb_values_goal = []
+                    mb_values_fire = []
+                mb_burn = []
+                mb_map = []
 
                 runner.reset_demo()  # Cauz of differences in the arrangement of the dictionaries
                 map_xy = runner.latest_obs['rgb_screen'][0]
@@ -331,23 +346,41 @@ def main():
                 # Timestep counter
                 t=0
                 done = 0
-
+                ''' TIMESTEP LOOP '''
                 while done==0:
+
+                    # mb_obs.append(runner.latest_obs)
+                    state = runner.envs.renderEnv()
+                    mb_map.append(state['small'])
+
                     # INTERACTION
                     if FLAGS.policy_type == 'FactoredPolicy':
                         obs, action, value, value_goal, value_fire, reward, done, info, fc, action_probs = runner.run_trained_factored_batch()
                     else:
                         obs, action, value, reward, done, info, fc, action_probs = runner.run_trained_batch()
 
-                    # screen_mssg_variable("Value    : ", np.round(value,3), (168, 350))
-                    # screen_mssg_variable("Reward: ", np.round(reward,3), (168, 372))
+                    if done and not info['success']:
+                        # mb_crash.append(runner.envs.crash)
+                        print('Crash, terminate episode')
+                        break # Also we prevent new data for the new time step to be saved
+
+                    mb_actions.append(action)
+                    mb_action_probs.append(action_probs)
+                    mb_rewards.append(reward)
+                    mb_fc.append(fc)
+                    mb_values.append(value)
+                    if FLAGS.policy_type == 'FactoredPolicy':
+                        mb_values_goal.append(value_goal)
+                        mb_values_fire.append(value_fire)
+                    if reward<0: mb_burn.append(1)
+                    else: mb_burn.append(0)
+
+
+                    screen_mssg_variable("Value    : ", np.round(value,3), (168, 350))
+                    screen_mssg_variable("Reward: ", np.round(reward,3), (168, 372))
                     pygame.display.update()
                     pygame.event.get()
                     sleep(sleep_time)
-
-                    # if done:
-                        # score = sum(mb_rewards)
-                        # print(">>>>>>>>>>>>>>>>>>>>>>>>>>> episode %d ended in %d steps. Score %f" % (runner.episode_counter, t, score))
 
                     # BLIT!!!
                     # First Background covering everyything from previous session
@@ -370,8 +403,33 @@ def main():
                     if t == 70:
                         break
 
+                dictionary[runner.episode_counter]['actions'] = mb_actions
+                dictionary[runner.episode_counter]['rewards'] = mb_rewards
+                dictionary[runner.episode_counter]['values'] = mb_values
+                if FLAGS.policy_type == 'FactoredPolicy':
+                    dictionary[runner.episode_counter]['values_goal'] = mb_values_goal
+                    dictionary[runner.episode_counter]['values_fire'] = mb_values_fire
+                dictionary[runner.episode_counter]['burn'] = mb_burn
+                dictionary[runner.episode_counter]['action_probs'] = mb_action_probs
+                dictionary[runner.episode_counter]['map'] = mb_map
+                dictionary[runner.episode_counter]['fc'] = mb_fc
+
                 runner.episode_counter += 1
                 clock.tick(15)
+
+            print("...saving dictionary.")
+            #TODO: IMPORT THE onepolicy_analysis.py FILE AND CONVERT IT INTO PANDAS
+            folder = '/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/firegrid/'
+            now = datetime.now()
+            timestamp = str(now.strftime("%Y_%b%d_time%H-%M")) # -%S for seconds
+            path = folder + timestamp + '.dct'
+            pickle_in = open(path,'wb')
+            pickle.dump(dictionary, pickle_in)
+
+            # with open('./data/all_data' + map_name + '_' + drone_init_loc + '_' + drone_head_alt + '_' + hiker_loc + str(FLAGS.episodes) + '.lst', 'wb') as handle:
+            #     pickle.dump(all_data, handle)# Saves a list (seems larger file)
+            # with open('./data/All_maps_20x20_500.tj', 'wb') as handle:
+            #     pickle.dump(dictionary, handle)
 
         except KeyboardInterrupt:
             pass

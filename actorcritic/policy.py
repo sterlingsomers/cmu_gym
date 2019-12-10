@@ -24,8 +24,8 @@ class FullyConvPolicy:
             inputs=inputs,
             data_format="NHWC",
             num_outputs=32,
-            kernel_size=4, #8
-            stride=2,#4
+            kernel_size=8, #4, orig:8
+            stride=4,#2, orig:4
             padding='SAME',
             activation_fn=tf.nn.relu,
             scope="%s/conv1" % name,
@@ -35,7 +35,7 @@ class FullyConvPolicy:
             inputs=conv1,
             data_format="NHWC",
             num_outputs=64,
-            kernel_size=3, #4
+            kernel_size=4, #3, orig:4
             stride=1,#,2
             padding='SAME',
             activation_fn=tf.nn.relu,
@@ -135,7 +135,7 @@ class FullyConvPolicy:
             trainable=self.trainable
         )
         # Add layer normalization for better stability
-        self.fc1 = layers.layer_norm(self.fc1,trainable=self.trainable) # VERY BAD FOR THE 2D GRIDWORLD!!!
+        # self.fc1 = layers.layer_norm(self.fc1,trainable=self.trainable) # VERY BAD FOR THE 2D GRIDWORLD!!!
 
         action_id_probs = layers.fully_connected(
             self.fc1,

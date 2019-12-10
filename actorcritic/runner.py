@@ -153,17 +153,25 @@ class Runner(object):
 
             #Check for all t (timestep/observation in obs_raw which t has the last state true, meaning it is the last state
             # IF MAX_STEPS OR GOAL REACHED
-            # You can use as below for obs_raw[4] which is success of failure
-            #print(obs_raw[2])
-            indx=0 # env count
-            for t in obs_raw[2]: # Monitor returns additional stuff such as epis_reward and epis_length etc apart the obs, r, done, info
-                #obs_raw[2] = done = [True, False, False, True,...] each element corresponds to an env
-                if t == True: # done=true
-                    # Put reward in scores
+            if obs_raw[2].any(): # At least one env has done=True
+                for i in (np.argwhere(obs_raw[2])): # Run the loop for ONLY the envs that have finished
+                    indx = i[0] # i will contain in [] the index of the env that has finished
                     epis_reward = obs_raw[3][indx]['episode']['r']
                     epis_length = obs_raw[3][indx]['episode']['l']
                     last_step_r = obs_raw[1][indx]
-                    self._handle_episode_end(epis_reward, epis_length, last_step_r) # The printing score process is NOT a parallel process apparrently as you input every reward (t) independently
+                    self._handle_episode_end(epis_reward, epis_length, last_step_r)
+                    # self.latest_obs[indx] = self.envs
+            # You can use as below for obs_raw[4] which is success of failure
+            #print(obs_raw[2])
+            # indx=0 # env count
+            # for t in obs_raw[2]: # Monitor returns additional stuff such as epis_reward and epis_length etc apart the obs, r, done, info
+            #     #obs_raw[2] = done = [True, False, False, True,...] each element corresponds to an env
+            #     if t == True: # done=true
+            #         # Put reward in scores
+            #         epis_reward = obs_raw[3][indx]['episode']['r']
+            #         epis_length = obs_raw[3][indx]['episode']['l']
+            #         last_step_r = obs_raw[1][indx]
+            #         self._handle_episode_end(epis_reward, epis_length, last_step_r) # The printing score process is NOT a parallel process apparrently as you input every reward (t) independently
                 indx = indx + 1 # finished envs count
             # for t in obs_raw:
             #     if t.last():
@@ -262,15 +270,22 @@ class Runner(object):
             mb_done[:, n] = [t for t in obs_raw[2]]
 
             # IF MAX_STEPS OR GOAL REACHED
-            indx=0 # env count
-            for t in obs_raw[2]: # Monitor returns additional stuff such as epis_reward and epis_length etc apart the obs, r, done, info
-                #obs_raw[2] = done = [True, False, False, True,...] each element corresponds to an env
-                if t == True: # done=true
-                    # Put reward in scores
+            if obs_raw[2].any(): # At least one env has done=True
+                for i in (np.argwhere(obs_raw[2])): # Run the loop for ONLY the envs that have finished
+                    indx = i[0]
                     epis_reward = obs_raw[3][indx]['episode']['r']
                     epis_length = obs_raw[3][indx]['episode']['l']
                     last_step_r = obs_raw[1][indx]
-                    self._handle_episode_end(epis_reward, epis_length, last_step_r) # The printing score process is NOT a parallel process apparrently as you input every reward (t) independently
+                    self._handle_episode_end(epis_reward, epis_length, last_step_r)
+            # indx=0 # env count
+            # for t in obs_raw[2]: # Monitor returns additional stuff such as epis_reward and epis_length etc apart the obs, r, done, info
+            #     #obs_raw[2] = done = [True, False, False, True,...] each element corresponds to an env
+            #     if t == True: # done=true
+            #         # Put reward in scores
+            #         epis_reward = obs_raw[3][indx]['episode']['r']
+            #         epis_length = obs_raw[3][indx]['episode']['l']
+            #         last_step_r = obs_raw[1][indx]
+            #         self._handle_episode_end(epis_reward, epis_length, last_step_r) # The printing score process is NOT a parallel process apparrently as you input every reward (t) independently
                 indx = indx + 1 # finished envs count
             # for t in obs_raw:
             #     if t.last():

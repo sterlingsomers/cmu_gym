@@ -12,7 +12,7 @@ from baselines.ppo2.policies import CnnPolicy, LstmPolicy, LnLstmPolicy
 #from gym_gridworld_opeanai_viz import gym_grid
 import gym_gridworld
 
-
+''' TRAIN '''
 def train(env_id, num_timesteps, seed, policy, lrschedule, num_env):
     if policy == 'cnn':
         policy_fn = CnnPolicy

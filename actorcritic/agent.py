@@ -9,6 +9,7 @@ from actorcritic.policy import FullyConvPolicy, MetaPolicy, RelationalPolicy, Fu
 from common.preprocess import ObsProcesser, FEATURE_KEYS, AgentInputTuple
 from common.util import weighted_random_sample, select_from_each_row, ravel_index_pairs
 import tensorboard.plugins.beholder as beholder_lib
+import saliency
 
 #LOG_DIRECTORY = '/tmp/beholder-demo/SCII'
 LOG_DIRECTORY = '_files/summaries/Test'
@@ -399,13 +400,23 @@ class ActorCriticAgent:
         #tf.summary.image('convs output', tf.reshape(self.theta.map_output,[-1,25,25,64]))
 
         self.init_op = tf.global_variables_initializer()
-        self.saver_orig = tf.train.Saver(max_to_keep=2) # keeps only the last 2 set of params and model checkpoints. If you want more increase the umber to keep
+        # self.saver_orig = tf.train.Saver(max_to_keep=2) # used in 2 phase training# keeps only the last 2 set of params and model checkpoints. If you want more increase the umber to keep
+        self.saver = tf.train.Saver(max_to_keep=2)
         # This saves and restores only the variables in the var_list
-        self.saver = tf.train.Saver(max_to_keep=2, var_list=tvars)
+        # self.saver = tf.train.Saver(max_to_keep=2, var_list=tvars) # 2 phase training
         self.all_summary_op = tf.summary.merge_all(tf.GraphKeys.SUMMARIES)
         self.scalar_summary_op = tf.summary.merge(tf.get_collection(self._scalar_summary_key))
         #self.beholder = beholder_lib.Beholder(logdir=LOG_DIRECTORY)
         #tf.summary.image('spatial policy', tf.reshape(self.theta.spatial_action_logits, [-1, 32, 32, 1]))
+
+        ''' Necessary for Policy Saliencies'''
+            # Below: Get the pi(at|st)
+            # logits = self.graph.get_tensor_by_name('theta/action_id/Softmax:0')  # form of tensors <op name>:<out indx>
+            # self.neuron_selector = tf.placeholder(tf.int64)
+            # pi_at = logits[0][
+            #     self.neuron_selector]  # logits is (?,5), logits[0 or 1] is (5,) dims and logits[0][smth] will return 1 of the 5
+            # self.pi_at = tf.reshape(pi_at, [1])
+
 
     def _input_to_feed_dict(self, input_dict):
         return {k + ":0": v for k, v in input_dict.items()} # Add the :0 after the name of each feature
@@ -506,6 +517,79 @@ class ActorCriticAgent:
             [self.sampled_action_id, self.value_estimate, self.value_estimate_goal, self.value_estimate_fire, self.theta.fc1, self.theta.action_id_probs],
             feed_dict=feed_dict#TODO: ERASE THIS FOR DRONE ENV!!!
         )
+        return action_id, value_estimate, value_estimate_goal, value_estimate_fire, fc, action_probs
+
+    def step_eval_factored_saliency(self, obs):
+        # (MINE) Pass the observations through the net
+
+        # feed_dict = {'rgb_screen:0' : obs['rgb_screen']},
+        #              # 'alt_view:0': obs['alt_view']}
+        feed_dict = self._input_to_feed_dict(obs)  # FireGrid
+
+        action_id, value_estimate, value_estimate_goal, value_estimate_fire, fc, action_probs = self.sess.run(
+            [self.sampled_action_id, self.value_estimate, self.value_estimate_goal, self.value_estimate_fire, self.theta.fc1, self.theta.action_id_probs],
+            feed_dict=feed_dict#TODO: ERASE THIS FOR DRONE ENV!!!
+        )
+        ##### UNCOMMENT BELOW
+        obs_b = np.squeeze(ob.astype(float)) # remove the 1 batch dimension by squeezing
+        # Baseline is a black image (for integrated gradients)
+        baseline = np.zeros(obs_b.shape)
+        baseline.fill(-1)
+        images = self.placeholders.rgb_screen # Inputs placeholder to differentiate with respect to it.
+        # ============ VALUE GRADIENT ======================
+        values = self.graph.get_tensor_by_name('theta/Squeeze:0')
+        V = tf.reshape(values, [1])
+        # Vanilla
+        # Allocentric #############
+        gradient_saliency = saliency.GradientSaliency(self.graph, self.sess, V, images)
+        # Below you have to put the other image as input in order to compute deriv w.r.t. the other one
+        smoothgrad_V = gradient_saliency.GetSmoothedMask(obs_b, feed_dict={self.value_estimate: value_estimate, 'alt_view:0': obsb})
+        # # Integrated
+        # # gradient_saliency = saliency.IntegratedGradients(self.graph, self.sess, V, images)
+        # # smoothgrad_V = gradient_saliency.GetSmoothedMask(obs_b, feed_dict={self.value_estimate: value_estimate}, x_steps=25, x_baseline=baseline)
+        smoothgrad_V_gray_allo = saliency.VisualizeImageGrayscale(smoothgrad_V)
+        # # Instead of smoothgrad_V_gray use RGB
+        # smoothgrad_V_gray = (smoothgrad_V - smoothgrad_V.min()) / (
+        #         smoothgrad_V.max() - smoothgrad_V.min())
+        #
+        mask_allo = copy.deepcopy(smoothgrad_V_gray_allo)
+        mask_allo[mask_allo<0.7] = 0
+        # Egocentric ############
+        obs_b = np.squeeze(obsb.astype(float))  # remove the 1 batch dimension by squeezing
+        # Baseline is a black image (for integrated gradients)
+        baseline = np.zeros(obs_b.shape)
+        baseline.fill(-1)
+        images = self.placeholders.alt_view  # Inputs placeholder to differentiate with respect to it.
+        # Value
+        values = self.graph.get_tensor_by_name('theta/Squeeze:0')
+        V = tf.reshape(values, [1])
+        # Vanilla
+        gradient_saliency = saliency.GradientSaliency(self.graph, self.sess, V, images)
+        smoothgrad_V = gradient_saliency.GetSmoothedMask(obs_b,
+                                                         feed_dict={self.value_estimate: value_estimate,
+                                                                    self.placeholders.rgb_screen: ob})
+        smoothgrad_V_gray_ego = saliency.VisualizeImageGrayscale(smoothgrad_V)
+        mask_ego = copy.deepcopy(smoothgrad_V_gray_ego)
+        mask_ego[mask_ego<0.7] = 0
+
+        ##### UNCOMMENT ABOVE
+
+        # ============ POLICY GRADIENT ======================
+        # Vanilla
+        # gradient_act_saliency = saliency.GradientSaliency(self.graph, self.sess, self.pi_at, images)
+        # smoothgrad_pi = gradient_act_saliency.GetSmoothedMask(obs_b, feed_dict={self.neuron_selector: action_id[0]})
+        # gradient_act_saliency = saliency.IntegratedGradients(self.graph, self.sess, self.pi_at, images)
+        # # smoothgrad_pi = gradient_act_saliency.GetSmoothedMask(obs_b, feed_dict={self.neuron_selector: action_id[0]}, x_steps=25, x_baseline=baseline)
+        # # Integrated
+        # #smoothgrad_pi_gray = saliency.VisualizeImageGrayscale(smoothgrad_pi)
+        # # Instead of smoothgrad_V_gray use RGB
+        # smoothgrad_pi_gray = (smoothgrad_pi - smoothgrad_pi.min()) / (
+        #         smoothgrad_pi.max() - smoothgrad_pi.min())
+
+
+
+
+
         return action_id, value_estimate, value_estimate_goal, value_estimate_fire, fc, action_probs
 
     def train(self, input_dict):
@@ -613,8 +697,8 @@ class ActorCriticAgent:
         os.makedirs(path, exist_ok=True)
         step = step or self.train_step
         print("saving model to %s, step %d" % (path, step))
-        # self.saver.save(self.sess, path + '/model.ckpt', global_step=step)
-        self.saver_orig.save(self.sess, path + '/model.ckpt', global_step=step)
+        self.saver.save(self.sess, path + '/model.ckpt', global_step=step)
+        # self.saver_orig.save(self.sess, path + '/model.ckpt', global_step=step) # Used in 2 phase training
 
     def load(self, path):
         ckpt = tf.train.get_checkpoint_state(path)

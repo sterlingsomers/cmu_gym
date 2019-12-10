@@ -5,7 +5,7 @@ from baselines.a2c.a2c import Model
 import gym_gridworld
 import tensorflow as tf
 
-
+''' TEST '''
 def main():
     env = gym.make("gridworld-v0")
     policy=CnnPolicy
