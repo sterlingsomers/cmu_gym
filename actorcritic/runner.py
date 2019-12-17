@@ -11,7 +11,8 @@ from common.util import general_n_step_advantage, combine_first_dimensions, \
 import tensorflow as tf
 from absl import flags
 # from time import sleep
-from actorcritic.policy import FullyConvPolicy, MetaPolicy, RelationalPolicy, FullyConv3DPolicy, FullyConvPolicyAlt, FactoredPolicy#, LSTM
+from actorcritic.policy import FullyConvPolicy, MetaPolicy, RelationalPolicy,\
+    FullyConv3DPolicy, FullyConvPolicyAlt, FactoredPolicy, FactoredPolicy_PhaseI, FactoredPolicy_PhaseII#, LSTM
 
 PPORunParams = namedtuple("PPORunParams", ["lambda_par", "batch_size", "n_epochs"])
 
@@ -51,8 +52,12 @@ class Runner(object):
             self.policy_type = FullyConv3DPolicy
         elif policy_type == 'AlloAndAlt':
             self.policy_type = FullyConvPolicyAlt
-        elif (policy_type == 'Factored') or (policy_type == 'FactoredPostTraining'):
+        elif (policy_type == 'Factored'):
             self.policy_type = FactoredPolicy
+        elif (policy_type == 'FactoredPolicy_PhaseI'):
+            self.policy_type = FactoredPolicy_PhaseI
+        elif (policy_type == 'FactoredPolicy_PhaseII'):
+            self.policy_type = FactoredPolicy_PhaseII
         else: print('Unknown Policy')
 
         assert self.agent.mode in [ACMode.A2C, ACMode.PPO]
@@ -250,7 +255,7 @@ class Runner(object):
             # but saving values here will make n step reward calculation a bit easier
             action_ids, value_estimate_goal, value_estimate_fire, value_estimate = self.agent.step_factored(latest_obs)
             # print('|step:', n, '|actions:', action_ids)  # (MINE) If you put it after the envs.step the SUCCESS appears at the envs.step so it will appear oddly
-            # if np.random.random() < 0.20: action_ids = np.array([self.envs.action_space.sample() for _ in range(self.envs.num_envs)])
+            # if np.random.random() < 0.50: action_ids = np.array([self.envs.action_space.sample() for _ in range(self.envs.num_envs)])
             # (MINE) Store actions and value estimates for all steps
             mb_values[:, n] = value_estimate
             mb_values_goal[:, n] = value_estimate_goal
@@ -270,22 +275,23 @@ class Runner(object):
             mb_done[:, n] = [t for t in obs_raw[2]]
 
             # IF MAX_STEPS OR GOAL REACHED
-            if obs_raw[2].any(): # At least one env has done=True
-                for i in (np.argwhere(obs_raw[2])): # Run the loop for ONLY the envs that have finished
-                    indx = i[0]
-                    epis_reward = obs_raw[3][indx]['episode']['r']
-                    epis_length = obs_raw[3][indx]['episode']['l']
-                    last_step_r = obs_raw[1][indx]
-                    self._handle_episode_end(epis_reward, epis_length, last_step_r)
-            # indx=0 # env count
-            # for t in obs_raw[2]: # Monitor returns additional stuff such as epis_reward and epis_length etc apart the obs, r, done, info
-            #     #obs_raw[2] = done = [True, False, False, True,...] each element corresponds to an env
-            #     if t == True: # done=true
-            #         # Put reward in scores
+            # if obs_raw[2].any(): # At least one env has done=True
+            #     for i in (np.argwhere(obs_raw[2])): # Run the loop for ONLY the envs that have finished
+            #         indx = i[0]
             #         epis_reward = obs_raw[3][indx]['episode']['r']
             #         epis_length = obs_raw[3][indx]['episode']['l']
             #         last_step_r = obs_raw[1][indx]
-            #         self._handle_episode_end(epis_reward, epis_length, last_step_r) # The printing score process is NOT a parallel process apparrently as you input every reward (t) independently
+            #         self._handle_episode_end(epis_reward, epis_length, last_step_r)
+
+            indx=0 # env count
+            for t in obs_raw[2]: # Monitor returns additional stuff such as epis_reward and epis_length etc apart the obs, r, done, info
+                #obs_raw[2] = done = [True, False, False, True,...] each element corresponds to an env
+                if t == True: # done=true
+                    # Put reward in scores
+                    epis_reward = obs_raw[3][indx]['episode']['r']
+                    epis_length = obs_raw[3][indx]['episode']['l']
+                    last_step_r = obs_raw[1][indx]
+                    self._handle_episode_end(epis_reward, epis_length, last_step_r) # The printing score process is NOT a parallel process apparrently as you input every reward (t) independently
                 indx = indx + 1 # finished envs count
             # for t in obs_raw:
             #     if t.last():

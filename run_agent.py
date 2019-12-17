@@ -1,5 +1,4 @@
-# Fully Convolutional Network (the 2nd in DeepMind's paper)
-import logging
+# Fully Convolutional Network (the 2nd in DeepMind's paper)import logging
 import os
 import shutil
 import sys
@@ -28,6 +27,8 @@ from baselines.common.vec_env.subproc_vec_env import SubprocVecEnv
 from baselines.common.vec_env.vec_frame_stack import VecFrameStack
 #from baselines.common.vec_env.vec_normalize import VecNormalize
 import gym
+from gym.wrappers import TimeLimit
+
 #from gym_grid.envs import GridEnv
 # import gym_gridworld
 from gridworld_v2 import gameEnv
@@ -35,11 +36,11 @@ from gridworld_v2 import gameEnv
 FLAGS = flags.FLAGS
 flags.DEFINE_bool("visualize", False, "Whether to render with pygame.")
 flags.DEFINE_float("sleep_time", 0.0, "Time-delay in the demo")
-flags.DEFINE_integer("resolution", 8, "Resolution for screen and minimap feature layers.")
+flags.DEFINE_integer("resolution",8, "Resolution for screen and minimap feature layers.")
 flags.DEFINE_integer("step_mul", 100, "Game steps per agent step.")
-flags.DEFINE_integer("step2save", 500, "Game step to save the model.") #A2C every 1000, PPO 250
-flags.DEFINE_integer("n_envs", 80, "Number of environments to run in parallel")
-flags.DEFINE_integer("episodes", 500, "Number of complete episodes")
+flags.DEFINE_integer("step2save", 500, "Game step to save the model.") #A2C every 1000, PPO 250, 500
+flags.DEFINE_integer("n_envs", 100, "Number of environments to run in parallel")
+flags.DEFINE_integer("episodes", 10, "Number of complete episodes")
 flags.DEFINE_integer("n_steps_per_batch", 32,
     "Number of steps per batch, if None use 8 for a2c and 128 for ppo")  # (MINE) TIMESTEPS HERE!!! You need them cauz you dont want to run till it finds the beacon especially at first episodes - will take forever
 flags.DEFINE_integer("all_summary_freq", 10, "Record all summaries every n batch")
@@ -47,39 +48,26 @@ flags.DEFINE_integer("scalar_summary_freq", 5, "Record scalar summaries every n 
 flags.DEFINE_string("checkpoint_path", "_files/models", "Path for agent checkpoints")
 flags.DEFINE_string("summary_path", "_files/summaries", "Path for tensorboard summaries") #A2C_custom_maps#A2C-science-allmaps - BEST here for one policy
 flags.DEFINE_string("model_name", "dokimib", "Name for checkpoints and tensorboard summaries") # DONT touch TESTING is the best (take out normalization layer in order to work! -- check which parts exist in the restore session if needed)
-flags.DEFINE_integer("K_batches", 4000, # Batch is like a training epoch!
+flags.DEFINE_integer("K_batches", 15500, # Batch is like a training epoch!
     "Number of training batches to run in thousands, use -1 to run forever") #(MINE) not for now
 flags.DEFINE_string("map_name", "DefeatRoaches", "Name of a map to use.")
 flags.DEFINE_float("discount", 0.95, "Reward-discount for the agent")
-flags.DEFINE_boolean("training", True,
-    "if should train the model, if false then save only episode score summaries"
-)
-flags.DEFINE_enum("if_output_exists", "continue", ["fail", "overwrite", "continue"],
+flags.DEFINE_boolean("training", True, "if should train the model, if false then save only episode score summaries")
+
+flags.DEFINE_enum("if_output_exists", "overwrite", ["fail", "overwrite", "continue"],
     "What to do if summary and model output exists, only for training, is ignored if notraining")
 flags.DEFINE_float("max_gradient_norm", 10.0, "good value might depend on the environment") # orig: 1000
 flags.DEFINE_float("loss_value_weight", 0.5, "good value might depend on the environment") # orig:1.0, good value: 0.5
 flags.DEFINE_float("entropy_weight_spatial", 0.00000001,
     "entropy of spatial action distribution loss weight") # orig:1e-6
 flags.DEFINE_float("entropy_weight_action", 0.01, "entropy of action-id distribution loss weight") # orig:1e-6
-flags.DEFINE_float("ppo_lambda", 0.95, "lambda parameter for ppo")
+flags.DEFINE_float("ppo_lambda", 1.0, "lambda parameter for ppo AND for GAE(λ) - not yet")
 flags.DEFINE_integer("ppo_batch_size", None, "batch size for ppo, if None use n_steps_per_batch")
 flags.DEFINE_integer("ppo_epochs", 3, "epochs per update")
-flags.DEFINE_enum("policy_type", "FactoredPostTraining", ["MetaPolicy", "FullyConv", "FactoredPolicy", "FactoredPostTraining", "Relational", "AlloAndAlt", "FullyConv3D"], "Which type of Policy to use")
+flags.DEFINE_enum("policy_type", "FactoredPolicy_PhaseI", ["MetaPolicy", "FullyConv", "FactoredPolicy",
+                                                          "FactoredPolicy_PhaseI", 'FactoredPolicy_PhaseII',
+                                                          "Relational", "AlloAndAlt", "FullyConv3D"], "Which type of Policy to use")
 flags.DEFINE_enum("agent_mode", ACMode.A2C, [ACMode.A2C, ACMode.PPO], "if should use A2C or PPO")
-
-### NEW FLAGS ####
-flags.DEFINE_integer("rgb_screen_size", 128,
-                        "Resolution for rendered screen.") # type None if you want only features
-
-flags.DEFINE_integer("max_agent_steps", 0, "Total agent steps.")
-flags.DEFINE_bool("profile", False, "Whether to turn on code profiling.")
-flags.DEFINE_bool("trace", False, "Whether to trace the code execution.")
-#flags.DEFINE_integer("parallel", 1, "How many instances to run in parallel.")
-
-flags.DEFINE_bool("save_replay", False, "Whether to save a replay at the end.")
-
-#flags.DEFINE_string("map", None, "Name of a map to use.")
-
 
 FLAGS(sys.argv)
 
@@ -120,7 +108,7 @@ def make_custom_env(env_id, num_env, seed, wrapper_kwargs=None, start_index=0):
     def make_env(rank): # pylint: disable=C0111
         def _thunk():
             # env = gym.make(env_id)
-            env = gym.wrappers.TimeLimit(gameEnv(partial=False,size=9))#,goal_color=[np.random.uniform(), np.random.uniform(), np.random.uniform()])
+            env = TimeLimit(gameEnv(partial=False,size=10))#gym.wrappers.TimeLimit
             env._max_episode_steps = 500 # ONLY FOR GYM ENVS
             env.seed(seed + rank)
             # Monitor should take care of reset!
@@ -132,8 +120,9 @@ def make_custom_env(env_id, num_env, seed, wrapper_kwargs=None, start_index=0):
 
 def main():
     if FLAGS.training:
-        check_and_handle_existing_folder(full_chekcpoint_path)
-        check_and_handle_existing_folder(full_summary_path)
+        if FLAGS.policy_type != 'FactoredPolicy_PhaseII': # If the policy IS phase II then it won't remove the folders. The check_... removes the folders if the FLAG is "ovewrite" else does nothing and you continue later on to load the model if the path exists in line 173
+            check_and_handle_existing_folder(full_chekcpoint_path)
+            check_and_handle_existing_folder(full_summary_path)
 
     #(MINE) Create multiple parallel environements (or a single instance for testing agent)
     if FLAGS.training and FLAGS.visualize==False:
@@ -181,9 +170,10 @@ def main():
     # Build Agent
     agent.build_model()
     if os.path.exists(full_chekcpoint_path):
-        if FLAGS.policy_type == 'FactoredPostTraining':
-            agent.init() # Initialize all the variables, so the ones that are not loaded are getting initialized.
-        agent.load(full_chekcpoint_path) #We load the variables so hopefully the initialisation is substituted.
+        # if FLAGS.policy_type == 'FactoredPolicy_PhaseII' and FLAGS.if_output_exists != 'continue': # TODO: Careful below when you CONTINUE from Phase II! Do we load the whole net or only the heads?
+        if FLAGS.policy_type == 'FactoredPolicy_PhaseII': # FOR NOW CONTINUE  with PHASE II will re-init the Adam which is not correct
+            agent.init() # Initialize all the variables (including Adam optimizer vars), so the ones that are not loaded (the untrained heads) are getting initialized. You also init the Adam variables which for head training is good. If you want to continue training in Phase II then Adam variables should be loaded as well!
+        agent.load(full_chekcpoint_path) #We load the variables so hopefully the initialisation will substituted by the loaded params except for the heads.
         # TODO: You can run a self.sess(run) with a custom saver s = tf.train.saver(vars) and then use the code of agent.load with the vars you want.
         # Initializing specific variables
         # head_train_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "theta/heads")
@@ -245,7 +235,7 @@ def main():
                     _save_if_training(agent)
                 if FLAGS.policy_type == 'MetaPolicy' or FLAGS.policy_type == 'LSTM':
                     runner.run_meta_batch()
-                elif (FLAGS.policy_type == 'FactoredPolicy') or (FLAGS.policy_type == 'FactoredPostTraining'):
+                elif FLAGS.policy_type == 'FactoredPolicy' or FLAGS.policy_type == 'FactoredPolicy_PhaseI' or FLAGS.policy_type == 'FactoredPolicy_PhaseII':
                     runner.run_factored_batch()
                 else:
                     runner.run_batch()  # (MINE) HERE WE RUN MAIN LOOP for while true

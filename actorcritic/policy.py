@@ -170,7 +170,7 @@ class FullyConvPolicy:
 
         return self
 
-
+# End-to-End training with heads
 class FactoredPolicy:
     """
     FullyConv network structure from https://arxiv.org/pdf/1708.04782.pdf
@@ -380,8 +380,8 @@ class FactoredPolicy_PhaseI:
             inputs=inputs,
             data_format="NHWC",
             num_outputs=32,
-            kernel_size=8,  # 8
-            stride=4,  # 4
+            kernel_size=4,  # 8
+            stride=2,  # 4
             padding='SAME',
             activation_fn=tf.nn.relu,
             scope="%s/conv1" % name,
@@ -391,7 +391,7 @@ class FactoredPolicy_PhaseI:
             inputs=conv1,
             data_format="NHWC",
             num_outputs=64,
-            kernel_size=4,  # 4
+            kernel_size=2,  # 4
             stride=1,  # 2,#
             padding='SAME',
             activation_fn=tf.nn.relu,
@@ -672,15 +672,15 @@ class FactoredPolicy_PhaseII:
         map_output_flat = layers.flatten(self.map_output)
 
         # (MINE) This is the last layer (fully connected -fc) for the non-spatial (categorical) actions
-        self.fc1 = layers.fully_connected(
+        self.fc1 = tf.stop_gradient(layers.fully_connected( # I add a stop_gradient here just in case (CHECK the weights if they change with and without the stop_gradient)
             map_output_flat,
             num_outputs=256,
             activation_fn=tf.nn.relu,
             scope="fc1",
             trainable=self.trainable
-        )
+        ))
         # Add layer normalization for better stability
-        # self.fc1 = layers.layer_norm(self.fc1,trainable=self.trainable) # VERY BAD FOR THE 2D GRIDWORLD!!!
+        # self.fc1 = tf.stop_gradient(layers.layer_norm(self.fc1,trainable=self.trainable)) # VERY BAD FOR THE 2D GRIDWORLD!!!
 
         action_id_probs = tf.stop_gradient(layers.fully_connected(
             self.fc1,
@@ -907,7 +907,6 @@ class FactoredPolicy_PhaseII:
 #         self.action_id_probs = action_id_probs
 #         self.action_id_log_probs = action_id_log_probs
 #         return self
-
 class MetaPolicy:
     """
     Meta Policy with recurrency on observations, actions and rewards

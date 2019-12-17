@@ -26,8 +26,9 @@ class gameEnv():
         self.sizeX = size
         self.sizeY = size
         self.actions = 4
+        self.factor = 1
         # MINE
-        self.obs_shape = [100, 100, 3]
+        self.obs_shape = [size*self.factor, size*self.factor, 3]
         self.observation_space = spaces.Box(low=0, high=255, shape=self.obs_shape, dtype=np.uint8)
         self.action_space = spaces.Discrete(self.actions)
         self.reward_range = (-float('inf'), float('inf')) # or self.reward_range = (0,1)
@@ -35,14 +36,14 @@ class gameEnv():
         self.objects = []
         self.partial = partial
         self.bg = np.zeros([size, size])
-        self.num_fires = 8
+        self.num_fires = 3
         self.goal_color = [0,1,0]#[np.random.uniform(), np.random.uniform(), np.random.uniform()]
         self.goal_reward = 1
-        self.fire_reward = -0.1
+        self.fire_reward = -1
         self.info = {}
         self.info['fire'] = 0
         self.info['goal'] = 0
-        self.teriminateWfire = False
+        self.teriminateWfire = True
 
     def seed(self, seed=None):
         np.random.seed(seed=seed) # It works the seed now!!!
@@ -180,7 +181,7 @@ class gameEnv():
         if self.partial == True:
             a = a[(hero.y):(hero.y + (padding * 2) + hero.size), (hero.x):(hero.x + (padding * 2) + hero.size), :]
 
-        a_big = scipy.misc.imresize(a, [100, 100, 3], interp='nearest') # was 32,32,3
+        a_big = scipy.misc.imresize(a, self.obs_shape, interp='nearest') # was 32,32,3
         obs = {}
         obs['img'] = a_big
         obs['small'] = a

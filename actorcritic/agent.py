@@ -5,11 +5,12 @@ import tensorflow as tf
 # from pysc2.lib import actions
 from tensorflow.contrib import layers
 from tensorflow.contrib.layers.python.layers.optimizers import OPTIMIZER_SUMMARIES
-from actorcritic.policy import FullyConvPolicy, MetaPolicy, RelationalPolicy, FullyConvPolicyAlt, FullyConv3DPolicy, FactoredPolicy#, LSTM
+from actorcritic.policy import FullyConvPolicy, MetaPolicy, RelationalPolicy,\
+    FullyConvPolicyAlt, FullyConv3DPolicy, FactoredPolicy, FactoredPolicy_PhaseI, FactoredPolicy_PhaseII#, LSTM
 from common.preprocess import ObsProcesser, FEATURE_KEYS, AgentInputTuple
 from common.util import weighted_random_sample, select_from_each_row, ravel_index_pairs
 import tensorboard.plugins.beholder as beholder_lib
-import saliency
+# import saliency
 
 #LOG_DIRECTORY = '/tmp/beholder-demo/SCII'
 LOG_DIRECTORY = '_files/summaries/Test'
@@ -176,8 +177,12 @@ class ActorCriticAgent:
             self.policy = FullyConv3DPolicy
         elif policy == 'AlloAndAlt':
             self.policy = FullyConvPolicyAlt
-        elif (policy == 'FactoredPolicy') or (policy == 'FactoredPostTraining'):
+        elif (policy == 'FactoredPolicy'):
             self.policy = FactoredPolicy
+        elif policy == 'FactoredPolicy_PhaseI':
+            self.policy = FactoredPolicy_PhaseI
+        elif policy == 'FactoredPolicy_PhaseII':
+            self.policy = FactoredPolicy_PhaseII
         else: print('Unknown Policy')
 
         # assert (self.policy_type == 'MetaPolicy') and not (self.mode == ACMode.PPO) # For now the policy in PPO is not calculated taken into account recurrencies
@@ -256,7 +261,7 @@ class ActorCriticAgent:
             self.policy_loss = -tf.reduce_mean(l_clip)
         else:
             self.sampled_action_id = weighted_random_sample(self.theta.action_id_probs)
-            if (self.policy_type == 'FactoredPolicy') or (self.policy_type == 'FactoredPostTraining'):
+            if self.policy_type == 'FactoredPolicy' or self.policy_type == 'FactoredPolicy_PhaseI' or self.policy_type == 'FactoredPolicy_PhaseII':
                 self.value_estimate_goal = self.theta.value_estimate_goal
                 self.value_estimate_fire = self.theta.value_estimate_fire
                 self.value_estimate = self.theta.value_estimate
@@ -309,7 +314,7 @@ class ActorCriticAgent:
             self.value_loss = tf.reduce_mean(mse) # the mean of the mean losses per sequence (so the denominator in mean will be the number of batches)
             # self.value_loss = tf.reduce_sum(vloss_i)/tf.reduce_sum(tf.reduce_sum(mask, 1))# alternative: instead of the mean of the mean per sequence we take the mean of all samples
 
-        elif (self.policy_type == 'FactoredPolicy') or (self.policy_type == 'FactoredPostTraining'):
+        elif self.policy_type == 'FactoredPolicy' or self.policy_type == 'FactoredPolicy_PhaseI' or self.policy_type == 'FactoredPolicy_PhaseII':
             self.neg_entropy_action_id = tf.reduce_mean(tf.reduce_sum(self.theta.action_id_probs * self.theta.action_id_log_probs, axis=1))
             self.value_loss_goal = tf.losses.mean_squared_error(self.placeholders.value_target_goal, self.theta.value_estimate_goal) # value_target comes from runner/run_batch when you specify the full input
             self.value_loss_fire = tf.losses.mean_squared_error(self.placeholders.value_target_fire,
@@ -328,16 +333,14 @@ class ActorCriticAgent:
                     + (self.value_loss_goal + self.value_loss_fire + self.value_loss) * self.loss_value_weight
                     + self.neg_entropy_action_id * self.entropy_weight_action_id
             )
-        elif self.policy_type == 'FactoredPostTraining':
-            phase=0
-            if phase==1:
-                loss = (
-                    self.policy_loss
-                    + self.value_loss* self.loss_value_weight
-                    + self.neg_entropy_action_id * self.entropy_weight_action_id)#\
-                    # + (self.value_loss_fire + self.value_loss_goal)*0.0 # when it was 0.0000 performance was good--so now might affect more? # You should try take them out of the loss equation completely as with symbolic differentiation might get values
-            else:
-                loss = self.value_loss_fire + self.value_loss_goal
+        elif self.policy_type == 'FactoredPolicy_PhaseI':
+            loss = (
+                self.policy_loss
+                + self.value_loss* self.loss_value_weight
+                + self.neg_entropy_action_id * self.entropy_weight_action_id)#\
+                # + (self.value_loss_fire + self.value_loss_goal)*0.0 # when it was 0.0000 performance was good--so now might affect more? # You should try take them out of the loss equation completely as with symbolic differentiation might get values
+        elif self.policy_type == 'FactoredPolicy_PhaseII':
+            loss = (self.value_loss_fire + self.value_loss_goal)#* self.loss_value_weight # Not sure if this is needed
         else:
             loss = (
                 self.policy_loss
@@ -345,7 +348,7 @@ class ActorCriticAgent:
                 + self.neg_entropy_action_id * self.entropy_weight_action_id
             )
 
-        if self.policy_type == 'FactoredPostTraining':
+        if self.policy_type == 'FactoredPolicy_PhaseI' or self.policy_type == 'FactoredPolicy_PhaseII':
             # list of the head variables
             head_train_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,"theta/heads")
             tvars = tf.trainable_variables()
@@ -354,12 +357,15 @@ class ActorCriticAgent:
                 for tv in tvars:
                     if v.name == tv.name: del tvars[i]
                     i += 1
-            ''' PHASE I '''
-            # vars = tvars
-            ''' PHASE II '''
-            vars = head_train_vars
+            # PHASE I
+            if self.policy_type == 'FactoredPolicy_PhaseI':
+                vars = tvars
+            # PHASE II
+            elif self.policy_type == 'FactoredPolicy_PhaseII':
+                vars = head_train_vars
         else:
             vars = None # default
+            tvars = None # added so FullyConv and other policies wont have problem with the extra saver
 
         self.train_op = layers.optimize_loss(
             loss=loss,
@@ -372,7 +378,7 @@ class ActorCriticAgent:
             name="train_op"
         )
 
-        if (self.policy_type == 'FactoredPolicy') or (self.policy_type == 'FactoredPostTraining'):
+        if self.policy_type == 'FactoredPolicy' or self.policy_type == 'FactoredPolicy_PhaseI' or self.policy_type == 'FactoredPolicy_PhaseII':
             self._scalar_summary("value_goal/estimate", tf.reduce_mean(self.value_estimate_goal)) # no correct!mean is for all samples but we use masks!!!
             self._scalar_summary("value_goal/target", tf.reduce_mean(self.placeholders.value_target_goal)) # no correct!mean is for all samples
             self._scalar_summary("value_fire/estimate", tf.reduce_mean(self.value_estimate_fire)) # no correct!mean is for all samples but we use masks!!!
@@ -400,22 +406,24 @@ class ActorCriticAgent:
         #tf.summary.image('convs output', tf.reshape(self.theta.map_output,[-1,25,25,64]))
 
         self.init_op = tf.global_variables_initializer()
-        # self.saver_orig = tf.train.Saver(max_to_keep=2) # used in 2 phase training# keeps only the last 2 set of params and model checkpoints. If you want more increase the umber to keep
-        self.saver = tf.train.Saver(max_to_keep=2)
+#TODO: we need 2 savers. PhaseI: it will save only the headless network. PhaseII: it will save the whole network (previous params plus the heads params)
+        self.saver_orig = tf.train.Saver(max_to_keep=2) # Save everything (tf.all_variables() which is different from tf.trainable_variables()) which includes Adam vars# keeps only the last 2 set of params and model checkpoints. If you want more increase the umber to keep
+        # self.saver = tf.train.Saver(max_to_keep=2)
         # This saves and restores only the variables in the var_list
-        # self.saver = tf.train.Saver(max_to_keep=2, var_list=tvars) # 2 phase training
+        # self.saver = tf.train.Saver(max_to_keep=2, var_list=tvars)  # 2 phase training
+        self.saver = tf.train.Saver(max_to_keep=2, var_list=tvars) # 2 phase training. If tvars=None then saves everything
         self.all_summary_op = tf.summary.merge_all(tf.GraphKeys.SUMMARIES)
         self.scalar_summary_op = tf.summary.merge(tf.get_collection(self._scalar_summary_key))
         #self.beholder = beholder_lib.Beholder(logdir=LOG_DIRECTORY)
         #tf.summary.image('spatial policy', tf.reshape(self.theta.spatial_action_logits, [-1, 32, 32, 1]))
 
-        ''' Necessary for Policy Saliencies'''
-            # Below: Get the pi(at|st)
-            # logits = self.graph.get_tensor_by_name('theta/action_id/Softmax:0')  # form of tensors <op name>:<out indx>
-            # self.neuron_selector = tf.placeholder(tf.int64)
-            # pi_at = logits[0][
-            #     self.neuron_selector]  # logits is (?,5), logits[0 or 1] is (5,) dims and logits[0][smth] will return 1 of the 5
-            # self.pi_at = tf.reshape(pi_at, [1])
+    ''' Necessary for Policy Saliencies'''
+        # Below: Get the pi(at|st)
+        # logits = self.graph.get_tensor_by_name('theta/action_id/Softmax:0')  # form of tensors <op name>:<out indx>
+        # self.neuron_selector = tf.placeholder(tf.int64)
+        # pi_at = logits[0][
+        #     self.neuron_selector]  # logits is (?,5), logits[0 or 1] is (5,) dims and logits[0][smth] will return 1 of the 5
+        # self.pi_at = tf.reshape(pi_at, [1])
 
 
     def _input_to_feed_dict(self, input_dict):
@@ -519,78 +527,79 @@ class ActorCriticAgent:
         )
         return action_id, value_estimate, value_estimate_goal, value_estimate_fire, fc, action_probs
 
-    def step_eval_factored_saliency(self, obs):
-        # (MINE) Pass the observations through the net
-
-        # feed_dict = {'rgb_screen:0' : obs['rgb_screen']},
-        #              # 'alt_view:0': obs['alt_view']}
-        feed_dict = self._input_to_feed_dict(obs)  # FireGrid
-
-        action_id, value_estimate, value_estimate_goal, value_estimate_fire, fc, action_probs = self.sess.run(
-            [self.sampled_action_id, self.value_estimate, self.value_estimate_goal, self.value_estimate_fire, self.theta.fc1, self.theta.action_id_probs],
-            feed_dict=feed_dict#TODO: ERASE THIS FOR DRONE ENV!!!
-        )
-        ##### UNCOMMENT BELOW
-        obs_b = np.squeeze(ob.astype(float)) # remove the 1 batch dimension by squeezing
-        # Baseline is a black image (for integrated gradients)
-        baseline = np.zeros(obs_b.shape)
-        baseline.fill(-1)
-        images = self.placeholders.rgb_screen # Inputs placeholder to differentiate with respect to it.
-        # ============ VALUE GRADIENT ======================
-        values = self.graph.get_tensor_by_name('theta/Squeeze:0')
-        V = tf.reshape(values, [1])
-        # Vanilla
-        # Allocentric #############
-        gradient_saliency = saliency.GradientSaliency(self.graph, self.sess, V, images)
-        # Below you have to put the other image as input in order to compute deriv w.r.t. the other one
-        smoothgrad_V = gradient_saliency.GetSmoothedMask(obs_b, feed_dict={self.value_estimate: value_estimate, 'alt_view:0': obsb})
-        # # Integrated
-        # # gradient_saliency = saliency.IntegratedGradients(self.graph, self.sess, V, images)
-        # # smoothgrad_V = gradient_saliency.GetSmoothedMask(obs_b, feed_dict={self.value_estimate: value_estimate}, x_steps=25, x_baseline=baseline)
-        smoothgrad_V_gray_allo = saliency.VisualizeImageGrayscale(smoothgrad_V)
-        # # Instead of smoothgrad_V_gray use RGB
-        # smoothgrad_V_gray = (smoothgrad_V - smoothgrad_V.min()) / (
-        #         smoothgrad_V.max() - smoothgrad_V.min())
-        #
-        mask_allo = copy.deepcopy(smoothgrad_V_gray_allo)
-        mask_allo[mask_allo<0.7] = 0
-        # Egocentric ############
-        obs_b = np.squeeze(obsb.astype(float))  # remove the 1 batch dimension by squeezing
-        # Baseline is a black image (for integrated gradients)
-        baseline = np.zeros(obs_b.shape)
-        baseline.fill(-1)
-        images = self.placeholders.alt_view  # Inputs placeholder to differentiate with respect to it.
-        # Value
-        values = self.graph.get_tensor_by_name('theta/Squeeze:0')
-        V = tf.reshape(values, [1])
-        # Vanilla
-        gradient_saliency = saliency.GradientSaliency(self.graph, self.sess, V, images)
-        smoothgrad_V = gradient_saliency.GetSmoothedMask(obs_b,
-                                                         feed_dict={self.value_estimate: value_estimate,
-                                                                    self.placeholders.rgb_screen: ob})
-        smoothgrad_V_gray_ego = saliency.VisualizeImageGrayscale(smoothgrad_V)
-        mask_ego = copy.deepcopy(smoothgrad_V_gray_ego)
-        mask_ego[mask_ego<0.7] = 0
-
-        ##### UNCOMMENT ABOVE
-
-        # ============ POLICY GRADIENT ======================
-        # Vanilla
-        # gradient_act_saliency = saliency.GradientSaliency(self.graph, self.sess, self.pi_at, images)
-        # smoothgrad_pi = gradient_act_saliency.GetSmoothedMask(obs_b, feed_dict={self.neuron_selector: action_id[0]})
-        # gradient_act_saliency = saliency.IntegratedGradients(self.graph, self.sess, self.pi_at, images)
-        # # smoothgrad_pi = gradient_act_saliency.GetSmoothedMask(obs_b, feed_dict={self.neuron_selector: action_id[0]}, x_steps=25, x_baseline=baseline)
-        # # Integrated
-        # #smoothgrad_pi_gray = saliency.VisualizeImageGrayscale(smoothgrad_pi)
-        # # Instead of smoothgrad_V_gray use RGB
-        # smoothgrad_pi_gray = (smoothgrad_pi - smoothgrad_pi.min()) / (
-        #         smoothgrad_pi.max() - smoothgrad_pi.min())
-
-
-
-
-
-        return action_id, value_estimate, value_estimate_goal, value_estimate_fire, fc, action_probs
+#TODO: Step Saliency for factored rewards
+    # def step_eval_factored_saliency(self, obs):
+    #     # (MINE) Pass the observations through the net
+    #
+    #     # feed_dict = {'rgb_screen:0' : obs['rgb_screen']},
+    #     #              # 'alt_view:0': obs['alt_view']}
+    #     feed_dict = self._input_to_feed_dict(obs)  # FireGrid
+    #
+    #     action_id, value_estimate, value_estimate_goal, value_estimate_fire, fc, action_probs = self.sess.run(
+    #         [self.sampled_action_id, self.value_estimate, self.value_estimate_goal, self.value_estimate_fire, self.theta.fc1, self.theta.action_id_probs],
+    #         feed_dict=feed_dict#TODO: ERASE THIS FOR DRONE ENV!!!
+    #     )
+    #     ##### UNCOMMENT BELOW
+    #     obs_b = np.squeeze(ob.astype(float)) # remove the 1 batch dimension by squeezing
+    #     # Baseline is a black image (for integrated gradients)
+    #     baseline = np.zeros(obs_b.shape)
+    #     baseline.fill(-1)
+    #     images = self.placeholders.rgb_screen # Inputs placeholder to differentiate with respect to it.
+    #     # ============ VALUE GRADIENT ======================
+    #     values = self.graph.get_tensor_by_name('theta/Squeeze:0')
+    #     V = tf.reshape(values, [1])
+    #     # Vanilla
+    #     # Allocentric #############
+    #     gradient_saliency = saliency.GradientSaliency(self.graph, self.sess, V, images)
+    #     # Below you have to put the other image as input in order to compute deriv w.r.t. the other one
+    #     smoothgrad_V = gradient_saliency.GetSmoothedMask(obs_b, feed_dict={self.value_estimate: value_estimate, 'alt_view:0': obsb})
+    #     # # Integrated
+    #     # # gradient_saliency = saliency.IntegratedGradients(self.graph, self.sess, V, images)
+    #     # # smoothgrad_V = gradient_saliency.GetSmoothedMask(obs_b, feed_dict={self.value_estimate: value_estimate}, x_steps=25, x_baseline=baseline)
+    #     smoothgrad_V_gray_allo = saliency.VisualizeImageGrayscale(smoothgrad_V)
+    #     # # Instead of smoothgrad_V_gray use RGB
+    #     # smoothgrad_V_gray = (smoothgrad_V - smoothgrad_V.min()) / (
+    #     #         smoothgrad_V.max() - smoothgrad_V.min())
+    #     #
+    #     mask_allo = copy.deepcopy(smoothgrad_V_gray_allo)
+    #     mask_allo[mask_allo<0.7] = 0
+    #     # Egocentric ############
+    #     obs_b = np.squeeze(obsb.astype(float))  # remove the 1 batch dimension by squeezing
+    #     # Baseline is a black image (for integrated gradients)
+    #     baseline = np.zeros(obs_b.shape)
+    #     baseline.fill(-1)
+    #     images = self.placeholders.alt_view  # Inputs placeholder to differentiate with respect to it.
+    #     # Value
+    #     values = self.graph.get_tensor_by_name('theta/Squeeze:0')
+    #     V = tf.reshape(values, [1])
+    #     # Vanilla
+    #     gradient_saliency = saliency.GradientSaliency(self.graph, self.sess, V, images)
+    #     smoothgrad_V = gradient_saliency.GetSmoothedMask(obs_b,
+    #                                                      feed_dict={self.value_estimate: value_estimate,
+    #                                                                 self.placeholders.rgb_screen: ob})
+    #     smoothgrad_V_gray_ego = saliency.VisualizeImageGrayscale(smoothgrad_V)
+    #     mask_ego = copy.deepcopy(smoothgrad_V_gray_ego)
+    #     mask_ego[mask_ego<0.7] = 0
+    #
+    #     ##### UNCOMMENT ABOVE
+    #
+    #     # ============ POLICY GRADIENT ======================
+    #     # Vanilla
+    #     # gradient_act_saliency = saliency.GradientSaliency(self.graph, self.sess, self.pi_at, images)
+    #     # smoothgrad_pi = gradient_act_saliency.GetSmoothedMask(obs_b, feed_dict={self.neuron_selector: action_id[0]})
+    #     # gradient_act_saliency = saliency.IntegratedGradients(self.graph, self.sess, self.pi_at, images)
+    #     # # smoothgrad_pi = gradient_act_saliency.GetSmoothedMask(obs_b, feed_dict={self.neuron_selector: action_id[0]}, x_steps=25, x_baseline=baseline)
+    #     # # Integrated
+    #     # #smoothgrad_pi_gray = saliency.VisualizeImageGrayscale(smoothgrad_pi)
+    #     # # Instead of smoothgrad_V_gray use RGB
+    #     # smoothgrad_pi_gray = (smoothgrad_pi - smoothgrad_pi.min()) / (
+    #     #         smoothgrad_pi.max() - smoothgrad_pi.min())
+    #
+    #
+    #
+    #
+    #
+    #     return action_id, value_estimate, value_estimate_goal, value_estimate_fire, fc, action_probs
 
     def train(self, input_dict):
         feed_dict = self._input_to_feed_dict(input_dict)
@@ -610,7 +619,29 @@ class ActorCriticAgent:
         elif write_scalar_summaries:
             ops.append(self.scalar_summary_op)
 
+        # Debugging: checking vars before and after training
+        # tvars = tf.trainable_variables()
+        # params = self.sess.run(tvars)
+        # For all vars including Adam vars
+        # vars = tf.all_variables()
+        # vars_all = self.sess.run(vars)
+
         r = self.sess.run(ops, feed_dict)  # (MINE) TRAIN!!!
+
+        # tvars_ = tf.trainable_variables()
+        # params_ = self.sess.run(tvars_)
+        # # For all vars including Adam vars
+        # vars_ = tf.all_variables()
+        # vars_all_ = self.sess.run(vars_)
+
+        # Compare params after training for change: 0-9, 10-13 heads
+        # print('Value goal head weights are unchanged: ', np.array_equal(params[10], params_[10])) # or equivalent and maybe faster (params[0]==params_[0]).all()
+        # print('Value fire head weights are unchanged: ', np.array_equal(params[11], params_[11]))
+        # print('---------------------------------------------------------')
+        # print('Total Value head weights are unchanged: ', np.array_equal(params[8], params_[8]))
+        # print('Policy head weights are unchanged: ', np.array_equal(params[6], params_[6]))
+        # print('conv1 weights are unchanged: ', np.array_equal(params[0], params_[0]))
+        # print('fc1 weights are unchanged: ', np.array_equal(params[4], params_[4]))
 
         if write_all_summaries or write_scalar_summaries:
             self.summary_writer.add_summary(r[-1], global_step=self.train_step)
@@ -697,8 +728,10 @@ class ActorCriticAgent:
         os.makedirs(path, exist_ok=True)
         step = step or self.train_step
         print("saving model to %s, step %d" % (path, step))
-        self.saver.save(self.sess, path + '/model.ckpt', global_step=step)
-        # self.saver_orig.save(self.sess, path + '/model.ckpt', global_step=step) # Used in 2 phase training
+        if self.policy_type == 'FactoredPolicy_PhaseII': # save everything
+            self.saver_orig.save(self.sess, path + '/model.ckpt', global_step=step) # Used in 2 phase training. Specifically in 2nd phase in which we save everything
+        else:
+            self.saver.save(self.sess, path + '/model.ckpt', global_step=step) # save specific variables
 
     def load(self, path):
         ckpt = tf.train.get_checkpoint_state(path)
