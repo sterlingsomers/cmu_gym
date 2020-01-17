@@ -191,7 +191,7 @@ class ActorCriticAgent:
         if optimiser_pars is None:
             pars = {
                 "adam": {
-                    "learning_rate": 1e-4,
+                    "learning_rate": 1e-4, # orig:4
                     "epsilon": 5e-7
                 },
                 "rmsprop": {
@@ -735,7 +735,7 @@ class ActorCriticAgent:
 
     def load(self, path):
         ckpt = tf.train.get_checkpoint_state(path)
-        self.saver.restore(self.sess, ckpt.model_checkpoint_path)
+        self.saver_orig.restore(self.sess, ckpt.model_checkpoint_path) # CHANGE HERE: Training: saver, Testing: saver_orig
         self.train_step = int(ckpt.model_checkpoint_path.split('-')[-1])
         print("loaded old model with train_step %d" % self.train_step)
         self.train_step += 1

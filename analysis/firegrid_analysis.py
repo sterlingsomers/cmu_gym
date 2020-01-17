@@ -126,7 +126,7 @@ def create_dataframe(obs):
             burn = obs[epis]['burn'][timestep]
             ''' FC (VECTOR) '''
             fc_rep = obs[epis]['fc'][timestep]
-            ''' MAP IMG (NUMPY) (9,9,3) ''' # for  ego representation graphics
+            ''' MAP IMG (NUMPY) (9,9,3) '''
             map_img = obs[epis]['map'][timestep]
 
             data.append([episode, tstep, agent_type, actions, action_label, action_dstr, round(reward,3),
@@ -148,7 +148,7 @@ def create_dataframe(obs):
     # df = pd.read_pickle('/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/df_dataframe.df')
 
 path = '/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/firegrid/'
-filename = '2019_Nov19_time17-25'
+filename = '2019_Dec24_time16-10_best_phaseIIb_20'
 obs = load_data()
 ''' Create Pandas Dataframe if it doesn't exist'''
 if os.path.isfile(path + filename + '.df')==False:

@@ -1,4 +1,4 @@
-'''Returns an image and not a dictionary with ['img'] and ['small']'''
+'''Returns an image and not a dictionary with ['img'] and ['small'] both are images, one is scaled '''
 import numpy as np
 import random
 import itertools
@@ -36,7 +36,7 @@ class gameEnv():
         self.objects = []
         self.partial = partial
         self.bg = np.zeros([size, size])
-        self.num_fires = 3
+        self.num_fires = 8
         self.goal_color = [0,1,0]#[np.random.uniform(), np.random.uniform(), np.random.uniform()]
         self.goal_reward = 1
         self.fire_reward = -1

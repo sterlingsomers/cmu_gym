@@ -38,14 +38,14 @@ flags.DEFINE_integer("resolution", 8, "Resolution for screen and minimap feature
 flags.DEFINE_integer("step_mul", 100, "Game steps per agent step.")
 flags.DEFINE_integer("step2save", 500, "Game step to save the model.") #A2C every 1000, PPO 250
 flags.DEFINE_integer("n_envs", 2, "Number of environments to run in parallel")
-flags.DEFINE_integer("episodes", 200, "Number of complete episodes to save")
-flags.DEFINE_integer("n_steps_per_batch", 32,
+flags.DEFINE_integer("episodes", 100, "Number of complete episodes to save in Testing mode")
+flags.DEFINE_integer("n_steps_per_batch", 8,
     "Number of steps per batch, if None use 8 for a2c and 128 for ppo")  # (MINE) TIMESTEPS HERE!!! You need them cauz you dont want to run till it finds the beacon especially at first episodes - will take forever
 flags.DEFINE_integer("all_summary_freq", 10, "Record all summaries every n batch")
 flags.DEFINE_integer("scalar_summary_freq", 5, "Record scalar summaries every n batch")
 flags.DEFINE_string("checkpoint_path", "_files/models", "Path for agent checkpoints")
 flags.DEFINE_string("summary_path", "_files/summaries", "Path for tensorboard summaries") #A2C_custom_maps#A2C-science-allmaps - BEST here for one policy
-flags.DEFINE_string("model_name", "factored_grid_allinloss", "Name for checkpoints and tensorboard summaries") # DONT touch TESTING is the best (take out normalization layer in order to work! -- check which parts exist in the restore session if needed)
+flags.DEFINE_string("model_name", "best_phaseIIb_20", "Name for checkpoints and tensorboard summaries") # DONT touch TESTING is the best (take out normalization layer in order to work! -- check which parts exist in the restore session if needed)
 flags.DEFINE_integer("K_batches", 15000, # Batch is like a training epoch!
     "Number of training batches to run in thousands, use -1 to run forever") #(MINE) not for now
 flags.DEFINE_string("map_name", "DefeatRoaches", "Name of a map to use.")
@@ -55,6 +55,9 @@ flags.DEFINE_boolean("training", False,
 )
 flags.DEFINE_enum("if_output_exists", "overwrite", ["fail", "overwrite", "continue"],
     "What to do if summary and model output exists, only for training, is ignored if notraining")
+flags.DEFINE_boolean("load_data", True,
+    "if data have been collected we just need to load them and pass one batch to the network (no loops)")
+
 flags.DEFINE_float("max_gradient_norm", 10.0, "good value might depend on the environment") # orig: 1000
 flags.DEFINE_float("loss_value_weight", 0.5, "good value might depend on the environment") # orig:1.0, good value: 0.5
 flags.DEFINE_float("entropy_weight_spatial", 0.00000001,
@@ -63,17 +66,11 @@ flags.DEFINE_float("entropy_weight_action", 0.001, "entropy of action-id distrib
 flags.DEFINE_float("ppo_lambda", 0.95, "lambda parameter for ppo")
 flags.DEFINE_integer("ppo_batch_size", None, "batch size for ppo, if None use n_steps_per_batch")
 flags.DEFINE_integer("ppo_epochs", 3, "epochs per update")
-flags.DEFINE_enum("policy_type", "FactoredPolicy", ["MetaPolicy", "FullyConv", "FactoredPolicy", "Relational", "AlloAndAlt", "FullyConv3D"], "Which type of Policy to use")
+flags.DEFINE_enum("policy_type", "FactoredPolicy_PhaseII", ["MetaPolicy", "FullyConv", "FactoredPolicy",
+                                                          "FactoredPolicy_PhaseI", 'FactoredPolicy_PhaseII',
+                                                          "Relational", "AlloAndAlt", "FullyConv3D"], "Which type of Policy to use")
+#TODO: REMEMBER TO CHANGE THE SAVER WHEN YOU TRAIN AND TEST!!!
 flags.DEFINE_enum("agent_mode", ACMode.A2C, [ACMode.A2C, ACMode.PPO], "if should use A2C or PPO")
-
-### NEW FLAGS ####
-flags.DEFINE_integer("rgb_screen_size", 128,
-                        "Resolution for rendered screen.") # type None if you want only features
-
-flags.DEFINE_integer("max_agent_steps", 0, "Total agent steps.")
-flags.DEFINE_bool("profile", False, "Whether to turn on code profiling.")
-flags.DEFINE_bool("trace", False, "Whether to trace the code execution.")
-#flags.DEFINE_integer("parallel", 1, "How many instances to run in parallel.")
 
 flags.DEFINE_bool("save_replay", False, "Whether to save a replay at the end.")
 
@@ -119,7 +116,7 @@ def make_custom_env(env_id, num_env, seed, wrapper_kwargs=None, start_index=0):
     def make_env(rank): # pylint: disable=C0111
         def _thunk():
             # env.seed(seed + rank)
-            env = gameEnv(partial=False,size=9)#,goal_color=[np.random.uniform(), np.random.uniform(), np.random.uniform()])
+            env = gameEnv(partial=False,size=10)#,goal_color=[np.random.uniform(), np.random.uniform(), np.random.uniform()])
             # Monitor should take care of reset!
             env = Monitor(env, logger.get_dir() and os.path.join(logger.get_dir(), str(rank)), allow_early_resets=True) # SUBPROC NEEDS 4 OUTPUS FROM STEP FUNCTION
             return env
@@ -253,6 +250,36 @@ def main():
                 # t=t+1
         except KeyboardInterrupt:
             pass
+
+    elif FLAGS.load_data:
+        import pandas as pd
+
+        path = '/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/firegrid/'
+        filename = '2019_Dec24_time16-06_best_phaseIIa'
+        df = pd.read_pickle(path + filename + '.df')
+        images = np.stack(df['map_img'].values, axis=0)
+        images = images * 255
+        images = images.astype('uint8')
+        d = {}
+        d['rgb_screen'] = images
+        action, value, value_goal, value_fire, fc, action_probs = agent.step_eval_factored(d)
+        arrX = action.size
+        print(action)
+        # for i in range(images.shape[0]):
+        #     dict = {}
+        #     dict['rgb_screen'] = images[i].reshape(1,9,9,3) # 0-9=10 elements
+        #     action, value, value_goal, value_fire, fc, action_probs = agent.step_eval_factored(dict)
+        #     print(action)
+        columns = ['actions', 'values', 'values_goal', 'values_fire']#, 'action_dstr', 'fc']
+        t = np.column_stack([action.reshape(arrX, 1), np.round(value.reshape(arrX, 1),2),
+                             np.round(value_goal.reshape(arrX, 1),2), np.round(value_fire.reshape(arrX, 1),2)])
+        # data = []
+        # data.append([action, value, value_goal, value_fire])#,action_probs, fc])
+        #
+        # data = np.array(data, dtype=object)
+        dfb = pd.DataFrame(t, columns=columns)
+        dfb.to_pickle(path + '2019_Dec24_time16-06_best_phaseIIb_20' + '.df')
+        print('...dataframe saved')
     else: # Test the agent
         try:
             import pygame
@@ -328,7 +355,7 @@ def main():
                 mb_fc = []
                 mb_rewards = []
                 mb_values = []
-                if FLAGS.policy_type == 'FactoredPolicy':
+                if FLAGS.policy_type == 'FactoredPolicy' or FLAGS.policy_type == 'FactoredPolicy_PhaseI' or FLAGS.policy_type == 'FactoredPolicy_PhaseII':
                     mb_values_goal = []
                     mb_values_fire = []
                 mb_burn = []
@@ -354,7 +381,7 @@ def main():
                     mb_map.append(state['small'])
 
                     # INTERACTION
-                    if FLAGS.policy_type == 'FactoredPolicy':
+                    if FLAGS.policy_type == 'FactoredPolicy' or FLAGS.policy_type == 'FactoredPolicy_PhaseI' or FLAGS.policy_type == 'FactoredPolicy_PhaseII':
                         obs, action, value, value_goal, value_fire, reward, done, info, fc, action_probs = runner.run_trained_factored_batch()
                     else:
                         obs, action, value, reward, done, info, fc, action_probs = runner.run_trained_batch()
@@ -369,7 +396,7 @@ def main():
                     mb_rewards.append(reward)
                     mb_fc.append(fc)
                     mb_values.append(value)
-                    if FLAGS.policy_type == 'FactoredPolicy':
+                    if FLAGS.policy_type == 'FactoredPolicy' or FLAGS.policy_type == 'FactoredPolicy_PhaseI' or FLAGS.policy_type == 'FactoredPolicy_PhaseII':
                         mb_values_goal.append(value_goal)
                         mb_values_fire.append(value_fire)
                     if reward<0: mb_burn.append(1)
@@ -387,7 +414,7 @@ def main():
                     gameDisplay.fill(DARK_BLUE)
                     map_xy = obs[0]#['img']
                     process_img(map_xy, 20, 20)
-                    if FLAGS.policy_type == 'FactoredPolicy':
+                    if FLAGS.policy_type == 'FactoredPolicy' or FLAGS.policy_type == 'FactoredPolicy_PhaseI' or FLAGS.policy_type == 'FactoredPolicy_PhaseII':
                         raw_data, canvas = create_value_hist(np.round(value,3), np.round(value_goal,3), np.round(value_fire,3))
                         size = canvas.get_width_height()
                         surf = pygame.image.fromstring(raw_data, size, "RGB")
@@ -406,7 +433,7 @@ def main():
                 dictionary[runner.episode_counter]['actions'] = mb_actions
                 dictionary[runner.episode_counter]['rewards'] = mb_rewards
                 dictionary[runner.episode_counter]['values'] = mb_values
-                if FLAGS.policy_type == 'FactoredPolicy':
+                if FLAGS.policy_type == 'FactoredPolicy' or FLAGS.policy_type == 'FactoredPolicy_PhaseI' or FLAGS.policy_type == 'FactoredPolicy_PhaseII':
                     dictionary[runner.episode_counter]['values_goal'] = mb_values_goal
                     dictionary[runner.episode_counter]['values_fire'] = mb_values_fire
                 dictionary[runner.episode_counter]['burn'] = mb_burn
@@ -422,7 +449,7 @@ def main():
             folder = '/Users/constantinos/Documents/Projects/cmu_gridworld/cmu_gym/data/firegrid/'
             now = datetime.now()
             timestamp = str(now.strftime("%Y_%b%d_time%H-%M")) # -%S for seconds
-            path = folder + timestamp + '.dct'
+            path = folder + timestamp + '_' + FLAGS.model_name + '.dct'
             pickle_in = open(path,'wb')
             pickle.dump(dictionary, pickle_in)
 

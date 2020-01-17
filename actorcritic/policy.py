@@ -19,6 +19,81 @@ class FullyConvPolicy:
         self.unittype_emb_dim = agent.unit_type_emb_dim
         self.num_actions = agent.num_actions
 
+    def _build_residual_block(self, inputs, name):
+        # https://github.com/wenxinxu/resnet-in-tensorflow/blob/8ba8d8905e099cd7e1b1cf1f84b89f603f7613a0/resnet.py#L56
+
+        conv1 = layers.conv2d(
+            inputs=inputs,
+            data_format="NHWC",
+            num_outputs=32, # orig: 32 (you either leave it 64 or you need to pad the channel dimension when you do the skip/residual connection)
+            kernel_size=8, #8, orig:4
+            stride=4,#orig:2
+            padding='SAME',
+            activation_fn=tf.nn.relu,
+            scope="%s/conv1" % name,
+            trainable=self.trainable
+        )
+        print('CONV1', conv1.get_shape().as_list())
+        ''' Residual blcok'''
+        conv2 = layers.conv2d(
+            inputs=conv1,
+            data_format="NHWC",
+            num_outputs=32,
+            kernel_size=3, #4, orig:3
+            stride=1,#2,orig:1
+            padding='SAME',
+            activation_fn=tf.nn.relu,
+            scope="%s/conv2" % name,
+            trainable=self.trainable
+        )
+        print('CONV2', conv2.get_shape().as_list())
+        conv3 = layers.conv2d(
+            inputs=conv2,
+            data_format="NHWC",
+            num_outputs=32,
+            kernel_size=3,
+            stride=1,
+            padding='SAME',
+            activation_fn=None,#tf.nn.relu,
+            scope="%s/conv3" % name,
+            trainable=self.trainable
+        )
+        print('CONV3',conv3.get_shape().as_list())
+
+        # We check if the channels between the first layer (that is going to be added to the third) and the third are the same. Else we pad
+        # padding will put around the volume zeros
+        input_channel = conv1.get_shape().as_list()[-1] # get the input channels
+        output_channel = conv3.get_shape().as_list()[-1] # get the input channels
+        # When it's time to "shrink" the image size, we use stride = 2
+        if input_channel * 2 == output_channel:
+            increase_dim = True
+            # stride = 2
+        elif input_channel == output_channel:
+            increase_dim = False
+            # stride = 1
+        else:
+            raise ValueError('Output and input channel does not match in residual blocks!!!')
+
+        if increase_dim is True:
+            # NO POOLING FOR NOW
+            # pooled_input = tf.nn.avg_pool(input_layer, ksize=[1, 2, 2, 1],
+            #                               strides=[1, 2, 2, 1], padding='VALID')
+            padded_input = tf.pad(conv1, [[0, 0], [0, 0], [0, 0], [input_channel // 2,
+                                                                          input_channel // 2]])
+        else:
+            padded_input = conv1
+
+        out = conv3 + padded_input
+        out = tf.nn.relu(out)
+
+        if self.trainable:
+            layers.summarize_activation(conv1)
+            layers.summarize_activation(conv2)
+            layers.summarize_activation(out)
+
+        # return conv2
+        return out
+
     def _build_convs(self, inputs, name):
         conv1 = layers.conv2d(
             inputs=inputs,
@@ -120,7 +195,7 @@ class FullyConvPolicy:
         # self.minimap_output = self._build_convs(minimap_numeric_all, "minimap_network")
         screen_px = tf.cast(self.placeholders.rgb_screen, tf.float32) / 255. # rgb_screen are integers (0-255) and here we convert to float and normalize
         # alt_px = tf.cast(self.placeholders.alt_view, tf.float32) / 255.
-        self.screen_output = self._build_convs(screen_px, "screen_network")
+        self.screen_output = self._build_residual_block(screen_px, "screen_network")
         # self.alt_output = self._build_convs(alt_px, "alt_network")
         
         self.map_output = self.screen_output
@@ -214,7 +289,7 @@ class FactoredPolicy:
         #     inputs=conv2,
         #     data_format="NHWC",
         #     num_outputs=64,
-        #     kernel_size=3,
+        #     kernel_size=2,
         #     stride=1,
         #     padding='SAME',
         #     activation_fn=tf.nn.relu,
@@ -231,59 +306,6 @@ class FactoredPolicy:
         # return conv3
 
     def build(self):
-        # units_embedded = layers.embed_sequence(
-        #     self.placeholders.screen_unit_type,
-        #     vocab_size=SCREEN_FEATURES.unit_type.scale, # 1850
-        #     embed_dim=self.unittype_emb_dim, # 5
-        #     scope="unit_type_emb",
-        #     trainable=self.trainable
-        # )
-        #
-        # # Let's not one-hot zero which is background
-        # player_relative_screen_one_hot = layers.one_hot_encoding(
-        #     self.placeholders.player_relative_screen,
-        #     num_classes=SCREEN_FEATURES.player_relative.scale
-        # )[:, :, :, 1:]
-        # player_relative_minimap_one_hot = layers.one_hot_encoding(
-        #     self.placeholders.player_relative_minimap,
-        #     num_classes=MINIMAP_FEATURES.player_relative.scale
-        # )[:, :, :, 1:]
-        #
-        # channel_axis = 2
-        # alt0_all = tf.concat(
-        #     [self.placeholders.alt0_grass, self.placeholders.alt0_bush, self.placeholders.alt0_drone, self.placeholders.alt0_hiker],
-        #     axis=channel_axis
-        # )
-        # alt1_all = tf.concat(
-        #     [self.placeholders.alt1_pine, self.placeholders.alt1_pines, self.placeholders.alt1_drone],
-        #     axis=channel_axis
-        # )
-        # alt2_all = tf.concat(
-        #     [self.placeholders.alt2_drone],
-        #     axis=channel_axis
-        # )
-        # alt3_all = tf.concat(
-        #     [self.placeholders.alt3_drone],
-        #     axis=channel_axis
-        # )
-
-        # VOLUMETRIC APPROACH
-        # alt_all = tf.concat(
-        #     [self.placeholders.alt0_grass, self.placeholders.alt0_bush, self.placeholders.alt0_drone, self.placeholders.alt0_hiker,
-        #      self.placeholders.alt1_pine, self.placeholders.alt1_pines, self.placeholders.alt1_drone, self.placeholders.alt2_drone,
-        #      self.placeholders.alt3_drone],
-        #     axis=channel_axis
-        # )
-        # self.spatial_action_logits = layers.conv2d(
-        #     alt_all,
-        #     data_format="NHWC",
-        #     num_outputs=1,
-        #     kernel_size=1,
-        #     stride=1,
-        #     activation_fn=None,
-        #     scope='spatial_action',
-        #     trainable=self.trainable
-        # )
         # self.screen_output = self._build_convs(screen_numeric_all, "screen_network")
         # self.minimap_output = self._build_convs(minimap_numeric_all, "minimap_network")
         screen_px = tf.cast(self.placeholders.rgb_screen,
@@ -398,25 +420,25 @@ class FactoredPolicy_PhaseI:
             scope="%s/conv2" % name,
             trainable=self.trainable
         )
-        # conv3 = layers.conv2d(
-        #     inputs=conv2,
-        #     data_format="NHWC",
-        #     num_outputs=64,
-        #     kernel_size=3,
-        #     stride=1,
-        #     padding='SAME',
-        #     activation_fn=tf.nn.relu,
-        #     scope="%s/conv3" % name,
-        #     trainable=self.trainable
-        # )
+        conv3 = layers.conv2d(
+            inputs=conv2,
+            data_format="NHWC",
+            num_outputs=64,
+            kernel_size=2,
+            stride=1,
+            padding='SAME',
+            activation_fn=tf.nn.relu,
+            scope="%s/conv3" % name,
+            trainable=self.trainable
+        )
 
         if self.trainable:
             layers.summarize_activation(conv1)
             layers.summarize_activation(conv2)
-            # layers.summarize_activation(conv3)
+            layers.summarize_activation(conv3)
 
-        return conv2
-        # return conv3
+        # return conv2
+        return conv3
 
     def build(self):
         # units_embedded = layers.embed_sequence(
@@ -486,9 +508,16 @@ class FactoredPolicy_PhaseI:
         # (MINE) This is the last layer (fully connected -fc) for the non-spatial (categorical) actions
         self.fc1 = layers.fully_connected(
             map_output_flat,
-            num_outputs=256,
+            num_outputs=512,
             activation_fn=tf.nn.relu,
             scope="fc1",
+            trainable=self.trainable
+        )
+        self.fc1 = layers.fully_connected(
+            self.fc1,
+            num_outputs=512,
+            activation_fn=tf.nn.relu,
+            scope="fc2",
             trainable=self.trainable
         )
         # Add layer normalization for better stability
@@ -564,104 +593,49 @@ class FactoredPolicy_PhaseII:
         self.num_actions = agent.num_actions
 
     def _build_convs(self, inputs, name):
-        conv1 = layers.conv2d(
+        conv1 = tf.stop_gradient(layers.conv2d(
             inputs=inputs,
             data_format="NHWC",
             num_outputs=32,
-            kernel_size=8,  # 8
-            stride=4,  # 4
+            kernel_size=4,  # 8
+            stride=2,  # 4
             padding='SAME',
             activation_fn=tf.nn.relu,
             scope="%s/conv1" % name,
             trainable=self.trainable
-        )
-        conv2 = layers.conv2d(
+        ))
+        conv2 = tf.stop_gradient(layers.conv2d(
             inputs=conv1,
             data_format="NHWC",
             num_outputs=64,
-            kernel_size=4,  # 4
+            kernel_size=2,  # 4
             stride=1,  # 2,#
             padding='SAME',
             activation_fn=tf.nn.relu,
             scope="%s/conv2" % name,
             trainable=self.trainable
-        )
-        # conv3 = layers.conv2d(
-        #     inputs=conv2,
-        #     data_format="NHWC",
-        #     num_outputs=64,
-        #     kernel_size=3,
-        #     stride=1,
-        #     padding='SAME',
-        #     activation_fn=tf.nn.relu,
-        #     scope="%s/conv3" % name,
-        #     trainable=self.trainable
-        # )
+        ))
+        conv3 = tf.stop_gradient(layers.conv2d(
+            inputs=conv2,
+            data_format="NHWC",
+            num_outputs=64,
+            kernel_size=2,
+            stride=1,
+            padding='SAME',
+            activation_fn=tf.nn.relu,
+            scope="%s/conv3" % name,
+            trainable=self.trainable
+        ))
 
         if self.trainable:
             layers.summarize_activation(conv1)
             layers.summarize_activation(conv2)
-            # layers.summarize_activation(conv3)
+            layers.summarize_activation(conv3)
 
-        return conv2
-        # return conv3
+        # return conv2
+        return conv3
 
     def build(self):
-        # units_embedded = layers.embed_sequence(
-        #     self.placeholders.screen_unit_type,
-        #     vocab_size=SCREEN_FEATURES.unit_type.scale, # 1850
-        #     embed_dim=self.unittype_emb_dim, # 5
-        #     scope="unit_type_emb",
-        #     trainable=self.trainable
-        # )
-        #
-        # # Let's not one-hot zero which is background
-        # player_relative_screen_one_hot = layers.one_hot_encoding(
-        #     self.placeholders.player_relative_screen,
-        #     num_classes=SCREEN_FEATURES.player_relative.scale
-        # )[:, :, :, 1:]
-        # player_relative_minimap_one_hot = layers.one_hot_encoding(
-        #     self.placeholders.player_relative_minimap,
-        #     num_classes=MINIMAP_FEATURES.player_relative.scale
-        # )[:, :, :, 1:]
-        #
-        # channel_axis = 2
-        # alt0_all = tf.concat(
-        #     [self.placeholders.alt0_grass, self.placeholders.alt0_bush, self.placeholders.alt0_drone, self.placeholders.alt0_hiker],
-        #     axis=channel_axis
-        # )
-        # alt1_all = tf.concat(
-        #     [self.placeholders.alt1_pine, self.placeholders.alt1_pines, self.placeholders.alt1_drone],
-        #     axis=channel_axis
-        # )
-        # alt2_all = tf.concat(
-        #     [self.placeholders.alt2_drone],
-        #     axis=channel_axis
-        # )
-        # alt3_all = tf.concat(
-        #     [self.placeholders.alt3_drone],
-        #     axis=channel_axis
-        # )
-
-        # VOLUMETRIC APPROACH
-        # alt_all = tf.concat(
-        #     [self.placeholders.alt0_grass, self.placeholders.alt0_bush, self.placeholders.alt0_drone, self.placeholders.alt0_hiker,
-        #      self.placeholders.alt1_pine, self.placeholders.alt1_pines, self.placeholders.alt1_drone, self.placeholders.alt2_drone,
-        #      self.placeholders.alt3_drone],
-        #     axis=channel_axis
-        # )
-        # self.spatial_action_logits = layers.conv2d(
-        #     alt_all,
-        #     data_format="NHWC",
-        #     num_outputs=1,
-        #     kernel_size=1,
-        #     stride=1,
-        #     activation_fn=None,
-        #     scope='spatial_action',
-        #     trainable=self.trainable
-        # )
-        # self.screen_output = self._build_convs(screen_numeric_all, "screen_network")
-        # self.minimap_output = self._build_convs(minimap_numeric_all, "minimap_network")
         screen_px = tf.cast(self.placeholders.rgb_screen,
                             tf.float32) / 255.  # rgb_screen are integers (0-255) and here we convert to float and normalize
         # alt_px = tf.cast(self.placeholders.alt_view, tf.float32) / 255.
@@ -674,14 +648,20 @@ class FactoredPolicy_PhaseII:
         # (MINE) This is the last layer (fully connected -fc) for the non-spatial (categorical) actions
         self.fc1 = tf.stop_gradient(layers.fully_connected( # I add a stop_gradient here just in case (CHECK the weights if they change with and without the stop_gradient)
             map_output_flat,
-            num_outputs=256,
+            num_outputs=512,
             activation_fn=tf.nn.relu,
             scope="fc1",
             trainable=self.trainable
         ))
         # Add layer normalization for better stability
         # self.fc1 = tf.stop_gradient(layers.layer_norm(self.fc1,trainable=self.trainable)) # VERY BAD FOR THE 2D GRIDWORLD!!!
-
+        self.fc1 = tf.stop_gradient(layers.fully_connected(
+            self.fc1,
+            num_outputs=512,
+            activation_fn=tf.nn.relu,
+            scope="fc2",
+            trainable=self.trainable
+        ))
         action_id_probs = tf.stop_gradient(layers.fully_connected(
             self.fc1,
             num_outputs=self.num_actions,  # len(actions.FUNCTIONS),
@@ -734,6 +714,7 @@ class FactoredPolicy_PhaseII:
         self.action_id_log_probs = action_id_log_probs
 
         return self
+
 # class MetaPolicy:
 #     """
 #     Meta Policy with recurrency on observations, actions and rewards
@@ -907,6 +888,7 @@ class FactoredPolicy_PhaseII:
 #         self.action_id_probs = action_id_probs
 #         self.action_id_log_probs = action_id_log_probs
 #         return self
+
 class MetaPolicy:
     """
     Meta Policy with recurrency on observations, actions and rewards
