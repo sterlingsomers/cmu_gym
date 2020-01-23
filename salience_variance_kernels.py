@@ -10,6 +10,7 @@ from multiprocessing import Pool
 from functools import partial
 import pickle
 import time
+import math
 
 from pyactup import *
 
@@ -61,8 +62,8 @@ def curate_function_chunks(n=0, func=0, distribution='uniform', distribution_arg
 
 def compute_S(probe,feature_list,history,Vk,MP,t):
     chunk_names = []
-    deriv_functions = {'x-y':None,
-                       '(x-y)**2':square_derivative}
+    # deriv_functions = {'x-y':None,
+    #                    '(x-y)**2':square_derivative}
 
     PjxdSims = {}
     for feature in feature_list:
@@ -75,10 +76,8 @@ def compute_S(probe,feature_list,history,Vk,MP,t):
                     vjk = attribute[1]
                     break
 
-            if Fk == vjk:
-                dSim = 0.0
-            else:
-                dSim = (vjk - Fk) / abs(Fk - vjk)
+            #
+            dSim = (-(Fk-vjk)*abs(Fk-vjk)**(1/abs(Fk-vjk)**-3))*(math.log(abs(Fk-vjk))-1)
             # if Fk == vjk:
             #     dSim = 0
             # else:
@@ -112,22 +111,13 @@ def compute_S(probe,feature_list,history,Vk,MP,t):
             for attribute in chunk['attributes']:
                 if attribute[0] == feature:
                     vik = attribute[1]
-            # if Fk > vik:
-            #     dSim = -1
-            # elif Fk == vik:
-            #     dSim = 0
-            # else:
-            #     dSim = 1
-            # dSim = (Fk - vjk) / sqrt(((Fk - vjk) ** 2) + 10 ** -10)
-            if Fk == vik:
-                dSim = 0.0
-            else:
-                dSim = (vik - Fk) / abs(Fk - vik)
-            #
+
             # if Fk == vik:
-            #     dSim = 0
+            #     dSim = 0.0
             # else:
-            #     dSim = -1 * ((Fk-vik) / math.sqrt((Fk - vik)**2))
+            #     dSim = (vik - Fk) / abs(Fk - vik)
+            dSim = (-(Fk-vik)*abs(Fk-vik)**(1/abs(Fk-vik)**-3))*(math.log(abs(Fk-vik))-1)
+
 
             inner_quantity = dSim - sum(PjxdSims[feature])
             fullsum[feature].append(Pi * inner_quantity * vio)
@@ -181,7 +171,7 @@ def multi_blends_salience(probe, observation_slots, action_slots, chunks, noise,
 
 
 def custom_similarity(x,y):
-    return 1 - abs(x - y)
+    return 1 - (abs(x-y)**(1/abs(x-y)))
 
 if __name__ == "__main__":
     funct = lambda f0, f1, f2: 2*f0 + f1 + f2 #the function I want the data to represent
@@ -220,7 +210,7 @@ if __name__ == "__main__":
         salience_mean_results = []
         salience_sd_results = []
         mismatch_penalties = []
-        for i in [1,5,10,20]:#The mismatch penalties
+        for i in [50,75]:#The mismatch penalties
         ###multi processing
             all_blend_means[(sigma, i)] = []
             all_blend_std[(sigma,i)] = []

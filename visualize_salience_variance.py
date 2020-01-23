@@ -1,10 +1,12 @@
+
 import matplotlib
+matplotlib.get_backend()
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 
 import pickle
 
-filename = '/Users/paulsomers/COGLE/gym-gridworld/salience_variance_data-20191126-231306.dict'
+filename = 'salience_variance_data-20191202-143836.dict'
 all_data = pickle.load(open(filename, 'rb'))
 
 #first figure out how many axes we want
@@ -12,11 +14,13 @@ sigmas = all_data['salience_means'].keys()
 sigmas = [x[0] for x in sigmas]
 sigmas = set(sigmas)
 sigmas = list(sigmas)
+sigmas.sort()
 
 mps = all_data['salience_means'].keys()
 mps = [x[1] for x in mps]
 mps = set(mps)
 mps = list(mps)
+mps.sort()
 
 fig1, fig1_axes = plt.subplots(1,len(sigmas),sharey=True)
 fig2, fig2_axes = plt.subplots(len(sigmas),len(mps),sharey=True)
@@ -31,7 +35,7 @@ for n in range(len(fig1_axes)):
     sigma = sigmas[n]
     for param in [(sigma,x) for x in mps]:
         blend_y_values.append(all_data['blend_means'][param])
-        blend_x_values.append(repr(param[1]))
+        blend_x_values.append(param[1])
         blend_std_values.append(all_data['blend_std'][param][0])
     # fig1_axes[n].plot(blend_x_values,blend_y_values,label='sigma: ' + repr(sigma))
     fig1_axes[n].errorbar(blend_x_values, blend_y_values, yerr=blend_std_values, fmt='--o', label='mean diff. sigma: ' + repr(sigma))
