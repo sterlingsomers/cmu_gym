@@ -80,9 +80,10 @@ class Runner(object):
         obs = self.envs.reset()
         self.latest_obs = self.obs_processer.process([obs])
 
-    def _log_score_to_tb(self, score): # log score to tensorboard
+    def _log_score_to_tb(self, score, length): # log score to tensorboard
         summary = tf.Summary()
         summary.value.add(tag='sc2/episode_score', simple_value=score)
+        summary.value.add(tag='sc2/episode_length', simple_value=length)
         self.agent.summary_writer.add_summary(summary, self.episode_counter)
 
     def first_nonzero(self, arr, axis):#, invalid_val=self.n_steps):
@@ -98,7 +99,7 @@ class Runner(object):
         # print(">>>>>>>>>>>>>>>episode %d ended. Score %f | Total Steps %d | Last step Reward %f" % (self.episode_counter, self.score, length, last_step_r))
         print(">>>>>>>>>>>>>>>episode %d ended. Score %f | Total Steps %d" % (
         self.episode_counter, self.score, length))
-        self._log_score_to_tb(self.score) # logging score to tensorboard
+        self._log_score_to_tb(self.score, length) # logging score to tensorboard
         self.episode_counter += 1 # Is not used for stopping purposes judt for printing. You train for a number of batches (nsteps+training no matter reset)
         #self.reset() # Error if Monitor doesnt have the option to reset without an env to be done (THIS RESETS ALL ENVS!!! YOU NEED remot.send(env.reset) to reset a specific env. Else restart within the env
 

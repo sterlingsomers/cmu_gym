@@ -36,7 +36,7 @@ class gameEnv():
         self.objects = []
         self.partial = partial
         self.bg = np.zeros([size, size])
-        self.num_fires = 8
+        self.num_fires = 3
         self.goal_color = [0,1,0]#[np.random.uniform(), np.random.uniform(), np.random.uniform()]
         self.goal_reward = 1
         self.fire_reward = -1
@@ -44,6 +44,7 @@ class gameEnv():
         self.info['fire'] = 0
         self.info['goal'] = 0
         self.teriminateWfire = True
+        self.viewer = None
 
     def seed(self, seed=None):
         np.random.seed(seed=seed) # It works the seed now!!!
@@ -212,3 +213,8 @@ class gameEnv():
                     goal = ob
             # return state, s_big, (reward + penalty), done, [self.objects[0].y, self.objects[0].x], [goal.y, goal.x]
             return (obs['img'], (reward + penalty), done, info)
+
+    def close(self):
+        if self.viewer:
+            self.viewer.close()
+            self.viewer = None

@@ -386,6 +386,7 @@ class ActorCriticAgent:
             self._scalar_summary("loss/value_fire", self.value_loss_fire)
             self._scalar_summary("loss/value_goal", self.value_loss_goal)
             self._scalar_summary("value/estimate", tf.reduce_mean(self.value_estimate))
+            self._scalar_summary("value/target", tf.reduce_mean(self.placeholders.value_target))
             self._scalar_summary("loss/value", self.value_loss)
         else:
             self._scalar_summary("value/estimate", tf.reduce_mean(self.value_estimate)) # no correct!mean is for all samples but we use masks!!!
@@ -407,11 +408,11 @@ class ActorCriticAgent:
 
         self.init_op = tf.global_variables_initializer()
 #TODO: we need 2 savers. PhaseI: it will save only the headless network. PhaseII: it will save the whole network (previous params plus the heads params)
-        self.saver_orig = tf.train.Saver(max_to_keep=2) # Save everything (tf.all_variables() which is different from tf.trainable_variables()) which includes Adam vars# keeps only the last 2 set of params and model checkpoints. If you want more increase the umber to keep
+        self.saver_orig = tf.train.Saver(max_to_keep=None) # Save everything (tf.all_variables() which is different from tf.trainable_variables()) which includes Adam vars# keeps only the last 2 set of params and model checkpoints. If you want more increase the umber to keep
         # self.saver = tf.train.Saver(max_to_keep=2)
         # This saves and restores only the variables in the var_list
         # self.saver = tf.train.Saver(max_to_keep=2, var_list=tvars)  # 2 phase training
-        self.saver = tf.train.Saver(max_to_keep=2, var_list=tvars) # 2 phase training. If tvars=None then saves everything
+        self.saver = tf.train.Saver(max_to_keep=None, var_list=tvars) # 2 phase training. If tvars=None then saves everything
         self.all_summary_op = tf.summary.merge_all(tf.GraphKeys.SUMMARIES)
         self.scalar_summary_op = tf.summary.merge(tf.get_collection(self._scalar_summary_key))
         #self.beholder = beholder_lib.Beholder(logdir=LOG_DIRECTORY)
