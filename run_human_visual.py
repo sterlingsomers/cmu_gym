@@ -1,25 +1,55 @@
+
+
 import os
 import glob
-from pyactup import *
+import shutil
+import sys
+from datetime import datetime
+from time import sleep
 import pickle
+import pygame, time
+import numpy as np
+import gym_gridworld.envs.gridworld_env as GridWorld
+from absl import flags
+from pathlib import Path
+import time
 import random
 import math
-
-from pathlib import Path
-
-import time
 
 from multiprocessing import Pool
 from functools import partial
 
-import numpy as np
-from sklearn.model_selection import train_test_split
-from sklearn import preprocessing
+from pyactup import *
 
-from scipy.stats import entropy
-from scipy.spatial import distance
+FLAGS = flags.FLAGS
 
-import itertools
+flags.DEFINE_integer("episodes", 1, "Number of complete episodes")
+
+
+
+
+#human subject flags
+flags.DEFINE_string("participant", 'Test', "The participants name")
+flags.DEFINE_string("map", 'canyon', "flatland, canyon, v-river, treeline, small-canyon, flatland")
+flags.DEFINE_integer("configuration", 0, "0,1, or 2")
+
+
+FLAGS(sys.argv)
+
+
+def restore_last_move(human_data,environment):
+    if len(human_data['maps']) == 0:
+        return 0
+    environment.reset(map=flags.FLAGS.map)
+    for step in human_data['actions'][:-1]:
+        environment.step(step)
+    human_data['maps'] = human_data['maps'][:-1]
+    human_data['actions'] = human_data['actions'][:-1]
+    human_data['headings'] = human_data['headings'][:-1]
+    human_data['altitudes'] = human_data['altitudes'][:-1]
+    human_data['drone'] = human_data['drone'][:-1]
+    human_data['hiker'] = human_data['hiker'][:-1]
+    human_data['reward'] = human_data['reward'][:-1]
 
 #set a random seed for pseudo-random
 random.seed(42)
@@ -186,7 +216,7 @@ def angle_categories(angle):
 
     return returndict
 
-def create_chunks_from_files(filelist, include_fc=False):
+def create_chunks_from_files(filelist,map='', include_fc=False):
     chunks = []
     for file in filelist:
         mission = pickle.load(open(file,'rb'))
@@ -310,6 +340,34 @@ def convert_data_to_chunks(all_data,include_fc=False):
 
     return nav
 
+def convert_observation_to_chunk(obs,max_dict):
+
+    egocentric_angle_to_hiker = heading_to_hiker(obs['heading'], obs['drone'], obs['hiker'])
+    angle_categories_to_hiker = angle_categories(egocentric_angle_to_hiker)
+    egocentric_slice = egocentric_representation(obs['drone'], obs['heading'], obs['volume'])
+    chunk = {}
+    for key, value in angle_categories_to_hiker.items():
+        chunk[key] = value  # .extend([key, [key, value]])
+    # need the altitudes from the slice
+    altitudes = altitudes_from_egocentric_slice(egocentric_slice)
+    altitudes = [x - 1 for x in altitudes]
+    alt = obs['altitude']
+    # chunk.extend(['altitude', ['altitude', int(alt)]])
+    chunk['altitude'] = int(alt)
+    chunk['ego_left'] = altitudes[0]
+    chunk['ego_diagonal_left'] = altitudes[1]
+    chunk['ego_center'] = altitudes[2]
+    chunk['ego_diagonal_right'] = altitudes[3]
+    chunk['ego_right'] = altitudes[4]
+
+    chunk['distance_to_hiker'] = distance_to_hiker(np.array(obs['drone']), np.array(obs['hiker']))
+
+    for slot in chunk:  # ['altitude', 'distance_to_hiker', 'ego_right','ego_diagonal_right']:#
+        chunk[slot] = chunk[slot] / max(max_dict[slot])
+
+
+    return chunk
+
 def multi_blends(chunk, memory, slots ):
     return [memory.blend(slot,**chunk) for slot in slots]
 
@@ -319,154 +377,232 @@ def vector_similarity(x,y):
 
 
 def custom_similarity(x,y):
+    if abs(x - y) > 1:
+        print('asdf')
+        return 1
     return abs(x - y)
+
+def multi_blends(slot, probe, memory):
+    return memory.blend(slot,**probe)
 
 #set the similarity function
 set_similarity_function(custom_similarity, *observation_slots)
 set_similarity_function(vector_similarity, 'fc')
 
-def main():
-    results = []
-    all_chunks = []
-    FC_distances = []
+data_by_slot = {} #needed to normalize observations
 
-    human_data_folder = Path('./data/human-data_Joel/')
-    if not os.path.isdir(human_data_folder):
-        return 0
-    os.chdir(human_data_folder)
-    data_files = glob.glob('*2020*')
+def main(data_by_slot):
+        human_data_folder = Path('./data/human-data_Joel/')
+        parameter = {'temp':1,'mismatch':20}
 
-    all_chunks = create_chunks_from_files(data_files)
 
-    normalized_data_file = 'human_normalized_all_chunks.lst'
-    chunks_path = Path("./")
 
-    if not os.path.isfile(os.path.join(chunks_path, normalized_data_file)):
+        score = 0.0
+        reward = 0.0
+        environment = GridWorld.GridworldEnv()
+        config = flags.FLAGS.configuration
+        environment.reset(map=flags.FLAGS.map,config=config)
+        human_data = {}
+        human_data['maps'] = []
+        human_data['actions'] = []
+        human_data['headings'] = []
+        human_data['altitudes'] = []
+        human_data['drone'] = []
+        human_data['hiker'] = []
+        human_data['reward'] = []
 
-        ###load the data
-        ###Need the raw data, then convert it into chunks because you need the intial distributions for the actions
-        # data_file_name = 'all_data308-110_9-7_4-1_9-115000.lst'
-        # ata_path = Path('C:/Users/Konstantron/PycharmProjects/cmu_gym/data/')
-        # all_data = pickle.load(open(os.path.join(human_data_folder, normalized_data_file), 'rb'))
+        episode_counter = 0
 
-        ###convert the data to chunks
-        # all_chunks = convert_data_to_chunks(all_data, include_fc=True)
+        # pygame.font.get_fonts() # Run it to get a list of all system fonts
+        display_w = 1200
+        display_h = 720
 
-        # # find all the euclidean distances between all fc to normalize the euclidean
-        # FCs = []
-        #
-        # for chunk in all_chunks:
-        #     FCs.append(chunk['fc'])
-        #
-        # # normalize the fc
-        # normalizer = preprocessing.Normalizer(norm='l2').fit(FCs)
-        # FCs = normalizer.transform(FCs)  # [normalizer.transform(x) for x in FCs]
-        # for chunk, fc in zip(all_chunks, FCs):
-        #     chunk['fc'] = tuple(fc.tolist())
-        #
-        # split_FCs = [FCs[i::100] for i in range(100)]  # [test_chunks[i::10] for i in range(10)]
-        # for FC_list in split_FCs:
-        #     FC_combination = list(itertools.combinations(FC_list, 2))
-        #     sub_distances = [distance.euclidean(x[0], x[1]) for x in FC_combination]
-        #     FC_distances.append(max(sub_distances))
-        #
-        # with open(os.path.join(chunks_path, 'FC_distances.pkl'), 'wb') as handle:
-        #     pickle.dump(FC_distances, handle)
+        BLUE = (128, 128, 255)
+        DARK_BLUE = (1, 50, 130)
+        RED = (255, 192, 192)
+        BLACK = (0, 0, 0)
+        WHITE = (255, 255, 255)
 
-        # the chunks values should be normalized
-        # make a dictionary of all values, use max(values) to normalize
-        data_by_slot = {slot: [] for slot in observation_slots}
-        for chunk in all_chunks:
-            for slot in observation_slots:
-                data_by_slot[slot].append(chunk[slot])
-        acount = 0
-        for chunk in all_chunks:
-            print(acount)
-            for slot in observation_slots:  # ['altitude', 'distance_to_hiker', 'ego_right','ego_diagonal_right']:#
-                chunk[slot] = chunk[slot] / max(data_by_slot[slot])
-            acount += 1
+        sleep_time = 0.0
 
-        with open(os.path.join(chunks_path, normalized_data_file), 'wb') as handle:
-            pickle.dump(all_chunks, handle)
+        pygame.init()
+        gameDisplay = pygame.display.set_mode((display_w, display_h))
+        gameDisplay.fill(DARK_BLUE)
+        pygame.display.set_caption('Package Drop')
+        clock = pygame.time.Clock()
 
-    else:
-        # all_chunks = pickle.load(open(chunks_path + normalized_data_file, 'rb'))
-        # FC_distances = pickle.load(open(os.path.join(chunks_path, 'FC_distances.pkl'), 'rb'))
-        all_chunks = pickle.load(open(os.path.join(chunks_path, normalized_data_file), 'rb'))
+        def screen_mssg_variable(text, variable, area):
+            font = pygame.font.SysFont('arial', 16)
+            txt = font.render(text + str(variable), True, WHITE)
+            gameDisplay.blit(txt, area)
 
-    # vectorize the data, ensuring the order
-    # include the action probs
-    vectorized_data = [convert_dict_chunk_to_vector(chunk, observation_slots) for chunk in all_chunks]
-    vectorized_targets = [convert_dict_chunk_to_vector(chunk, action_slots) for chunk in all_chunks]
+        def process_img(img, x,y):
+            # swap the axes else the image will not be the same as the matplotlib one
+            img = img.transpose(1,0,2)
+            surf = pygame.surfarray.make_surface(img)
+            surf = pygame.transform.scale(surf, (300, 300))
+            gameDisplay.blit(surf, (x, y))
 
-    X_train, X_test, Y_train, Y_test = train_test_split(vectorized_data, vectorized_targets, test_size=0.20,
-                                                        random_state=42)
+        def text_objects(text, font):
+            textSurface = font.render(text, True, (255,0,0))
+            return textSurface, textSurface.get_rect()
 
-    # now there is a vectorized training set and test set - turn them back to dictionaries (chunks that can be read by pyactup)
-    # cannot store the numpy array (action_probs) so, perserve the order from this point on - you can go back to X_train, Y_train to match the action_probs
-    training_chunks = []
-    for obs, act in zip(X_train, Y_train):
-        chunk = convert_vector_to_dict_chunk(obs + act, observation_slots + action_slots)
-        training_chunks.append(chunk)
+        def message_display(text):
+            largeText = pygame.font.Font('freesansbold.ttf', 115)
+            TextSurf, TextRect = text_objects(text, largeText)
+            TextRect.center = ((display_w / 2), (display_h / 2))
+            gameDisplay.blit(TextSurf, TextRect)
 
-    test_chunks = [convert_vector_to_dict_chunk(test, observation_slots) for test in X_test]
+            pygame.display.update()
 
-    ###now run the model
-    temperatures = [1.0,1.25,1.5,1.75,2,2.25,2.5,2.75,3.0,3.25,3.5,3.75,4.0,4.25,4.75,5.0,5.25,5.5,5.75,6.0,6.25,6.5,6.75,7.00]  # .3,0.4,0.5]#.6,0.7,0.8,0.9,1.0]
-    mismatches = [0.2,0.5,1,2,4,6,8.0, 10.0, 11.0, 12.0, 13.0, 14.0, 16.0]
-    parameters = [(x, y) for x in temperatures for y in mismatches]
-    used_parameters = {'temperature': [], 'mismatches': []}
-    os.chdir('/Users/paulsomers/COGLE/gym-gridworld/data/human-human-data/')
-    datafiles = glob.glob("2020*")
-    for file in datafiles:
-        dats = pickle.load(open(file, 'rb'))
-        used_parameters['temperature'].append(dats['temperature'])
-        used_parameters['mismatches'].append(dats['mismatch'])
+            time.sleep(2)
 
-    for parameter in parameters:
-        # because of issues with crashing - find all parameters that have been done, and skip them
-        if parameter in zip(used_parameters['temperature'], used_parameters['mismatches']):
-            continue
 
-        m = Memory(noise=0.0, decay=0.0, temperature=parameter[0], threshold=-100.0, mismatch=parameter[1],
+        if not os.path.isdir(human_data_folder):
+            print("human data folder incorrect")
+            return 0
+        os.chdir(human_data_folder)
+        data_files = glob.glob('*2020*')
+        all_chunks = create_chunks_from_files(data_files)
+
+        normalized_data_file = 'human_normalized_all_chunks.lst'
+        chunks_path = Path("./")
+
+        if 1:#I need this to happen for now - so I get the max dictionary: #not os.path.isfile(os.path.join(chunks_path, normalized_data_file)):
+            data_by_slot = {slot: [] for slot in observation_slots}
+            for chunk in all_chunks:
+                for slot in observation_slots:
+                    data_by_slot[slot].append(chunk[slot])
+            acount = 0
+            for chunk in all_chunks:
+                print(acount)
+                for slot in observation_slots:  # ['altitude', 'distance_to_hiker', 'ego_right','ego_diagonal_right']:#
+                    chunk[slot] = chunk[slot] / max(data_by_slot[slot])
+                acount += 1
+
+            with open(os.path.join(chunks_path, normalized_data_file), 'wb') as handle:
+                pickle.dump(all_chunks, handle)
+
+        else:
+            # all_chunks = pickle.load(open(chunks_path + normalized_data_file, 'rb'))
+            # FC_distances = pickle.load(open(os.path.join(chunks_path, 'FC_distances.pkl'), 'rb'))
+            all_chunks = pickle.load(open(os.path.join(chunks_path, normalized_data_file), 'rb'))
+
+        m = Memory(noise=0.0, decay=0.0, temperature=parameter['temp'], threshold=-100.0, mismatch=parameter['mismatch'],
                    optimized_learning=False)
-        m._maximum_similarity = 5
-        # put the training chunks in memory
-        for chunk in training_chunks:
+
+        for chunk in all_chunks:
             m.learn(**chunk)
-
-        m.advance()
-        p = Pool(processes=8)
-        # split_chunks = [test_chunks[i::10] for i in range(10)]
-        multi_p = partial(multi_blends, memory=m, slots=action_slots)
-        data = p.map(multi_p, test_chunks)
-        # for test_chunk in test_chunks:
-        # results.append([m.blend(x,**test_chunk) for x in action_slots])
-
-        JS = []
-        matches = []
-        for result, datum in zip(data, Y_test):
-            # JS.append(distance.jensenshannon(result, datum[-1][0]))
-            matches.append(int(np.argmax(result) == np.argmax(datum)))
-        # avgJS = sum(JS) / len(JS)
-        avgMatch = sum(matches) / len(matches)
-        print(parameter)
-        print(avgMatch)
-
-        save_dict = {'data': data, 'Y_test': Y_test, 'JS': JS, 'matches': matches,  'avgMatch': avgMatch,
-                     'temperature': parameter[0], 'mismatch': parameter[1]}
-
-        timestr = time.strftime("%Y%m%d-%H%M%S")
-        with open(os.path.join('/Users/paulsomers/COGLE/gym-gridworld/data/human-human-data/', timestr), 'wb') as handle:
-            pickle.dump(save_dict, handle)
-        p.close()
-    # del m
-    # del data
-    # del p
-    # del multi_p
-    # del JS
-    # del matches
+            m.advance()
 
 
-if __name__ == "__main__":
-    main()
+        dictionary = {}
+        running = True
+        done = 0
+        while episode_counter <= (FLAGS.episodes - 1) and running==True and done ==False:
+            print('Episode: ', episode_counter)
+            human_data = {}
+            human_data['maps'] = []
+            human_data['actions'] = []
+            human_data['headings'] = []
+            human_data['altitudes'] = []
+            human_data['drone'] = []
+            human_data['hiker'] = []
+            human_data['reward'] = []
+
+
+
+
+
+
+            new_image = environment.generate_observation()
+            obs = {}
+            obs['heading'] = environment.heading
+            drone_position = np.where(environment.map_volume['vol'] == environment.map_volume['feature_value_map']['drone'][environment.altitude]['val'])
+            drone_position_flat = [int(drone_position[1]), int(drone_position[2])]
+            obs['drone'] = drone_position_flat
+            hiker_position = environment.hiker_position
+            obs['hiker'] = hiker_position
+            obs['volume'] = environment.map_volume['vol']
+            obs['altitude'] = environment.altitude
+            obs_chunk = convert_observation_to_chunk(obs,data_by_slot)
+
+            map_xy = new_image['img']#environment.generate_observation()['img']map_image
+            map_alt = new_image['nextstepimage']#environment.alt_view
+            process_img(map_xy, 20, 20)
+            process_img(map_alt, 20, 400)
+            pygame.display.update()
+
+
+            # Quit pygame if the (X) button is pressed on the top left of the window
+            # Seems that without this for event quit doesnt show anything!!!
+            # Also it seems that the pygame.event.get() is responsible to REALLY updating the screen contents
+            # for event in pygame.event.get():
+            #     if event.type == pygame.QUIT:
+            #         print("human data being written.")
+            #         with open('./data/human.tj', 'wb') as handle:
+            #             pickle.dump(dictionary, handle)
+            #         running = False
+            # sleep(sleep_time)
+
+
+
+            gameDisplay.fill(DARK_BLUE)
+
+            #
+            # drone_pos = np.where(nav_runner.envs.map_volume['vol'] == nav_runner.envs.map_volume['feature_value_map']['drone'][nav_runner.envs.altitude]['val'])
+
+
+            #get the actions (multiprocessing)
+            p = Pool(processes=8)
+            multi_p = partial(multi_blends, memory=m, probe=obs_chunk)
+            blends = p.map(multi_p, action_slots)
+            p.close()
+            p.join()
+
+            max_blend = max(blends)
+            index_of = blends.index(max_blend)
+            action = action_slots[index_of]
+            action_value = combos_to_actions[action]
+
+            environment.step(action_value)
+
+            # human_data['maps'].append(environment.map_volume)
+            # human_data['headings'].append(environment.heading)
+            # human_data['altitudes'].append(environment.altitude)
+            # human_data['actions'].append(action)
+            # drone_pos = np.where(environment.map_volume['vol'] == environment.map_volume['feature_value_map']['drone'][environment.altitude]['val'])
+            #
+            # human_data['drone'].append(drone_pos)
+            # human_data['hiker'].append(environment.hiker_position)
+
+
+            obs = environment.generate_observation()
+            map_xy = obs['img']
+            map_alt = obs['nextstepimage']
+            process_img(map_xy, 20, 20)
+            process_img(map_alt, 20, 400)
+
+            # Update finally the screen with all the images you blitted in the run_trained_batch
+            pygame.display.update() # Updates only the blitted parts of the screen, pygame.display.flip() updates the whole screen
+            pygame.event.get() # Show the last state and then reset
+            sleep(sleep_time)
+
+            # if t == 70:
+            #     break
+            if done:
+                pygame.event.set_blocked([pygame.KEYDOWN])
+                message_display("GAME OVER")
+
+
+            clock.tick(15)
+
+
+        print("human data being written.")
+        timestr = timestr = time.strftime("%Y%m%d-%H%M%S")
+        with open('./data/human-data/' + flags.FLAGS.participant + '-' + timestr + '.tj', 'wb') as handle:
+            pickle.dump(human_data, handle)
+
+
+if __name__ == '__main__':
+    main(data_by_slot)
