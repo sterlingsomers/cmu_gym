@@ -15,13 +15,15 @@ from pathlib import Path
 import time
 import random
 import math
-
+import itertools
 from multiprocessing import Pool
 from functools import partial
+import copy
 
 from pyactup import *
 
 FLAGS = flags.FLAGS
+from gym_gridworld.envs.map_dict import *
 
 flags.DEFINE_integer("episodes", 1, "Number of complete episodes")
 
@@ -31,7 +33,8 @@ flags.DEFINE_integer("episodes", 1, "Number of complete episodes")
 #human subject flags
 flags.DEFINE_string("participant", 'Test', "The participants name")
 flags.DEFINE_string("map", 'canyon', "flatland, canyon, v-river, treeline, small-canyon, flatland")
-flags.DEFINE_integer("configuration", 0, "0,1, or 2")
+flags.DEFINE_string('map_data', '', "any map or blank string for data from all maps")
+flags.DEFINE_integer("configuration", 1, "0,1, or 2")
 
 
 FLAGS(sys.argv)
@@ -216,10 +219,73 @@ def angle_categories(angle):
 
     return returndict
 
+def get_map_and_configuration(vol):
+    flat_vol = np.zeros((vol.shape[1],vol.shape[2]))
+    for i in range(vol.shape[0]):
+        stuff = np.nonzero(vol[i,:,:])
+        volume = vol[i,:,:]
+        flat_vol[stuff] = volume[stuff]
+    distances = {}
+    for map in map_dict:
+        map_array = map_dict[map]['map']
+        dist = np.linalg.norm(flat_vol-map_array)
+        distances[map] = dist
+    min_map = min(distances,key=distances.get)
+    return min_map
+
+def chunks_stats(allchunks):
+    freq = {'left_obs':[],'center_obs':[],'right_obs':[], 'left_act':[],'center_act':[],'right_act':[], 'drop_act':[]}
+
+    for chunk in allchunks:
+        for freq_key in freq:
+            freq[freq_key].append(0)
+        for key in chunk:
+
+            if chunk[key]:
+                if 'left' in key and key in observation_slots:
+                    freq['left_obs'][-1] = 1
+                elif 'center' in key and key in observation_slots:
+                    freq['center_obs'][-1] = 1
+                elif 'right' in key and key in observation_slots:
+                    freq['right_obs'][-1] = 1
+                elif 'left' in key and not key in observation_slots:
+                    freq['left_act'][-1] = 1
+                elif 'center' in key and not key in observation_slots:
+                    freq['center_act'][-1] = 1
+                elif 'right' in key and not key in observation_slots:
+                    freq['right_act'][-1] = 1
+                elif 'drop' in key and not key in observation_slots:
+                    freq['drop_act'][-1] = 1
+
+    obs = [x for x in freq if '_obs' in x]
+    acts = [x for x in freq if '_act' in x]
+    pairs = list(itertools.product(obs,acts))
+    matches = {}
+    for ob,act in pairs:
+        num_ob = 0
+        num_correspond = 0
+        num_not_correspond = 0
+        for i in range(len(freq[ob])):
+            if freq[ob][i]:
+                num_ob += 1
+                if freq[act][i]:
+                    num_correspond += 1
+                else:
+                    num_not_correspond += 1
+
+        matches[(ob,act)] = num_correspond / num_ob
+    print('here')
+
 def create_chunks_from_files(filelist,map='', include_fc=False):
     chunks = []
     for file in filelist:
         mission = pickle.load(open(file,'rb'))
+        try:
+            map_config = get_map_and_configuration(mission['maps'][0]['vol'])
+        except IndexError:
+            continue
+        if not map in map_config:
+            continue
         for i in range(len(mission['altitudes'])):
             step = {}
             step['volume'] = mission['maps'][i]['vol']
@@ -363,7 +429,7 @@ def convert_observation_to_chunk(obs,max_dict):
     chunk['distance_to_hiker'] = distance_to_hiker(np.array(obs['drone']), np.array(obs['hiker']))
 
     for slot in chunk:  # ['altitude', 'distance_to_hiker', 'ego_right','ego_diagonal_right']:#
-        chunk[slot] = chunk[slot] / max(max_dict[slot])
+        chunk[slot] = (((chunk[slot] - min(max_dict[slot])) * (1 - 0)) / (max(max_dict[slot]) - min(max_dict[slot]))) + 0#chunk[slot] / max(max_dict[slot])
 
 
     return chunk
@@ -463,7 +529,7 @@ def main(data_by_slot):
             return 0
         os.chdir(human_data_folder)
         data_files = glob.glob('*2020*')
-        all_chunks = create_chunks_from_files(data_files)
+        all_chunks = create_chunks_from_files(data_files,map='')#flags.FLAGS.map)
 
         normalized_data_file = 'human_normalized_all_chunks.lst'
         chunks_path = Path("./")
@@ -477,7 +543,7 @@ def main(data_by_slot):
             for chunk in all_chunks:
                 print(acount)
                 for slot in observation_slots:  # ['altitude', 'distance_to_hiker', 'ego_right','ego_diagonal_right']:#
-                    chunk[slot] = chunk[slot] / max(data_by_slot[slot])
+                    chunk[slot] = (((chunk[slot] - min(data_by_slot[slot])) * (1 - 0)) / (max(data_by_slot[slot]) - min(data_by_slot[slot]))) + 0#chunk[slot] / max(data_by_slot[slot])
                 acount += 1
 
             with open(os.path.join(chunks_path, normalized_data_file), 'wb') as handle:
@@ -487,7 +553,7 @@ def main(data_by_slot):
             # all_chunks = pickle.load(open(chunks_path + normalized_data_file, 'rb'))
             # FC_distances = pickle.load(open(os.path.join(chunks_path, 'FC_distances.pkl'), 'rb'))
             all_chunks = pickle.load(open(os.path.join(chunks_path, normalized_data_file), 'rb'))
-
+        a = chunks_stats(all_chunks)
         m = Memory(noise=0.0, decay=0.0, temperature=parameter['temp'], threshold=-100.0, mismatch=parameter['mismatch'],
                    optimized_learning=False)
 
@@ -519,8 +585,8 @@ def main(data_by_slot):
             obs = {}
             obs['heading'] = environment.heading
             drone_position = np.where(environment.map_volume['vol'] == environment.map_volume['feature_value_map']['drone'][environment.altitude]['val'])
-            drone_position_flat = [int(drone_position[1]), int(drone_position[2])]
-            obs['drone'] = drone_position_flat
+            # drone_position_flat = [int(drone_position[1]), int(drone_position[2])]
+            obs['drone'] = drone_position#_flat
             hiker_position = environment.hiker_position
             obs['hiker'] = hiker_position
             obs['volume'] = environment.map_volume['vol']
@@ -554,14 +620,32 @@ def main(data_by_slot):
 
 
             #get the actions (multiprocessing)
+            #do blending multiprocess (no salience needed, no trace needed)
             p = Pool(processes=8)
             multi_p = partial(multi_blends, memory=m, probe=obs_chunk)
             blends = p.map(multi_p, action_slots)
             p.close()
             p.join()
 
+            #do blending single processing
+            # blends = []
+            # blend_to_sorts = []
+            # activation_histories = []
+            # for slot in action_slots:
+            #     to_sort = {}
+            #     m.activation_history = []
+            #     blends.append(m.blend(slot, **obs_chunk))
+            #     for i,chunk in enumerate(m.activation_history):
+            #         to_sort[i] = chunk['retrieval_probability']
+            #     sorted_x = sorted(to_sort.items(), key=lambda kv: kv[1], reverse=True)
+            #     activation_histories.append(copy.deepcopy(m.activation_history))
+            #     blend_to_sorts.append(sorted_x)
+            #     print('here')
+
             max_blend = max(blends)
             index_of = blends.index(max_blend)
+            # sorted_x_to_look_at = blend_to_sorts[index_of]
+            # history_to_look_at = activation_histories[index_of]
             action = action_slots[index_of]
             action_value = combos_to_actions[action]
 
