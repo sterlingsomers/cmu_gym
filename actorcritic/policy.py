@@ -195,8 +195,8 @@ class FullyConvPolicy:
         # self.minimap_output = self._build_convs(minimap_numeric_all, "minimap_network")
         screen_px = tf.cast(self.placeholders.rgb_screen, tf.float32) / 255. # rgb_screen are integers (0-255) and here we convert to float and normalize
         # alt_px = tf.cast(self.placeholders.alt_view, tf.float32) / 255.
-        self.screen_output = self._build_residual_block(screen_px, "screen_network")
-        # self.alt_output = self._build_convs(alt_px, "alt_network")
+        # self.screen_output = self._build_residual_block(screen_px, "screen_network")
+        self.screen_output = self._build_convs(screen_px, "screen_network")
         
         self.map_output = self.screen_output
         map_output_flat = layers.flatten(self.map_output)
@@ -210,7 +210,7 @@ class FullyConvPolicy:
             trainable=self.trainable
         )
         # Add layer normalization for better stability
-        # self.fc1 = layers.layer_norm(self.fc1,trainable=self.trainable) # VERY BAD FOR THE 2D GRIDWORLD!!!
+        self.fc1 = layers.layer_norm(self.fc1,trainable=self.trainable) # VERY BAD FOR THE 2D GRIDWORLD!!!
 
         action_id_probs = layers.fully_connected(
             self.fc1,
@@ -402,8 +402,8 @@ class FactoredPolicy_PhaseI:
             inputs=inputs,
             data_format="NHWC",
             num_outputs=32,
-            kernel_size=4,  # 8
-            stride=2,  # 4
+            kernel_size=8,  # 8
+            stride=4,  # 4
             padding='SAME',
             activation_fn=tf.nn.relu,
             scope="%s/conv1" % name,
@@ -413,7 +413,7 @@ class FactoredPolicy_PhaseI:
             inputs=conv1,
             data_format="NHWC",
             num_outputs=64,
-            kernel_size=2,  # 4
+            kernel_size=4,  # 4
             stride=1,  # 2,#
             padding='SAME',
             activation_fn=tf.nn.relu,

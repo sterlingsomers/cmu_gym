@@ -39,7 +39,7 @@ flags.DEFINE_float("sleep_time", 0.0, "Time-delay in the demo")
 flags.DEFINE_integer("resolution",8, "Resolution for screen and minimap feature layers.")
 flags.DEFINE_integer("step_mul", 100, "Game steps per agent step.")
 flags.DEFINE_integer("step2save", 500, "Game step to save the model.") #A2C every 1000, PPO 250, 500
-flags.DEFINE_integer("n_envs", 2, "Number of environments to run in parallel")
+flags.DEFINE_integer("n_envs", 100, "Number of environments to run in parallel")
 flags.DEFINE_integer("episodes", 10, "Number of complete episodes")
 flags.DEFINE_integer("n_steps_per_batch", 8,
     "Number of steps per batch, if None use 8 for a2c and 128 for ppo")  # (MINE) TIMESTEPS HERE!!! You need them cauz you dont want to run till it finds the beacon especially at first episodes - will take forever
@@ -64,7 +64,7 @@ flags.DEFINE_float("entropy_weight_action", 0.01, "entropy of action-id distribu
 flags.DEFINE_float("ppo_lambda", 1.0, "lambda parameter for ppo AND for GAE(λ) - not yet")
 flags.DEFINE_integer("ppo_batch_size", None, "batch size for ppo, if None use n_steps_per_batch")
 flags.DEFINE_integer("ppo_epochs", 3, "epochs per update")
-flags.DEFINE_enum("policy_type", "FullyConv", ["MetaPolicy", "FullyConv", "FactoredPolicy",
+flags.DEFINE_enum("policy_type", "FactoredPolicy_PhaseI", ["MetaPolicy", "FullyConv", "FactoredPolicy",
                                                           "FactoredPolicy_PhaseI", 'FactoredPolicy_PhaseII',
                                                           "Relational", "AlloAndAlt", "FullyConv3D"], "Which type of Policy to use")
 flags.DEFINE_enum("agent_mode", ACMode.A2C, [ACMode.A2C, ACMode.PPO], "if should use A2C or PPO")
@@ -467,7 +467,7 @@ def main():
 
     print("Okay. Work is done")
 
-    envs.close()
+    # envs.close()
 
 
 if __name__ == "__main__":

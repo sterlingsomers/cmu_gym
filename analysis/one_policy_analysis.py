@@ -361,7 +361,7 @@ print('Distance Jensen-Shannon total = ', np.array(DJS).sum())
 ''' TSNE '''
 # data = df['fc'].values
 # data = np.concatenate(data,axis=0)
-# color = data['actions'].values
+# color = df['actions'].values
 # tsne = manifold.TSNE(n_components=2, init='pca', random_state=0,perplexity=100)
 # X_tsne = tsne.fit_transform(data)
 # plt.scatter(X_tsne[:,0],X_tsne[:,1],c=color,alpha=0.2)

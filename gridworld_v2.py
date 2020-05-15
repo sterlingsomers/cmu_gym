@@ -140,7 +140,7 @@ class gameEnv():
             points.append(t)
         for objectA in self.objects: # objects is a list containing two gameOb objects with their respective attributes
             if (objectA.x, objectA.y) in points: points.remove((objectA.x, objectA.y)) # Remove from points the coords of the already placed objects (hero and goal)
-        location = np.random.choice(range(len(points)), replace=False)
+        location = np.random.choice(range(len(points)), replace=False) # now points have coords that no object exist there
         return points[location] # returns new location
 
     def checkGoal(self): # This seems that never returns done=True
