@@ -504,9 +504,9 @@ class ActorCriticAgent:
     def step_eval(self, obs):
         # (MINE) Pass the observations through the net
 
-        # feed_dict = {'rgb_screen:0' : obs['rgb_screen']},
-        #              # 'alt_view:0': obs['alt_view']}
-        feed_dict = self._input_to_feed_dict(obs) # FireGrid
+        feed_dict = {'rgb_screen:0' : obs['rgb_screen'],
+                     'alt_view:0': obs['alt_view']}
+        # feed_dict = self._input_to_feed_dict(obs) # FireGrid
 
         action_id, value_estimate, fc, action_probs = self.sess.run(
             [self.sampled_action_id, self.value_estimate, self.theta.fc1, self.theta.action_id_probs],

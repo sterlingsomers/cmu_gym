@@ -29,13 +29,14 @@ from baselines.common.vec_env.vec_frame_stack import VecFrameStack
 import gym
 from gym.wrappers import TimeLimit
 
-#from gym_grid.envs import GridEnv
+
+from gym_gridworld.envs.gridworld_env import GridworldEnv# from gym_grid.envs import GridEnv
 # import gym_gridworld
-from gridworld_v2 import gameEnv
+# from gridworld_v2 import gameEnv
 
 FLAGS = flags.FLAGS
-flags.DEFINE_bool("visualize", False, "Whether to render with pygame.")
-flags.DEFINE_float("sleep_time", 0.0, "Time-delay in the demo")
+flags.DEFINE_bool("visualize", True, "Whether to render with pygame.")
+flags.DEFINE_float("sleep_time", 0.5, "Time-delay in the demo")
 flags.DEFINE_integer("resolution",8, "Resolution for screen and minimap feature layers.")
 flags.DEFINE_integer("step_mul", 100, "Game steps per agent step.")
 flags.DEFINE_integer("step2save", 500, "Game step to save the model.") #A2C every 1000, PPO 250, 500
@@ -47,12 +48,14 @@ flags.DEFINE_integer("all_summary_freq", 10, "Record all summaries every n batch
 flags.DEFINE_integer("scalar_summary_freq", 5, "Record scalar summaries every n batch")
 flags.DEFINE_string("checkpoint_path", "_files/models", "Path for agent checkpoints")
 flags.DEFINE_string("summary_path", "_files/summaries", "Path for tensorboard summaries") #A2C_custom_maps#A2C-science-allmaps - BEST here for one policy
-flags.DEFINE_string("model_name", "dokimib", "Name for checkpoints and tensorboard summaries") # DONT touch TESTING is the best (take out normalization layer in order to work! -- check which parts exist in the restore session if needed)
+flags.DEFINE_string("model_name", "A2C_multiple_packs", "Name for checkpoints and tensorboard summaries") # DONT touch TESTING
+# is the best (take out normalization layer in order for it to work! -- check which parts exist in the restore session
+#  if needed)
 flags.DEFINE_integer("K_batches", 35500, # Batch is like a training epoch!
     "Number of training batches to run in thousands, use -1 to run forever") #(MINE) not for now
 flags.DEFINE_string("map_name", "DefeatRoaches", "Name of a map to use.")
 flags.DEFINE_float("discount", 0.95, "Reward-discount for the agent")
-flags.DEFINE_boolean("training", True, "if should train the model, if false then save only episode score summaries")
+flags.DEFINE_boolean("training", False, "if should train the model, if false then save only episode score summaries")
 
 flags.DEFINE_enum("if_output_exists", "overwrite", ["fail", "overwrite", "continue"],
     "What to do if summary and model output exists, only for training, is ignored if notraining")
@@ -64,7 +67,7 @@ flags.DEFINE_float("entropy_weight_action", 0.01, "entropy of action-id distribu
 flags.DEFINE_float("ppo_lambda", 1.0, "lambda parameter for ppo AND for GAE(λ) - not yet")
 flags.DEFINE_integer("ppo_batch_size", None, "batch size for ppo, if None use n_steps_per_batch")
 flags.DEFINE_integer("ppo_epochs", 3, "epochs per update")
-flags.DEFINE_enum("policy_type", "FactoredPolicy_PhaseI", ["MetaPolicy", "FullyConv", "FactoredPolicy",
+flags.DEFINE_enum("policy_type", "FullyConv", ["MetaPolicy", "FullyConv", "FactoredPolicy",
                                                           "FactoredPolicy_PhaseI", 'FactoredPolicy_PhaseII',
                                                           "Relational", "AlloAndAlt", "FullyConv3D"], "Which type of Policy to use")
 flags.DEFINE_enum("agent_mode", ACMode.A2C, [ACMode.A2C, ACMode.PPO], "if should use A2C or PPO")
@@ -108,7 +111,8 @@ def make_custom_env(env_id, num_env, seed, wrapper_kwargs=None, start_index=0):
     def make_env(rank): # pylint: disable=C0111
         def _thunk():
             # env = gym.make(env_id)
-            env = TimeLimit(gameEnv(partial=False,size=10))#gym.wrappers.TimeLimit
+            # env = TimeLimit(gameEnv(partial=False,size=10))#gym.wrappers.TimeLimit
+            env = TimeLimit(GridworldEnv())
             env._max_episode_steps = 500 # ONLY FOR GYM ENVS
             env.seed(seed + rank)
             # Monitor should take care of reset!

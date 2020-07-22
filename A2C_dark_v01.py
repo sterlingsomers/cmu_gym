@@ -126,7 +126,7 @@ class A2CAgent:
             returns = n_step_advantage + mb_values[:, :-1]
 
             # convert obs, targets dims to [batch*maxsteps x image] and [batch*maxsteps x restdims] # WE HAVE TO (but we do not know where keras computes the input dims cauz if we give it with the timesteps it returns erros for wrong dim inputs
-            mb_obs = mb_obs.reshape(((-1,) + envs.observation_space.shape)) # -1 for batch*maxsteps
+            mb_obs = mb_obs.reshape(((-1,) + envs.observation_space.shape)) # -1 for batch*maxsteps (NOT batch x maxsteps, * is multiplication!)
             returns = returns.reshape(-1) # [64,1]
             # a trick to input actions and advantages through same API
             acts_and_advs = np.stack((mb_actions.reshape((-1,)), n_step_advantage.reshape((-1,)))).transpose() # [64,2]
@@ -170,7 +170,7 @@ class A2CAgent:
             indices = np.insert(indices, 0, 0, axis=0)  # insert a 0 in front so the first index will be 0 to ...
             if indices[-1] != (maxsteps):
                 indices = np.insert(indices, indices.size, maxsteps, axis=0)
-            for t in range(indices.size):
+            for t in range(indices.size): # Here you are dealing with a vector (sequence) that has 1 or more episodes. You calculate the reward till the first done and then you shift the window to the next episode.
                 # print('t=', t, 'told=', told)
                 # print('ind_t=', indices[t], 'ind_t-1=', indices[told])
                 d = mb_done[b, indices[told]:indices[t]]
@@ -245,8 +245,8 @@ def make_custom_env(env_id, num_env, seed, wrapper_kwargs=None, start_index=0):
 
 if __name__ == '__main__':
     logging.getLogger().setLevel(logging.INFO)
-    eager_exec = False
-    num_envs = 80
+    eager_exec = True
+    num_envs = 2
     env_name = 'FireGrid' # CartPole-v0, MsPacman-v4
     # env = gym.make('CartPole-v0')
     # env = gameEnv(partial=False, size=9)

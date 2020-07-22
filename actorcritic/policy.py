@@ -194,11 +194,13 @@ class FullyConvPolicy:
         # self.screen_output = self._build_convs(screen_numeric_all, "screen_network")
         # self.minimap_output = self._build_convs(minimap_numeric_all, "minimap_network")
         screen_px = tf.cast(self.placeholders.rgb_screen, tf.float32) / 255. # rgb_screen are integers (0-255) and here we convert to float and normalize
-        # alt_px = tf.cast(self.placeholders.alt_view, tf.float32) / 255.
+        alt_px = tf.cast(self.placeholders.alt_view, tf.float32) / 255.
         # self.screen_output = self._build_residual_block(screen_px, "screen_network")
         self.screen_output = self._build_convs(screen_px, "screen_network")
+        self.alt_output = self._build_convs(alt_px, "alt_network")
+
         
-        self.map_output = self.screen_output
+        self.map_output = tf.concat([self.screen_output, self.alt_output], axis=3) #self.screen_output
         map_output_flat = layers.flatten(self.map_output)
 
         # (MINE) This is the last layer (fully connected -fc) for the non-spatial (categorical) actions

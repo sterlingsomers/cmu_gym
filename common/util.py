@@ -99,7 +99,7 @@ def general_nstep_adv_sequential(
         maxsteps: int):
     gae = np.zeros((nenvs, maxsteps))
     batch = np.arange(nenvs)
-    ind = np.array(np.nonzero(mb_done)) # [batch x maxsteps]. first row indicate the batch and second the index where done=1
+    ind = np.array(np.nonzero(mb_done)) # [batch x maxsteps]. first row indicates the batch and second the index where done=1
     for b in batch:
         told = 0
         adv = []
