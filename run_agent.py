@@ -6,6 +6,8 @@ from datetime import datetime
 from time import sleep
 import numpy as np
 import pickle
+import matplotlib
+matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 
 from absl import flags
